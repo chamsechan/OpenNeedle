@@ -143,3 +143,31 @@ def test_official_tokenizer_prefixes_when_available():
     for token in ids:
         grammar.accept(token)
     assert grammar.finished
+
+
+def test_candidate_tokens_and_select_candidate():
+    path = Path(__file__).resolve().parents[1] / "artifacts/official/needle2.cact"
+    if not path.exists():
+        pytest.skip("official model not downloaded")
+    from needle2.tokenizer import RefTokenizer
+    tokenizer = RefTokenizer.from_cact(path)
+    tools = json.loads((path.parents[2] / "examples/tools.json").read_text())
+    grammar = ToolGrammar(tools, tokenizer)
+    # Before <tool_call>, candidates is None
+    assert grammar.candidate_tokens() is None
+    grammar.accept(grammar.start_id)
+    assert grammar.active
+    # In active state, candidates is a non-empty subset
+    cands = grammar.candidate_tokens()
+    assert cands is not None and len(cands) > 0
+    # Every token in candidates must be acceptable
+    for c in cands:
+        assert grammar.can_accept(c)
+    # select_candidate with fake logits picks argmax
+    fake_logits = np.arange(len(cands), dtype=np.float32)
+    best = grammar.select_candidate(cands, fake_logits)
+    assert best == cands[-1]
+    # When finished, candidate is only EOS
+    grammar.finished = True
+    assert grammar.candidate_tokens() == [grammar.eos_id]
+

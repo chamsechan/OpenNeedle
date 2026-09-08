@@ -413,6 +413,46 @@ struct Engine {
         if(hidden_out)std::copy(hidden.begin(),hidden.end(),hidden_out);
         ++position;
     }
+    void project_candidates(const int* candidates, int num_candidates, float* candidate_logits) {
+        if (!candidate_logits || num_candidates <= 0) return;
+        int D = c.dim;
+        activation_quant(z.data(), D, abits);
+        if (sdot_enabled && sdot[0]) {
+            auto* q = sdot[0].get();
+            q->prepare(z.data(), sdot_input);
+#ifdef _OPENMP
+#pragma omp parallel for num_threads(threads) if(threads > 1 && num_candidates >= 128) schedule(static)
+#endif
+            for (int i = 0; i < num_candidates; ++i) {
+                candidate_logits[i] = q->row(candidates[i], sdot_input);
+            }
+        } else if (t[0].cq) {
+            auto* cq = static_cast<CQ*>(t[0].cq);
+            cq->transform(z.data(), rot.data());
+#ifdef _OPENMP
+#pragma omp parallel for num_threads(threads) if(threads > 1 && num_candidates >= 128) schedule(static)
+#endif
+            for (int i = 0; i < num_candidates; ++i) {
+                candidate_logits[i] = cq->dot_row(candidates[i], rot.data());
+            }
+        } else {
+#ifdef _OPENMP
+#pragma omp parallel for num_threads(threads) if(threads > 1 && num_candidates >= 128) schedule(static)
+#endif
+            for (int i = 0; i < num_candidates; ++i) {
+                candidate_logits[i] = dot_f32(t[0].data + size_t(candidates[i]) * t[0].cols, z.data(), t[0].cols);
+            }
+        }
+    }
+    void step_candidates(int token, const int* candidates, int num_candidates, float* candidate_logits, float* hidden_out) {
+        step(token, nullptr, hidden_out);
+        if (candidates && num_candidates > 0 && candidate_logits) {
+            project_candidates(candidates, num_candidates, candidate_logits);
+        } else if (candidate_logits && (!candidates || num_candidates < 0)) {
+            activation_quant(z.data(), c.dim, abits);
+            linear(0, z.data(), candidate_logits);
+        }
+    }
 };
 static thread_local std::string engine_error;
 extern "C" {
@@ -436,6 +476,14 @@ int needle2_engine_reset_to_prefix(void*p) {
 }
 int needle2_engine_step(void*p,int token,float*logits,float*hidden){
     try{static_cast<Engine*>(p)->step(token,logits,hidden);return 0;}catch(const std::exception&e){engine_error=e.what();return -1;}
+}
+int needle2_engine_step_candidates(void*p,int token,const int*candidates,int num_candidates,float*candidate_logits,float*hidden){
+    try{static_cast<Engine*>(p)->step_candidates(token,candidates,num_candidates,candidate_logits,hidden);return 0;}
+    catch(const std::exception&e){engine_error=e.what();return -1;}
+}
+int needle2_engine_project_candidates(void*p,const int*candidates,int num_candidates,float*candidate_logits){
+    try{static_cast<Engine*>(p)->project_candidates(candidates,num_candidates,candidate_logits);return 0;}
+    catch(const std::exception&e){engine_error=e.what();return -1;}
 }
 int needle2_engine_import(void*p,int pos,int prefix,const int*ids,const int*positions,int count,const float*k,const float*v) {
     try{static_cast<Engine*>(p)->import_state(pos,prefix,ids,positions,count,k,v);return 0;}

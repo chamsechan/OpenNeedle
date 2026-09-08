@@ -290,3 +290,36 @@ def test_bounded_history_ring_long_sequence():
     assert engine.position == 300
 
 
+def test_step_candidates_matches_full_logits():
+    """Verify that step_candidates produces the exact same logits as full vocabulary step."""
+    from test_model import tiny_model
+    from needle2.archive import FP32, TensorRecord
+    from types import SimpleNamespace
+    from needle2.native import NativeEngine
+
+    model = tiny_model(window=16)
+    records = {}
+    for name, tensor in model.canonical_state_dict().items():
+        a = tensor.numpy()
+        records[name] = TensorRecord(name, FP32, a.shape, a.tobytes())
+    meta = model.config.to_dict()
+    meta["hada_n"] = 16
+    archive = SimpleNamespace(metadata=meta, tensors=records)
+
+    engine1 = NativeEngine(archive, threads=1)
+    engine2 = NativeEngine(archive, threads=1)
+
+    t = 5
+    full_logits = engine1.step(t)
+    candidates = [2, 7, 15, 20]
+    cand_logits = engine2.step_candidates(t, candidates)
+
+    np.testing.assert_allclose(cand_logits, full_logits[candidates], rtol=1e-5, atol=1e-5)
+
+    # Test single candidate (skips LM head)
+    single_logits = engine2.step_candidates(t, [3])
+    assert len(single_logits) == 1
+    assert engine2.position == 2
+
+
+

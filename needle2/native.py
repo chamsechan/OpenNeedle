@@ -385,13 +385,38 @@ class NativeEngine:
             raise RuntimeError(lib.needle2_engine_error().decode())
         self.position = self.prefix_len = position
 
-    def step(self, token_id: int, *, return_hidden: bool = False, compute_logits: bool = True):
+    def step(self, token_id: int, *, return_hidden: bool = False, compute_logits: bool = True, candidates: list[int] | None = None):
+        if candidates is not None:
+            return self.step_candidates(token_id, candidates, return_hidden=return_hidden)
         if not isinstance(token_id, (int, np.integer)) or not 0 <= token_id < self.metadata["vocab_size"]:
             raise ValueError("token_id must be an integer within the vocabulary")
         logits = np.empty(self.metadata["vocab_size"], dtype=np.float32) if compute_logits else None
         hidden = np.empty((self.metadata["num_layers"], self.metadata["d_model"]), dtype=np.float32) if return_hidden else None
         status = self._lib.needle2_engine_step(self._handle, int(token_id), logits.ctypes.data if logits is not None else None,
                                                hidden.ctypes.data if hidden is not None else None)
+        if status:
+            raise RuntimeError(self._lib.needle2_engine_error().decode())
+        self.position += 1
+        return (logits, hidden) if return_hidden else logits
+
+    def step_candidates(self, token_id: int, candidates, *, return_hidden: bool = False):
+        """Forward a token and project only the specified candidate token logits."""
+        if not isinstance(token_id, (int, np.integer)) or not 0 <= token_id < self.metadata["vocab_size"]:
+            raise ValueError("token_id must be an integer within the vocabulary")
+        cands = np.ascontiguousarray(candidates, dtype=np.int32)
+        if cands.ndim != 1 or len(cands) == 0:
+            raise ValueError("candidates must be a nonempty 1D array of token IDs")
+        if len(cands) == 1:
+            hidden = self.step(token_id, compute_logits=False, return_hidden=return_hidden)
+            logits = np.array([0.0], dtype=np.float32)
+            return (logits, hidden) if return_hidden else logits
+        logits = np.empty(len(cands), dtype=np.float32)
+        hidden = np.empty((self.metadata["num_layers"], self.metadata["d_model"]), dtype=np.float32) if return_hidden else None
+        lib = self._lib
+        lib.needle2_engine_step_candidates.argtypes = [ct.c_void_p, ct.c_int, ct.c_void_p, ct.c_int, ct.c_void_p, ct.c_void_p]
+        lib.needle2_engine_step_candidates.restype = ct.c_int
+        status = lib.needle2_engine_step_candidates(self._handle, int(token_id), cands.ctypes.data, len(cands),
+                                                    logits.ctypes.data, hidden.ctypes.data if hidden is not None else None)
         if status:
             raise RuntimeError(self._lib.needle2_engine_error().decode())
         self.position += 1

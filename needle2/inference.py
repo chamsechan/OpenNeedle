@@ -62,12 +62,25 @@ def generate(model_path,prompt,*,tools=None,system=None,backend='native',max_new
     # First token is selected from prefill; subsequent token forwards are timed
     # separately. The last selected token does not require an extra forward.
     decode_started=time.perf_counter()
+    candidates = None
     for i in range(cap):
-        token=grammar.select(logits) if grammar is not None else int(np.argmax(logits))
+        if candidates is not None:
+            token = grammar.select_candidate(candidates, logits) if grammar is not None else int(np.argmax(logits))
+        else:
+            token = grammar.select(logits) if grammar is not None else int(np.argmax(logits))
         if grammar is not None:grammar.accept(token)
         output.append(token)
         if token in (1,5) or (grammar is not None and grammar.finished) or i==cap-1: break
-        start=time.perf_counter(); logits=consume([token]); decode_s+=time.perf_counter()-start; decode_steps+=1
+        candidates = grammar.candidate_tokens() if (grammar is not None and backend == 'native') else None
+        start=time.perf_counter()
+        if candidates is not None and len(candidates) == 1:
+            engine.step(token, compute_logits=False)
+            logits = np.array([0.0], dtype=np.float32)
+        elif candidates is not None:
+            logits = engine.step_candidates(token, candidates)
+        else:
+            logits = consume([token])
+        decode_s+=time.perf_counter()-start; decode_steps+=1
     decode_wall=time.perf_counter()-decode_started
     decoded=tokenizer.decode(output)
     result=parse_response(decoded) if tools is not None else dict(text=decoded)

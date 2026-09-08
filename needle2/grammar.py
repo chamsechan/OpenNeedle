@@ -181,11 +181,17 @@ class ToolGrammar:
         self.active = False
         self.finished = False
         self._pieces = []
-        for piece, kind in zip(tokenizer.pieces, tokenizer.types):
+        self._by_lead = [[] for _ in range(256)]
+        for tok_id, (piece, kind) in enumerate(zip(tokenizer.pieces, tokenizer.types)):
             if kind == 4:
-                self._pieces.append(bytes([int(piece[3:5], 16)]))
+                p = bytes([int(piece[3:5], 16)])
+                self._pieces.append(p)
+                self._by_lead[p[0]].append(tok_id)
             elif kind == 0:
-                self._pieces.append(piece.replace("▁", " ").encode("utf-8"))
+                p = piece.replace("▁", " ").encode("utf-8")
+                self._pieces.append(p)
+                if p:
+                    self._by_lead[p[0]].append(tok_id)
             else:
                 self._pieces.append(None)
 
@@ -212,6 +218,40 @@ class ToolGrammar:
         candidate = self.prefix + piece
         return (_utf8_prefix_valid(candidate) and
                 self._matcher.fullmatch(candidate, partial=True) is not None)
+
+    def candidate_tokens(self, max_candidates: int = 1024) -> list[int] | None:
+        """Return acceptable token IDs at current state, or None if unconstrained / broad."""
+        if self.finished:
+            return [self.eos_id]
+        if not self.active:
+            return None
+        matched_bytes = [b for b in range(256) if self._matcher.fullmatch(self.prefix + bytes([b]), partial=True)]
+        if len(matched_bytes) > 64:
+            return None
+        cands = []
+        if self.end_id is not None and self.json_complete:
+            cands.append(self.end_id)
+        for b in matched_bytes:
+            for t in self._by_lead[b]:
+                if self.can_accept(t):
+                    cands.append(t)
+                    if len(cands) > max_candidates:
+                        return None
+        return cands if cands else None
+
+    def select_candidate(self, candidates: list[int], logits) -> int:
+        """Select the highest-scoring valid token among candidates."""
+        if not candidates:
+            raise RuntimeError("No candidate tokens provided")
+        if len(candidates) == 1:
+            return candidates[0]
+        if hasattr(logits, "detach"):
+            logits = logits.detach().float().cpu().numpy()
+        scores = np.asarray(logits).reshape(-1)
+        if len(scores) != len(candidates):
+            raise ValueError(f"Expected {len(candidates)} candidate logits, got {len(scores)}")
+        best_idx = int(np.argmax(scores))
+        return candidates[best_idx]
 
     def select(self, logits) -> int:
         if hasattr(logits, "detach"):
