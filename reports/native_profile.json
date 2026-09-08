@@ -1,19 +1,19 @@
 {
-  "matmul": "fp32",
+  "matmul": "sdot",
   "kv_cache": "fp32",
-  "threads": 2,
+  "threads": 4,
   "tokens": 64,
-  "tps": 434.804280971532,
+  "tps": 968.5828059601744,
   "disjoint_ms_per_token": {
-    "input_engram_non_proj": 0.009892062499999993,
-    "engram_projections": 0.055792250000000015,
-    "qkvg_projections": 0.8325631406249998,
-    "attention_core": 0.3478620000000003,
-    "attn_out_and_mlp": 0.43456668749999977,
-    "mhc_routing_and_mixing": 0.30932859375000427,
-    "lm_head": 0.306601609375,
-    "overhead_remaining": 0.0032790156249951075,
-    "whole_step": 2.2998853593749993
+    "input_engram_non_proj": 0.010244750000000004,
+    "engram_projections": 0.012493515624999993,
+    "qkvg_projections": 0.23093198437500104,
+    "attention_core": 0.2718450781250001,
+    "attn_out_and_mlp": 0.13489071875000022,
+    "mhc_routing_and_mixing": 0.3313834531250043,
+    "lm_head": 0.037430328125,
+    "overhead_remaining": 0.0032164218749943796,
+    "whole_step": 1.03243625
   },
   "counters": {
     "lm_head_projected_rows": 524288,
