@@ -322,4 +322,74 @@ def test_step_candidates_matches_full_logits():
     assert engine2.position == 2
 
 
+def test_attention_multithread_matches_single_thread():
+    """Verify that multi-threaded attention head parallelism produces identical logits to 1-thread."""
+    from test_model import tiny_model
+    from needle2.archive import FP32, TensorRecord
+    from types import SimpleNamespace
+    from needle2.native import NativeEngine
+
+    model = tiny_model(window=16)
+    records = {}
+    for name, tensor in model.canonical_state_dict().items():
+        a = tensor.numpy()
+        records[name] = TensorRecord(name, FP32, a.shape, a.tobytes())
+    meta = model.config.to_dict()
+    meta["hada_n"] = 16
+    archive = SimpleNamespace(metadata=meta, tensors=records)
+
+    e1 = NativeEngine(archive, threads=1)
+    e4 = NativeEngine(archive, threads=4)
+
+    rng = np.random.default_rng(1234)
+    tokens = rng.integers(1, 31, 20)
+    for tok in tokens:
+        l1 = e1.step(int(tok))
+        l4 = e4.step(int(tok))
+        np.testing.assert_allclose(l4, l1, rtol=1e-5, atol=1e-5)
+
+
+def test_int8_kv_cache_accuracy_and_snapshot():
+    """Verify INT8 KV cache runs, maintains reasonable logits, and snapshot/restore works."""
+    from test_model import tiny_model
+    from needle2.archive import FP32, TensorRecord
+    from types import SimpleNamespace
+    from needle2.native import NativeEngine
+
+    model = tiny_model(window=16)
+    records = {}
+    for name, tensor in model.canonical_state_dict().items():
+        a = tensor.numpy()
+        records[name] = TensorRecord(name, FP32, a.shape, a.tobytes())
+    meta = model.config.to_dict()
+    meta["hada_n"] = 16
+    archive = SimpleNamespace(metadata=meta, tensors=records)
+
+    fp32_engine = NativeEngine(archive, threads=2, kv_cache="fp32")
+    int8_engine = NativeEngine(archive, threads=2, kv_cache="int8")
+
+    prefix = [3, 8, 14, 2]
+    int8_engine.reset(prefix_len=len(prefix))
+    for t in prefix[:-1]:
+        int8_engine.step(t, compute_logits=False)
+    int8_engine.step(prefix[-1], compute_logits=False)
+    int8_engine.cache_prefix()
+
+    # Step after restore
+    int8_engine.reset_to_prefix()
+    assert int8_engine.position == len(prefix)
+    l_int8 = int8_engine.step(10)
+
+    fp32_engine.reset()
+    for t in prefix:
+        fp32_engine.step(t, compute_logits=False)
+    l_fp32 = fp32_engine.step(10)
+
+    # Top-1 should agree or logits should have close correlation
+    assert np.isfinite(l_int8).all()
+    corr = np.corrcoef(l_fp32, l_int8)[0, 1]
+    assert corr > 0.98, f"Expected high correlation with INT8 KV, got {corr}"
+
+
+
 

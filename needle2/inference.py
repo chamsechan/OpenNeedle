@@ -6,7 +6,7 @@ from .archive import Archive
 from .prompt import render_prompt,parse_response
 from .tokenizer import RefTokenizer,parse_tokenizer_blob
 
-def generate(model_path,prompt,*,tools=None,system=None,backend='native',max_new_tokens=96,threads=1,quant_activations=False,prefill_backend='native',constrain=True,matmul='fp32'):
+def generate(model_path,prompt,*,tools=None,system=None,backend='native',max_new_tokens=96,threads=1,quant_activations=False,prefill_backend='native',constrain=True,matmul='fp32',kv_cache='fp32'):
     if max_new_tokens < 0 or threads < 1:
         raise ValueError('max_new_tokens must be nonnegative; threads must be positive')
     model_path=Path(model_path)
@@ -33,7 +33,7 @@ def generate(model_path,prompt,*,tools=None,system=None,backend='native',max_new
         if prefill_backend=='torch':
             import torch
             torch.set_num_threads(threads)
-        engine=NativeEngine(archive,threads=threads,activation_bits=8 if quant_activations else 0,matmul=matmul)
+        engine=NativeEngine(archive,threads=threads,activation_bits=8 if quant_activations else 0,matmul=matmul,kv_cache=kv_cache)
         engine.reset(prefix_len=prefix_len)
         def consume(tokens):
             if len(tokens)>1:
@@ -84,8 +84,8 @@ def generate(model_path,prompt,*,tools=None,system=None,backend='native',max_new
     decode_wall=time.perf_counter()-decode_started
     decoded=tokenizer.decode(output)
     result=parse_response(decoded) if tools is not None else dict(text=decoded)
-    arithmetic=('approximate_sdot_rotated_a8_kv_fp32' if matmul=='sdot' else 'public_reference_a8' if quant_activations else 'fp32_reference')
-    result.update(backend=backend,arithmetic=arithmetic,matmul=matmul,activation_fake_quant=quant_activations,
+    arithmetic=('approximate_sdot_rotated_a8_kv_' + kv_cache if matmul=='sdot' else 'public_reference_a8_kv_' + kv_cache if quant_activations else 'fp32_reference_kv_' + kv_cache if kv_cache=='int8' else 'fp32_reference')
+    result.update(backend=backend,arithmetic=arithmetic,matmul=matmul,kv_cache=kv_cache,activation_fake_quant=quant_activations,
                   token_ids=output,prompt_tokens=len(ids),generated_tokens=len(output),
                   prefill_seconds=prefill_s,decode_seconds=decode_wall,decode_forward_seconds=decode_s,
                   prefill_tokens_per_second=len(ids)/prefill_s,

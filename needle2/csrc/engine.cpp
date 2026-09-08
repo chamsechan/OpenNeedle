@@ -44,6 +44,50 @@ static void dot_pair(const float*q0,const float*q1,const float*k,int n,float&out
 #endif
     for(;d<n;++d){out0+=q0[d]*k[d];out1+=q1[d]*k[d];}
 }
+static inline float dot_i8_f32(const float* q, const int8_t* k, int n) {
+    int d = 0;
+#ifdef __aarch64__
+    float32x4_t s0 = vdupq_n_f32(0), s1 = vdupq_n_f32(0);
+    for (; d + 8 <= n; d += 8) {
+        int8x8_t k8 = vld1_s8(k + d);
+        int16x8_t k16 = vmovl_s8(k8);
+        float32x4_t kf0 = vcvtq_f32_s32(vmovl_s16(vget_low_s16(k16)));
+        float32x4_t kf1 = vcvtq_f32_s32(vmovl_s16(vget_high_s16(k16)));
+        s0 = vfmaq_f32(s0, vld1q_f32(q + d), kf0);
+        s1 = vfmaq_f32(s1, vld1q_f32(q + d + 4), kf1);
+    }
+    float sum = vaddvq_f32(vaddq_f32(s0, s1));
+#else
+    float sum = 0;
+#endif
+    for (; d < n; ++d) sum += q[d] * float(k[d]);
+    return sum;
+}
+static inline void dot_pair_i8_f32(const float* q0, const float* q1, const int8_t* k, int n, float& out0, float& out1) {
+    int d = 0;
+#ifdef __aarch64__
+    float32x4_t a0 = vdupq_n_f32(0), a1 = vdupq_n_f32(0), b0 = vdupq_n_f32(0), b1 = vdupq_n_f32(0);
+    for (; d + 8 <= n; d += 8) {
+        int8x8_t k8 = vld1_s8(k + d);
+        int16x8_t k16 = vmovl_s8(k8);
+        float32x4_t kf0 = vcvtq_f32_s32(vmovl_s16(vget_low_s16(k16)));
+        float32x4_t kf1 = vcvtq_f32_s32(vmovl_s16(vget_high_s16(k16)));
+        a0 = vfmaq_f32(a0, vld1q_f32(q0 + d), kf0);
+        a1 = vfmaq_f32(a1, vld1q_f32(q0 + d + 4), kf1);
+        b0 = vfmaq_f32(b0, vld1q_f32(q1 + d), kf0);
+        b1 = vfmaq_f32(b1, vld1q_f32(q1 + d + 4), kf1);
+    }
+    out0 = vaddvq_f32(vaddq_f32(a0, a1));
+    out1 = vaddvq_f32(vaddq_f32(b0, b1));
+#else
+    out0 = out1 = 0;
+#endif
+    for (; d < n; ++d) {
+        float kv = float(k[d]);
+        out0 += q0[d] * kv;
+        out1 += q1[d] * kv;
+    }
+}
 #ifdef __aarch64__
 // Range reduction leaves r in [-log(2)/2, log(2)/2]. A degree-six
 // Taylor polynomial has < 2e-7 relative truncation error on this interval.
@@ -140,6 +184,9 @@ struct PrefixSnapshot {
     int position;
     std::vector<int> history_ring;
     std::vector<float> keys,values,engvalues;
+    bool int8_kv=false;
+    std::vector<int8_t> keys_i8, values_i8;
+    std::vector<float> k_scales, v_scales;
 };
 struct Engine {
     EngineConfig c;
@@ -155,9 +202,13 @@ struct Engine {
     int history_token(int p) const {
         return history_ring[((p % history_cap) + history_cap) % history_cap];
     }
+    bool int8_kv_enabled=false;
+    std::vector<int8_t> keys_i8, values_i8;
+    std::vector<float> k_scales, v_scales;
+    std::vector<float> thread_scores;
     std::vector<float> keys,values,engvalues;
     std::vector<float> x,nx,u,bx,z,q,k,v,gate,att,proj,mlp,newx,hpre,hpost,hres;
-    std::vector<float> ek,ev,e,rawv,logits,hidden,scores,rot,rope_cos,rope_sin,rope_divisor;
+    std::vector<float> ek,ev,e,rawv,logits,hidden,rot,rope_cos,rope_sin,rope_divisor;
     Engine(const EngineConfig& cfg,const TensorDesc *td,int count,int th,int ab):c(cfg),t(td,td+count),threads(th),abits(ab) {
         int D=c.dim,N=c.lanes,A=c.heads*c.head_dim,K=c.kvheads*c.head_dim;
         sdot.resize(t.size());
@@ -168,12 +219,18 @@ struct Engine {
         q.resize(A);k.resize(K);v.resize(K);gate.resize(A);att.resize(A);proj.resize(D);mlp.resize(c.hada);
         newx.resize(N*D);hpre.resize(N);hpost.resize(N);hres.resize(N*N);
         ek.resize(c.num_sites*D);ev.resize(c.num_sites*D);e.resize(D);rawv.resize(D);
-        logits.resize(c.vocab);hidden.resize(c.layers*D);scores.resize(2*capacity);int rotation_size=std::max({c.hada,N*D,A});
+        logits.resize(c.vocab);hidden.resize(c.layers*D);
+        thread_scores.resize(size_t(std::max(1, threads))*2*capacity);
+        int rotation_size=std::max({c.hada,N*D,A});
         for(const auto &td:t)if(td.cq)rotation_size=std::max(rotation_size,static_cast<CQ*>(td.cq)->padded);
         rot.resize(rotation_size);
         rope_cos.resize(c.head_dim/2);rope_sin.resize(c.head_dim/2);rope_divisor.resize(c.head_dim/2);
         for(int j=0;j<c.head_dim/2;++j)rope_divisor[j]=std::pow(c.rope_theta,float(2*j)/c.head_dim);
         history_ring.resize(history_cap, 0);
+    }
+    void set_int8_kv(bool en) {
+        int8_kv_enabled = en;
+        reset(prefix);
     }
     bool configure_sdot() {
         if(!runtime_dotprod())return false;
@@ -188,7 +245,13 @@ struct Engine {
         prefix_snapshot.reset();
         position=0;std::fill(history_ring.begin(),history_ring.end(),0);prefix=prefix_len;
         capacity=c.window?c.window+prefix:c.max_seq;
-        keys.resize(size_t(c.layers)*capacity*c.kvheads*c.head_dim);values.resize(keys.size());scores.resize(2*capacity);
+        size_t K=size_t(c.kvheads)*c.head_dim;
+        keys.resize(size_t(c.layers)*capacity*K);values.resize(keys.size());
+        if(int8_kv_enabled) {
+            keys_i8.resize(size_t(c.layers)*capacity*K);values_i8.resize(keys_i8.size());
+            k_scales.resize(size_t(c.layers)*capacity*c.kvheads);v_scales.resize(k_scales.size());
+        }
+        thread_scores.resize(size_t(std::max(1, threads))*2*capacity);
     }
     void cache_prefix() {
         if(position<=0||position!=prefix)throw std::runtime_error("prefix snapshot requires position == prefix_len > 0");
@@ -200,6 +263,17 @@ struct Engine {
             const auto *ks=keys.data()+size_t(l)*capacity*K,*vs=values.data()+size_t(l)*capacity*K;
             std::copy(ks,ks+size_t(prefix)*K,snapshot->keys.data()+size_t(l)*prefix*K);
             std::copy(vs,vs+size_t(prefix)*K,snapshot->values.data()+size_t(l)*prefix*K);
+        }
+        if(int8_kv_enabled) {
+            snapshot->int8_kv=true;
+            snapshot->keys_i8.resize(size_t(c.layers)*prefix*K);snapshot->values_i8.resize(snapshot->keys_i8.size());
+            snapshot->k_scales.resize(size_t(c.layers)*prefix*c.kvheads);snapshot->v_scales.resize(snapshot->k_scales.size());
+            for(int l=0;l<c.layers;++l) {
+                std::copy(keys_i8.data()+size_t(l)*capacity*K,keys_i8.data()+size_t(l)*capacity*K+size_t(prefix)*K,snapshot->keys_i8.data()+size_t(l)*prefix*K);
+                std::copy(values_i8.data()+size_t(l)*capacity*K,values_i8.data()+size_t(l)*capacity*K+size_t(prefix)*K,snapshot->values_i8.data()+size_t(l)*prefix*K);
+                std::copy(k_scales.data()+size_t(l)*capacity*c.kvheads,k_scales.data()+size_t(l)*capacity*c.kvheads+size_t(prefix)*c.kvheads,snapshot->k_scales.data()+size_t(l)*prefix*c.kvheads);
+                std::copy(v_scales.data()+size_t(l)*capacity*c.kvheads,v_scales.data()+size_t(l)*capacity*c.kvheads+size_t(prefix)*c.kvheads,snapshot->v_scales.data()+size_t(l)*prefix*c.kvheads);
+            }
         }
         prefix_snapshot=std::move(snapshot);
     }
@@ -213,6 +287,14 @@ struct Engine {
             const auto *ks=prefix_snapshot->keys.data()+size_t(l)*cached*K,*vs=prefix_snapshot->values.data()+size_t(l)*cached*K;
             std::copy(ks,ks+size_t(cached)*K,keys.data()+size_t(l)*capacity*K);
             std::copy(vs,vs+size_t(cached)*K,values.data()+size_t(l)*capacity*K);
+        }
+        if(prefix_snapshot->int8_kv) {
+            for(int l=0;l<c.layers;++l) {
+                std::copy(prefix_snapshot->keys_i8.data()+size_t(l)*cached*K,prefix_snapshot->keys_i8.data()+size_t(l)*cached*K+size_t(cached)*K,keys_i8.data()+size_t(l)*capacity*K);
+                std::copy(prefix_snapshot->values_i8.data()+size_t(l)*cached*K,prefix_snapshot->values_i8.data()+size_t(l)*cached*K+size_t(cached)*K,values_i8.data()+size_t(l)*capacity*K);
+                std::copy(prefix_snapshot->k_scales.data()+size_t(l)*cached*c.kvheads,prefix_snapshot->k_scales.data()+size_t(l)*cached*c.kvheads+size_t(cached)*c.kvheads,k_scales.data()+size_t(l)*capacity*c.kvheads);
+                std::copy(prefix_snapshot->v_scales.data()+size_t(l)*cached*c.kvheads,prefix_snapshot->v_scales.data()+size_t(l)*cached*c.kvheads+size_t(cached)*c.kvheads,v_scales.data()+size_t(l)*capacity*c.kvheads);
+            }
         }
         position=cached;
         return position;
@@ -317,12 +399,30 @@ struct Engine {
     void import_state(int pos,int pinned,const int*ids,const int*positions,int count,const float*k,const float*v) {
         reset(pinned);position=pos;
         for(int i=std::max(0,pos-history_cap);i<pos;++i)history_ring[i%history_cap]=ids[i];
-        int K=c.kvheads*c.head_dim;
+        int K=c.kvheads*c.head_dim,KV=c.kvheads,HD=c.head_dim;
         for(int l=0;l<c.layers;++l)for(int t=0;t<count;++t) {
             int slot=cache_slot(positions[t]);
             const auto *ks=k+(size_t(l)*count+t)*K,*vs=v+(size_t(l)*count+t)*K;
-            std::copy(ks,ks+K,keys.data()+(size_t(l)*capacity+slot)*K);
-            std::copy(vs,vs+K,values.data()+(size_t(l)*capacity+slot)*K);
+            if(!int8_kv_enabled) {
+                std::copy(ks,ks+K,keys.data()+(size_t(l)*capacity+slot)*K);
+                std::copy(vs,vs+K,values.data()+(size_t(l)*capacity+slot)*K);
+            } else {
+                for(int kh=0;kh<KV;++kh) {
+                    float max_k=0,max_v=0;
+                    const float*kp=ks+kh*HD,*vp=vs+kh*HD;
+                    for(int d=0;d<HD;++d){max_k=std::max(max_k,std::abs(kp[d]));max_v=std::max(max_v,std::abs(vp[d]));}
+                    float scale_k=max_k>0?max_k/127.0f:1.0f,scale_v=max_v>0?max_v/127.0f:1.0f;
+                    float inv_k=max_k>0?127.0f/max_k:0.0f,inv_v=max_v>0?127.0f/max_v:0.0f;
+                    k_scales[(size_t(l)*capacity+slot)*KV+kh]=scale_k;
+                    v_scales[(size_t(l)*capacity+slot)*KV+kh]=scale_v;
+                    int8_t*k_dst=keys_i8.data()+(size_t(l)*capacity+slot)*K+kh*HD;
+                    int8_t*v_dst=values_i8.data()+(size_t(l)*capacity+slot)*K+kh*HD;
+                    for(int d=0;d<HD;++d){
+                        k_dst[d]=int8_t(std::max(-127.0f,std::min(127.0f,std::nearbyint(kp[d]*inv_k))));
+                        v_dst[d]=int8_t(std::max(-127.0f,std::min(127.0f,std::nearbyint(vp[d]*inv_v))));
+                    }
+                }
+            }
         }
         // Only raw values are persistent; recompute the short Engram history.
         for(position=std::max(0,pos-engring);position<pos;++position)engrams();
@@ -363,33 +463,117 @@ struct Engine {
                 for(int h=0;h<H;++h) {float a=q[h*HD+j],b=q[h*HD+j+HD/2];q[h*HD+j]=a*co-b*si;q[h*HD+j+HD/2]=b*co+a*si;}
                 for(int h=0;h<KV;++h){float a=k[h*HD+j],b=k[h*HD+j+HD/2];k[h*HD+j]=a*co-b*si;k[h*HD+j+HD/2]=b*co+a*si;}
             }
-            auto *kc=keys.data()+size_t(l)*capacity*K,*vc=values.data()+size_t(l)*capacity*K;
-            std::copy(k.begin(),k.end(),kc+cache_slot(position)*K);std::copy(v.begin(),v.end(),vc+cache_slot(position)*K);
+            int slot=cache_slot(position);
+            if(!int8_kv_enabled) {
+                auto *kc=keys.data()+size_t(l)*capacity*K,*vc=values.data()+size_t(l)*capacity*K;
+                std::copy(k.begin(),k.end(),kc+slot*K);std::copy(v.begin(),v.end(),vc+slot*K);
+            } else {
+                auto *kc_i8=keys_i8.data()+size_t(l)*capacity*K,*vc_i8=values_i8.data()+size_t(l)*capacity*K;
+                auto *ks=k_scales.data()+size_t(l)*capacity*KV,*vs=v_scales.data()+size_t(l)*capacity*KV;
+                for(int kh=0;kh<KV;++kh) {
+                    float max_k=0,max_v=0;
+                    const float*kp=k.data()+kh*HD,*vp=v.data()+kh*HD;
+                    for(int d=0;d<HD;++d){max_k=std::max(max_k,std::abs(kp[d]));max_v=std::max(max_v,std::abs(vp[d]));}
+                    float scale_k=max_k>0?max_k/127.0f:1.0f,scale_v=max_v>0?max_v/127.0f:1.0f;
+                    float inv_k=max_k>0?127.0f/max_k:0.0f,inv_v=max_v>0?127.0f/max_v:0.0f;
+                    ks[slot*KV+kh]=scale_k;vs[slot*KV+kh]=scale_v;
+                    int8_t*k_dst=kc_i8+slot*K+kh*HD,*v_dst=vc_i8+slot*K+kh*HD;
+                    for(int d=0;d<HD;++d){
+                        k_dst[d]=int8_t(std::max(-127.0f,std::min(127.0f,std::nearbyint(kp[d]*inv_k))));
+                        v_dst[d]=int8_t(std::max(-127.0f,std::min(127.0f,std::nearbyint(vp[d]*inv_v))));
+                    }
+                }
+            }
             int prefix_count=c.window?std::min(prefix,position+1):0;
             int start=c.window?std::max(prefix,position-c.window+1):0;
             int length=prefix_count+std::max(0,position-start+1);
+            int num_groups=0;
+            struct HeadWork {int h,kh,count;};
+            HeadWork groups[64];
             for(int h=0;h<H;) {
                 int kh=h/(H/KV),count=(h+1<H && (h+1)/(H/KV)==kh)?2:1;
-                float max0=-INFINITY,max1=-INFINITY,scale=1/std::sqrt(float(HD));
-                auto*s0=scores.data();auto*s1=scores.data()+capacity;
-                for(int s=0;s<length;++s) {
-                    int pos=cache_slot(s<prefix_count?s:start+s-prefix_count);
-                    if(count==2)dot_pair(q.data()+h*HD,q.data()+(h+1)*HD,kc+pos*K+kh*HD,HD,s0[s],s1[s]);
-                    else s0[s]=dot_f32(q.data()+h*HD,kc+pos*K+kh*HD,HD);
-                    s0[s]*=scale;max0=std::max(max0,s0[s]);
-                    if(count==2){s1[s]*=scale;max1=std::max(max1,s1[s]);}
-                }
-                softmax_inplace(s0,length,max0);if(count==2)softmax_inplace(s1,length,max1);
-                auto *dst=att.data()+h*HD,*dst1=dst+HD;std::fill(dst,dst+count*HD,0);
-                for(int s=0;s<length;++s) {
-                    const auto *src=vc+cache_slot(s<prefix_count?s:start+s-prefix_count)*K+kh*HD;float prob=s0[s],prob1=count==2?s1[s]:0;
-                    int d=0;
-#ifdef __aarch64__
-                    for(;d+4<=HD;d+=4){auto value=vld1q_f32(src+d);vst1q_f32(dst+d,vfmaq_n_f32(vld1q_f32(dst+d),value,prob));if(count==2)vst1q_f32(dst1+d,vfmaq_n_f32(vld1q_f32(dst1+d),value,prob1));}
-#endif
-                    for(;d<HD;++d){dst[d]+=prob*src[d];if(count==2)dst1[d]+=prob1*src[d];}
-                }
+                groups[num_groups++]={h,kh,count};
                 h+=count;
+            }
+#ifdef _OPENMP
+#pragma omp parallel for num_threads(threads) if(threads>1 && num_groups>1) schedule(static)
+#endif
+            for(int g=0;g<num_groups;++g) {
+#ifdef _OPENMP
+                int tid=omp_get_thread_num();
+#else
+                int tid=0;
+#endif
+                int h=groups[g].h,kh=groups[g].kh,count=groups[g].count;
+                float max0=-INFINITY,max1=-INFINITY,scale=1/std::sqrt(float(HD));
+                auto*s0=thread_scores.data()+size_t(tid)*2*capacity;
+                auto*s1=s0+capacity;
+                if(!int8_kv_enabled) {
+                    const auto*kc=keys.data()+size_t(l)*capacity*K;
+                    for(int s=0;s<length;++s) {
+                        int pos=cache_slot(s<prefix_count?s:start+s-prefix_count);
+                        if(count==2)dot_pair(q.data()+h*HD,q.data()+(h+1)*HD,kc+pos*K+kh*HD,HD,s0[s],s1[s]);
+                        else s0[s]=dot_f32(q.data()+h*HD,kc+pos*K+kh*HD,HD);
+                        s0[s]*=scale;max0=std::max(max0,s0[s]);
+                        if(count==2){s1[s]*=scale;max1=std::max(max1,s1[s]);}
+                    }
+                    softmax_inplace(s0,length,max0);if(count==2)softmax_inplace(s1,length,max1);
+                    auto *dst=att.data()+h*HD,*dst1=dst+HD;std::fill(dst,dst+count*HD,0);
+                    const auto*vc=values.data()+size_t(l)*capacity*K;
+                    for(int s=0;s<length;++s) {
+                        const auto *src=vc+cache_slot(s<prefix_count?s:start+s-prefix_count)*K+kh*HD;float prob=s0[s],prob1=count==2?s1[s]:0;
+                        int d=0;
+#ifdef __aarch64__
+                        for(;d+4<=HD;d+=4){auto value=vld1q_f32(src+d);vst1q_f32(dst+d,vfmaq_n_f32(vld1q_f32(dst+d),value,prob));if(count==2)vst1q_f32(dst1+d,vfmaq_n_f32(vld1q_f32(dst1+d),value,prob1));}
+#endif
+                        for(;d<HD;++d){dst[d]+=prob*src[d];if(count==2)dst1[d]+=prob1*src[d];}
+                    }
+                } else {
+                    const auto*kc_i8=keys_i8.data()+size_t(l)*capacity*K;
+                    const auto*ks=k_scales.data()+size_t(l)*capacity*KV;
+                    for(int s=0;s<length;++s) {
+                        int pos=cache_slot(s<prefix_count?s:start+s-prefix_count);
+                        float k_scale=ks[pos*KV+kh];
+                        if(count==2) {
+                            dot_pair_i8_f32(q.data()+h*HD,q.data()+(h+1)*HD,kc_i8+pos*K+kh*HD,HD,s0[s],s1[s]);
+                            s0[s]*=k_scale;s1[s]*=k_scale;
+                        } else {
+                            s0[s]=dot_i8_f32(q.data()+h*HD,kc_i8+pos*K+kh*HD,HD)*k_scale;
+                        }
+                        s0[s]*=scale;max0=std::max(max0,s0[s]);
+                        if(count==2){s1[s]*=scale;max1=std::max(max1,s1[s]);}
+                    }
+                    softmax_inplace(s0,length,max0);if(count==2)softmax_inplace(s1,length,max1);
+                    auto *dst=att.data()+h*HD,*dst1=dst+HD;std::fill(dst,dst+count*HD,0);
+                    const auto*vc_i8=values_i8.data()+size_t(l)*capacity*K;
+                    const auto*vs=v_scales.data()+size_t(l)*capacity*KV;
+                    for(int s=0;s<length;++s) {
+                        int pos=cache_slot(s<prefix_count?s:start+s-prefix_count);
+                        float v_scale=vs[pos*KV+kh];
+                        const auto*src_i8=vc_i8+pos*K+kh*HD;
+                        float prob=s0[s]*v_scale,prob1=(count==2?s1[s]:0)*v_scale;
+                        int d=0;
+#ifdef __aarch64__
+                        for(;d+8<=HD;d+=8) {
+                            int8x8_t v8=vld1_s8(src_i8+d);
+                            int16x8_t v16=vmovl_s8(v8);
+                            float32x4_t vf0=vcvtq_f32_s32(vmovl_s16(vget_low_s16(v16)));
+                            float32x4_t vf1=vcvtq_f32_s32(vmovl_s16(vget_high_s16(v16)));
+                            vst1q_f32(dst+d,vfmaq_n_f32(vld1q_f32(dst+d),vf0,prob));
+                            vst1q_f32(dst+d+4,vfmaq_n_f32(vld1q_f32(dst+d+4),vf1,prob));
+                            if(count==2){
+                                vst1q_f32(dst1+d,vfmaq_n_f32(vld1q_f32(dst1+d),vf0,prob1));
+                                vst1q_f32(dst1+d+4,vfmaq_n_f32(vld1q_f32(dst1+d+4),vf1,prob1));
+                            }
+                        }
+#endif
+                        for(;d<HD;++d){
+                            float val=float(src_i8[d]);
+                            dst[d]+=prob*val;
+                            if(count==2)dst1[d]+=prob1*val;
+                        }
+                    }
+                }
             }
             sigmoid_gate(att.data(),gate.data(),A);
             activation_quant(att.data(),A,abits);linear(ti+7,att.data(),proj.data());
@@ -487,6 +671,10 @@ int needle2_engine_project_candidates(void*p,const int*candidates,int num_candid
 }
 int needle2_engine_import(void*p,int pos,int prefix,const int*ids,const int*positions,int count,const float*k,const float*v) {
     try{static_cast<Engine*>(p)->import_state(pos,prefix,ids,positions,count,k,v);return 0;}
+    catch(const std::exception&e){engine_error=e.what();return -1;}
+}
+int needle2_engine_set_int8_kv(void*p,int enable) {
+    try{static_cast<Engine*>(p)->set_int8_kv(enable!=0);return 0;}
     catch(const std::exception&e){engine_error=e.what();return -1;}
 }
 const char*needle2_engine_error(){return engine_error.c_str();}

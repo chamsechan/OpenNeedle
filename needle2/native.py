@@ -257,12 +257,15 @@ class NativeEngine:
     Calls mutate the KV/history state; do not call the same instance concurrently.
     """
 
-    def __init__(self, archive, threads: int = 1, activation_bits: int = 0, projection_lookup: int = -1, matmul: str = "fp32"):
+    def __init__(self, archive, threads: int = 1, activation_bits: int = 0, projection_lookup: int = -1, matmul: str = "fp32", kv_cache: str = "fp32"):
         from .archive import Archive, CQ, FP16, FP32, LAYER_NAMES, MHC_NAMES
         if isinstance(archive, (str, Path)):
             archive = Archive.load(archive)
         if not 1 <= int(threads) <= 256:
             raise ValueError("threads must be between 1 and 256")
+        if kv_cache not in ("fp32", "int8"):
+            raise ValueError("kv_cache must be 'fp32' or 'int8'")
+        self.kv_cache = kv_cache
         if matmul not in ("fp32", "sdot"):
             raise ValueError("matmul must be fp32 or sdot")
         if matmul == "sdot" and activation_bits:
@@ -347,7 +350,17 @@ class NativeEngine:
             lib.needle2_engine_set_sdot.restype = ct.c_int
             if lib.needle2_engine_set_sdot(self._handle):
                 raise RuntimeError(lib.needle2_engine_error().decode())
+        if kv_cache == "int8":
+            self.set_int8_kv(True)
         self.position = 0
+
+    def set_int8_kv(self, enabled: bool = True):
+        lib = self._lib
+        lib.needle2_engine_set_int8_kv.argtypes = [ct.c_void_p, ct.c_int]
+        lib.needle2_engine_set_int8_kv.restype = ct.c_int
+        if lib.needle2_engine_set_int8_kv(self._handle, int(bool(enabled))):
+            raise RuntimeError(lib.needle2_engine_error().decode())
+        self.kv_cache = "int8" if enabled else "fp32"
 
     def __del__(self):
         if getattr(self, "_handle", None):
