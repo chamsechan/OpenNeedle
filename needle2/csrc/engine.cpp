@@ -320,6 +320,20 @@ public:
     }
 };
 
+struct DFAStateDesc {
+    int num_states;
+    int initial_state;
+    int eos_id;
+    int stop_id;
+    int tool_start_id;
+    int tool_end_id;
+    const int* state_types;
+    const int* fallback_next_states;
+    const int* candidate_offsets;
+    const int* candidate_tokens;
+    const int* next_states;
+};
+
 struct Engine {
     EngineConfig c;
     std::unique_ptr<PersistentThreadPool> pool;
@@ -1192,6 +1206,121 @@ struct Engine {
             linear(0, z.data(), candidate_logits);
         }
     }
+    int decode_loop(int first_token, int max_new_tokens, const DFAStateDesc* dfa, int* output_tokens, int* out_generated_count) {
+        if (max_new_tokens <= 0) {
+            if (out_generated_count) *out_generated_count = 0;
+            return 0;
+        }
+
+        int eos = dfa ? dfa->eos_id : 1;
+        int stop_tok = dfa ? dfa->stop_id : 5;
+        int tool_start = dfa ? dfa->tool_start_id : 10;
+        int tool_end = dfa ? dfa->tool_end_id : 11;
+
+        output_tokens[0] = first_token;
+        int count = 1;
+        int current_tok = first_token;
+
+        if (first_token == eos || first_token == stop_tok) {
+            if (out_generated_count) *out_generated_count = count;
+            return 0;
+        }
+
+        int state = 0;
+        if (dfa) {
+            state = dfa->initial_state;
+            int start_idx = dfa->candidate_offsets[state];
+            int end_idx = dfa->candidate_offsets[state + 1];
+            bool matched = false;
+            for (int i = start_idx; i < end_idx; ++i) {
+                if (dfa->candidate_tokens[i] == first_token) {
+                    state = dfa->next_states[i];
+                    matched = true;
+                    break;
+                }
+            }
+            if (!matched && first_token == tool_start && dfa->fallback_next_states[state] >= 0) {
+                state = dfa->fallback_next_states[state];
+            }
+        }
+
+        std::vector<float> full_logits(c.vocab);
+        std::vector<float> cand_logits(1024);
+
+        while (count < max_new_tokens) {
+            if (dfa && dfa->state_types[state] == 4) { // TERMINAL
+                break;
+            }
+
+            int next_tok = -1;
+
+            if (!dfa || dfa->state_types[state] == 0) { // UNCONSTRAINED / OPEN
+                step(current_tok, full_logits.data(), nullptr);
+                int best = 0;
+                float max_v = full_logits[0];
+                for (int i = 1; i < c.vocab; ++i) {
+                    if (full_logits[i] > max_v) {
+                        max_v = full_logits[i];
+                        best = i;
+                    }
+                }
+                next_tok = best;
+                if (dfa) {
+                    int start_idx = dfa->candidate_offsets[state];
+                    int end_idx = dfa->candidate_offsets[state + 1];
+                    bool matched = false;
+                    for (int i = start_idx; i < end_idx; ++i) {
+                        if (dfa->candidate_tokens[i] == next_tok) {
+                            state = dfa->next_states[i];
+                            matched = true;
+                            break;
+                        }
+                    }
+                    if (!matched && dfa->fallback_next_states[state] >= 0) {
+                        state = dfa->fallback_next_states[state];
+                    }
+                }
+            } else if (dfa->state_types[state] == 1) { // EXACT_CANDIDATES
+                int start_idx = dfa->candidate_offsets[state];
+                int end_idx = dfa->candidate_offsets[state + 1];
+                int num_cands = end_idx - start_idx;
+
+                if (num_cands == 1) {
+                    next_tok = dfa->candidate_tokens[start_idx];
+                    step(current_tok, nullptr, nullptr);
+                    state = dfa->next_states[start_idx];
+                } else if (num_cands > 1) {
+                    const int* cands = dfa->candidate_tokens + start_idx;
+                    if (cand_logits.size() < size_t(num_cands)) cand_logits.resize(num_cands);
+                    step_candidates(current_tok, cands, num_cands, cand_logits.data(), nullptr);
+
+                    int best_idx = 0;
+                    float max_v = cand_logits[0];
+                    for (int i = 1; i < num_cands; ++i) {
+                        if (cand_logits[i] > max_v) {
+                            max_v = cand_logits[i];
+                            best_idx = i;
+                        }
+                    }
+                    next_tok = cands[best_idx];
+                    state = dfa->next_states[start_idx + best_idx];
+                } else {
+                    next_tok = eos;
+                    break;
+                }
+            }
+
+            output_tokens[count++] = next_tok;
+            current_tok = next_tok;
+
+            if (next_tok == eos || next_tok == stop_tok || (dfa && dfa->state_types[state] == 4)) {
+                break;
+            }
+        }
+
+        if (out_generated_count) *out_generated_count = count;
+        return 0;
+    }
 };
 static thread_local std::string engine_error;
 extern "C" {
@@ -1226,6 +1355,10 @@ int needle2_engine_step_candidates(void*p,int token,const int*candidates,int num
 }
 int needle2_engine_project_candidates(void*p,const int*candidates,int num_candidates,float*candidate_logits){
     try{static_cast<Engine*>(p)->project_candidates(candidates,num_candidates,candidate_logits);return 0;}
+    catch(const std::exception&e){engine_error=e.what();return -1;}
+}
+int needle2_engine_decode_loop(void*p,int first_token,int max_new_tokens,const DFAStateDesc*dfa,int*output_tokens,int*out_generated_count){
+    try{return static_cast<Engine*>(p)->decode_loop(first_token,max_new_tokens,dfa,output_tokens,out_generated_count);}
     catch(const std::exception&e){engine_error=e.what();return -1;}
 }
 int needle2_engine_import(void*p,int pos,int prefix,const int*ids,const int*positions,int count,const float*k,const float*v) {

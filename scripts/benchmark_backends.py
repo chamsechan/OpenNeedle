@@ -72,6 +72,7 @@ def worker(connection, spec, config):
                            prefix_tokens=prefix_cache.position)
         else:
             from needle2.native import NativeEngine, build_native
+            from needle2.grammar import compile_tool_dfa
             start = time.perf_counter()
             compiled = build_native()
             startup['compile_cache_ms'] = (time.perf_counter()-start)*1000
@@ -83,6 +84,7 @@ def worker(connection, spec, config):
             engine.reset(prefix_len=len(prefix_ids))
             engine.prefill(prefix_ids, last_only=True)
             engine.cache_prefix()
+            native_dfa = compile_tool_dfa(config['tools'], tokenizer)
             startup.update(prefix_setup_ms=(time.perf_counter()-start)*1000,
                            prefix_tokens=len(prefix_ids))
         pin_all_threads(set(config['cpus']))
@@ -123,31 +125,27 @@ def worker(connection, spec, config):
                 decode_start = time.perf_counter()
                 forward_seconds = 0.0
                 steps = 0
-                candidates = None
-                for index in range(config['max_new_tokens']):
-                    if candidates is not None:
-                        token = grammar.select_candidate(candidates, logits)
-                    else:
-                        token = grammar.select(logits)
-                    grammar.accept(token)
-                    output.append(token)
-                    if token in (1, 5) or grammar.finished or index == config['max_new_tokens']-1:
-                        break
-                    forward_start = time.perf_counter()
-                    if kind == 'torch':
-                        logits, cache = consume([token], cache)
-                    else:
-                        candidates = grammar.candidate_tokens()
+                if kind != 'torch':
+                    first_token = grammar.select(logits)
+                    output = engine.decode(first_token, max_new_tokens=config['max_new_tokens'], grammar_dfa=native_dfa)
+                    decode_wall = time.perf_counter() - decode_start
+                    steps = max(0, len(output) - 1)
+                    forward_seconds = decode_wall
+                else:
+                    candidates = None
+                    for index in range(config['max_new_tokens']):
                         if candidates is not None:
-                            if len(candidates) == 1:
-                                engine.step(token, compute_logits=False)
-                                logits = np.array([0.0], dtype=np.float32)
-                            else:
-                                logits = engine.step_candidates(token, candidates)
+                            token = grammar.select_candidate(candidates, logits)
                         else:
-                            logits = engine.step(token)
-                    forward_seconds += time.perf_counter()-forward_start
-                    steps += 1
+                            token = grammar.select(logits)
+                        grammar.accept(token)
+                        output.append(token)
+                        if token in (1, 5) or grammar.finished or index == config['max_new_tokens']-1:
+                            break
+                        forward_start = time.perf_counter()
+                        logits, cache = consume([token], cache)
+                        forward_seconds += time.perf_counter()-forward_start
+                        steps += 1
                 decode_ms = (time.perf_counter()-decode_start)*1000
                 wall_ms = (time.perf_counter()-start)*1000
                 process_cpu_ms = (time.process_time()-cpu_start)*1000

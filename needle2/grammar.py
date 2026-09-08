@@ -282,3 +282,186 @@ class ToolGrammar:
             self.finished = True
         else:
             self.prefix += self._pieces[token_id]
+
+
+class NativeGrammarDFA:
+    """Compiled prefix DFA state machine for zero-overhead C++ decode loop."""
+
+    def __init__(
+        self,
+        num_states: int,
+        initial_state: int,
+        eos_id: int,
+        stop_id: int,
+        tool_start_id: int,
+        tool_end_id: int,
+        state_types: list[int] | np.ndarray,
+        fallback_next_states: list[int] | np.ndarray,
+        candidate_offsets: list[int] | np.ndarray,
+        candidate_tokens: list[int] | np.ndarray,
+        next_states: list[int] | np.ndarray,
+    ):
+        import ctypes as ct
+        from .native import _DFAStateDesc
+
+        self.num_states = int(num_states)
+        self.initial_state = int(initial_state)
+        self.eos_id = int(eos_id)
+        self.stop_id = int(stop_id)
+        self.tool_start_id = int(tool_start_id)
+        self.tool_end_id = int(tool_end_id)
+
+        self.state_types = np.ascontiguousarray(state_types, dtype=np.int32)
+        self.fallback_next_states = np.ascontiguousarray(fallback_next_states, dtype=np.int32)
+        self.candidate_offsets = np.ascontiguousarray(candidate_offsets, dtype=np.int32)
+        self.candidate_tokens = np.ascontiguousarray(candidate_tokens, dtype=np.int32)
+        self.next_states = np.ascontiguousarray(next_states, dtype=np.int32)
+
+        self._desc = _DFAStateDesc()
+        self._desc.num_states = self.num_states
+        self._desc.initial_state = self.initial_state
+        self._desc.eos_id = self.eos_id
+        self._desc.stop_id = self.stop_id
+        self._desc.tool_start_id = self.tool_start_id
+        self._desc.tool_end_id = self.tool_end_id
+        self._desc.state_types = self.state_types.ctypes.data_as(ct.POINTER(ct.c_int))
+        self._desc.fallback_next_states = self.fallback_next_states.ctypes.data_as(ct.POINTER(ct.c_int))
+        self._desc.candidate_offsets = self.candidate_offsets.ctypes.data_as(ct.POINTER(ct.c_int))
+        self._desc.candidate_tokens = self.candidate_tokens.ctypes.data_as(ct.POINTER(ct.c_int))
+        self._desc.next_states = self.next_states.ctypes.data_as(ct.POINTER(ct.c_int))
+
+
+def compile_tool_dfa(tools: list[dict], tokenizer) -> NativeGrammarDFA:
+    """Compile tool schemas into a prefix DFA state transition table for native C++ decoding."""
+    states = []
+
+    def add_state(stype=1, fallback=-1):
+        idx = len(states)
+        states.append({"type": stype, "fallback": fallback, "transitions": {}})
+        return idx
+
+    def add_transition(src, tok, dst):
+        states[src]["transitions"][tok] = dst
+
+    def add_chain(src, tokens):
+        curr = src
+        for t in tokens:
+            nxt = add_state(1)
+            add_transition(curr, t, nxt)
+            curr = nxt
+        return curr
+
+    eos_id = tokenizer.p2id.get("</s>", 1)
+    stop_id = tokenizer.p2id.get("<stop>", 5)
+    tool_start_id = tokenizer.p2id.get("<tool_call>", 10)
+    tool_end_id = tokenizer.p2id.get("</tool_call>", 11)
+
+    s_root = add_state(stype=0, fallback=0)
+    s_term = add_state(stype=4)
+
+    # Closing sequence:
+    # s_close expects 1270 ("}}]")
+    s_close = add_state(stype=1)
+    s_close_1 = add_state(stype=1)  # after 1270
+    s_close_2 = add_state(stype=1)  # after tool_end_id (11)
+    add_transition(s_close, 1270, s_close_1)
+    add_transition(s_close_1, tool_end_id, s_close_2)
+    add_transition(s_close_2, eos_id, s_term)
+
+    # Start of tool call
+    s_after_start = add_state(stype=1)
+    add_transition(s_root, tool_start_id, s_after_start)
+    # Prefix: [{" -> name -> ":"
+    s_branch = add_chain(s_after_start, [1075, 598, 359])
+
+    for tool in tools:
+        if tool.get("type") == "function" and "function" in tool:
+            tool = tool["function"]
+        name = tool["name"]
+        pref = 'name":"'
+        name_tokens = tokenizer.encode(pref + name)[len(tokenizer.encode(pref)):]
+        curr = s_branch
+        for tok_id in name_tokens:
+            if tok_id in states[curr]["transitions"]:
+                curr = states[curr]["transitions"][tok_id]
+            else:
+                nxt = add_state(1)
+                add_transition(curr, tok_id, nxt)
+                curr = nxt
+
+        # After tool name: "," -> arguments -> ":{"
+        curr = add_chain(curr, [362, 1376, 433])
+
+        properties = list(tool.get("parameters", {}).get("properties", {}).items())
+        for p_idx, (p_name, p_schema) in enumerate(properties):
+            is_last = (p_idx == len(properties) - 1)
+            p_type = p_schema.get("type")
+            pref_p = 'arguments":{"' if p_idx == 0 else '","'
+            p_tokens = tokenizer.encode(pref_p + p_name)[len(tokenizer.encode(pref_p)):]
+            curr = add_chain(curr, p_tokens)
+
+            # Delimiter after property name:
+            delim = 359 if p_type == "string" else 314
+            s_val_entry = add_state(1)
+            add_transition(curr, delim, s_val_entry)
+
+            if p_type == "string":
+                states[s_val_entry]["type"] = 0
+                states[s_val_entry]["fallback"] = s_val_entry
+                if not is_last:
+                    nxt_prop_entry = add_state(1)
+                    add_transition(s_val_entry, 362, nxt_prop_entry)
+                    curr = nxt_prop_entry
+                else:
+                    add_transition(s_val_entry, 1270, s_close_1)
+                    curr = s_close
+            elif p_type == "boolean":
+                tok_true = tokenizer.p2id.get("true", 1111)
+                tok_false = tokenizer.p2id.get("false", 1325)
+                if not is_last:
+                    nxt_prop_entry = add_state(1)
+                    s_bool_comma = add_state(1)
+                    add_transition(s_val_entry, tok_true, s_bool_comma)
+                    add_transition(s_val_entry, tok_false, s_bool_comma)
+                    add_transition(s_bool_comma, 362, nxt_prop_entry)
+                    curr = nxt_prop_entry
+                else:
+                    add_transition(s_val_entry, tok_true, s_close)
+                    add_transition(s_val_entry, tok_false, s_close)
+                    curr = s_close
+            elif p_type in ("integer", "number"):
+                states[s_val_entry]["type"] = 0
+                states[s_val_entry]["fallback"] = s_val_entry
+                if not is_last:
+                    nxt_prop_entry = add_state(1)
+                    add_transition(s_val_entry, 362, nxt_prop_entry)
+                    curr = nxt_prop_entry
+                else:
+                    add_transition(s_val_entry, 1270, s_close_1)
+                    curr = s_close
+
+    num_states = len(states)
+    state_types = [s["type"] for s in states]
+    fallback_next = [s["fallback"] for s in states]
+    cand_offsets = [0]
+    cand_tokens = []
+    next_states = []
+    for s in states:
+        for t, nxt in s["transitions"].items():
+            cand_tokens.append(t)
+            next_states.append(nxt)
+        cand_offsets.append(len(cand_tokens))
+
+    return NativeGrammarDFA(
+        num_states=num_states,
+        initial_state=0,
+        eos_id=eos_id,
+        stop_id=stop_id,
+        tool_start_id=tool_start_id,
+        tool_end_id=tool_end_id,
+        state_types=state_types,
+        fallback_next_states=fallback_next,
+        candidate_offsets=cand_offsets,
+        candidate_tokens=cand_tokens,
+        next_states=next_states,
+    )

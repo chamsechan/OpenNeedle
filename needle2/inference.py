@@ -64,9 +64,15 @@ def generate(model_path,prompt,*,tools=None,system=None,backend='native',max_new
         raise ValueError('prompt leaves no room within max_seq_len')
     cap=min(max_new_tokens,archive.metadata['max_seq_len']-len(ids))
     grammar=None
+    grammar_dfa=None
     if tools is not None and constrain:
-        from .grammar import ToolGrammar
+        from .grammar import ToolGrammar, compile_tool_dfa
         grammar=ToolGrammar(tools,tokenizer)
+        if backend=='native':
+            try:
+                grammar_dfa=compile_tool_dfa(tools,tokenizer)
+            except Exception:
+                grammar_dfa=None
     if backend=='native':
         from .native import NativeEngine
         if prefill_backend=='torch':
@@ -101,26 +107,33 @@ def generate(model_path,prompt,*,tools=None,system=None,backend='native',max_new
     # First token is selected from prefill; subsequent token forwards are timed
     # separately. The last selected token does not require an extra forward.
     decode_started=time.perf_counter()
-    candidates = None
-    for i in range(cap):
-        if candidates is not None:
-            token = grammar.select_candidate(candidates, logits) if grammar is not None else int(np.argmax(logits))
-        else:
-            token = grammar.select(logits) if grammar is not None else int(np.argmax(logits))
-        if grammar is not None:grammar.accept(token)
-        output.append(token)
-        if token in (1,5) or (grammar is not None and grammar.finished) or i==cap-1: break
-        candidates = grammar.candidate_tokens() if (grammar is not None and backend == 'native') else None
-        start=time.perf_counter()
-        if candidates is not None and len(candidates) == 1:
-            engine.step(token, compute_logits=False)
-            logits = np.array([0.0], dtype=np.float32)
-        elif candidates is not None:
-            logits = engine.step_candidates(token, candidates)
-        else:
-            logits = consume([token])
-        decode_s+=time.perf_counter()-start; decode_steps+=1
-    decode_wall=time.perf_counter()-decode_started
+    if backend=='native' and (grammar_dfa is not None or grammar is None):
+        first_token=grammar.select(logits) if grammar is not None else int(np.argmax(logits))
+        output=engine.decode(first_token,max_new_tokens=cap,grammar_dfa=grammar_dfa)
+        decode_wall=time.perf_counter()-decode_started
+        decode_steps=max(0,len(output)-1)
+        decode_s=decode_wall
+    else:
+        candidates = None
+        for i in range(cap):
+            if candidates is not None:
+                token = grammar.select_candidate(candidates, logits) if grammar is not None else int(np.argmax(logits))
+            else:
+                token = grammar.select(logits) if grammar is not None else int(np.argmax(logits))
+            if grammar is not None:grammar.accept(token)
+            output.append(token)
+            if token in (1,5) or (grammar is not None and grammar.finished) or i==cap-1: break
+            candidates = grammar.candidate_tokens() if (grammar is not None and backend == 'native') else None
+            start=time.perf_counter()
+            if candidates is not None and len(candidates) == 1:
+                engine.step(token, compute_logits=False)
+                logits = np.array([0.0], dtype=np.float32)
+            elif candidates is not None:
+                logits = engine.step_candidates(token, candidates)
+            else:
+                logits = consume([token])
+            decode_s+=time.perf_counter()-start; decode_steps+=1
+        decode_wall=time.perf_counter()-decode_started
     decoded=tokenizer.decode(output)
     result=parse_response(decoded) if tools is not None else dict(text=decoded)
     arithmetic=('approximate_sdot_rotated_a8_kv_' + kv_cache if matmul=='sdot' else 'public_reference_a8_kv_' + kv_cache if quant_activations else 'fp32_reference_kv_' + kv_cache if kv_cache=='int8' else 'fp32_reference')

@@ -248,6 +248,22 @@ class _EngineConfig(ct.Structure):
     _fields_ += [("orders", ct.c_int * 4), ("num_sites", ct.c_int), ("sites", ct.c_int * 4), ("rope_theta", ct.c_float)]
 
 
+class _DFAStateDesc(ct.Structure):
+    _fields_ = [
+        ("num_states", ct.c_int),
+        ("initial_state", ct.c_int),
+        ("eos_id", ct.c_int),
+        ("stop_id", ct.c_int),
+        ("tool_start_id", ct.c_int),
+        ("tool_end_id", ct.c_int),
+        ("state_types", ct.POINTER(ct.c_int)),
+        ("fallback_next_states", ct.POINTER(ct.c_int)),
+        ("candidate_offsets", ct.POINTER(ct.c_int)),
+        ("candidate_tokens", ct.POINTER(ct.c_int)),
+        ("next_states", ct.POINTER(ct.c_int)),
+    ]
+
+
 class NativeEngine:
     """Entire CPU token forward in C++; one independent unpadded sequence per instance.
 
@@ -540,3 +556,34 @@ class NativeEngine:
                 break
             logits = self.step(token)
         return output
+
+    def decode(self, first_token: int, max_new_tokens: int = 128, grammar_dfa=None) -> list[int]:
+        """Decode autoregressively in C++ until eos, max_new_tokens, or DFA terminal state."""
+        if max_new_tokens <= 0:
+            return []
+        output_buffer = (ct.c_int * (max_new_tokens + 1))()
+        count = ct.c_int(0)
+        dfa_ptr = ct.byref(grammar_dfa._desc) if grammar_dfa is not None else None
+        lib = self._lib
+        lib.needle2_engine_decode_loop.argtypes = [
+            ct.c_void_p,
+            ct.c_int,
+            ct.c_int,
+            ct.POINTER(_DFAStateDesc),
+            ct.POINTER(ct.c_int),
+            ct.POINTER(ct.c_int),
+        ]
+        lib.needle2_engine_decode_loop.restype = ct.c_int
+        status = lib.needle2_engine_decode_loop(
+            self._handle,
+            int(first_token),
+            int(max_new_tokens),
+            dfa_ptr,
+            output_buffer,
+            ct.byref(count),
+        )
+        if status:
+            raise RuntimeError(self._lib.needle2_engine_error().decode())
+        generated_count = count.value
+        self.position += (generated_count - 1)
+        return [output_buffer[i] for i in range(generated_count)]
