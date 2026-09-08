@@ -109,6 +109,23 @@ if sdot_available():
 
 `prefill(..., backend="torch")` 在 SDOT 模式下仍使用 FP32 PyTorch 完成初始 prompt，之后切换到 SDOT decode。此路径和完全 native SDOT prefill 的舍入过程不同。
 
-## 质量报告的源码标记
+## 四行 SDOT 与线程调度
 
-最终 `reports/quality.json` 保留 `source_changed_during_run: true`：该次 FP32 运行期间，Python wrapper 的 `linear_sdot` 增加 INT32 输出数量检查，并补充 ctypes void 返回类型声明。它没有改动 FP32 算法；C++ 源码和该进程实际加载的共享库保持固定，报告记录了两者的 SHA256。随后 `reports/quality_sdot.json` 的运行没有源码变更。此说明解释标记，不将其删除，也不把当前文件哈希冒充运行时快照。
+`SdotCQ::row4` 同时计算四个 CQ2/CQ4 输出行，在每个 group 内复用激活向量加载，各行独立完成 INT32 点积和 FP32 缩放累加。权重保持行主序 packed 布局；不满四行的尾部使用单行内核。融合 QKVG 也按四行工作单元分配输出区间。
+
+普通 `linear` 与单矩阵 `multiply` 在输出行数少于 128 时串行执行，避免小任务的 OpenMP 协调成本。线程数通过 `threads` 指定；库不设置全局 `OMP_WAIT_POLICY`。性能报告使用的等待策略和线程环境见 [测量条件](backend-comparison.md)。
+
+四行实现与单行 SDOT 使用相同量化规则及逐 group 累加公式。[test_sdot_row4.py](../tests/test_sdot_row4.py) 对 CQ2/CQ4、group64/128、9/129 行、129 列 padding、1/2/4 线程，以及随机、零和 one-hot 输入做逐元素完全一致检查。这说明四行计算不额外改变 SDOT 数值，不代表 SDOT 与 FP32 等价。
+
+指令定义见 [Arm NEON Intrinsics Reference](https://arm-software.github.io/acle/neon_intrinsics/advsimd.html)；公开 Cactus 的交错 CQ GEMV 与本实现的布局区别见 [技术参考](research.md#62-sdot-四行计算与公开内核参考)。
+
+## 分阶段 profiling
+
+在支持 DotProd 的 ARM64 上，可构建独立插桩库测量输入/Engram、QKVG、attention、MLP、mHC 和 LM head 的耗时：
+
+```bash
+OMP_WAIT_POLICY=PASSIVE OPENBLAS_NUM_THREADS=1 python scripts/profile_native.py \
+  --threads 1 --matmul sdot --tokens 64 --output reports/native_profile.json
+```
+
+插桩构建不覆盖生产库。报告对嵌套 Engram 投影做扣除，输出互斥阶段、剩余开销、head 投影行数、step 次数和最终保留的 KV 长度。插桩本身会增加计时成本，应用性能使用 [backend_comparison.json](../reports/backend_comparison.json)。

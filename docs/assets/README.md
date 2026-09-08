@@ -4,8 +4,9 @@ The README uses a self-contained SVG with light and dark palettes. Subtle packet
 motion illustrates one packed matrix–vector projection; it does not represent
 measured latency. Throughput bars are static, share a zero origin, and use the
 recorded values in [`backend_comparison.json`](../../reports/backend_comparison.json).
-See the [benchmark methodology](../backend-comparison.md) for timing boundaries
-and the SDOT accuracy tradeoff.
+The chart displays native 4-thread results and PyTorch 1-thread FP32, the fastest
+PyTorch configuration in the recorded test. See the [benchmark methodology](../backend-comparison.md) for all backend
+configurations, timing boundaries, and the SDOT accuracy tradeoff.
 
 - [Light animated SVG](openeedle-hero-light.svg)
 - [Dark animated SVG](openeedle-hero-dark.svg)

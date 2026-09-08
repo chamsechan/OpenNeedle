@@ -24,11 +24,11 @@ PALETTES = {
 def draw(theme, report, static=False):
     c = PALETTES[theme]
     summary = report['summary']
-    ratio = summary['native_sdot']['decode_tps_median'] / summary['pytorch_t2']['decode_tps_median']
+    ratio = summary['native_sdot']['decode_tps_median'] / summary['pytorch_t1']['decode_tps_median']
     rows = [('official', 'Official engine', 'official'),
             ('native_sdot', 'OpenNeedle / SDOT*', 'accent'),
             ('native_fp32', 'OpenNeedle / FP32', 'teal'),
-            ('pytorch_t2', 'PyTorch / FP32', 'torch')]
+            ('pytorch_t1', 'PyTorch / FP32 (1T)', 'torch')]
     maximum = max(summary[name]['decode_tps_median'] for name, _, _ in rows)
     pieces = []
     def add(value): pieces.append(value)
@@ -43,7 +43,7 @@ def draw(theme, report, static=False):
     add('<title id="title">OpenNeedle — packed CPU inference and measured decode throughput</title>')
     add('<desc id="desc">Conceptual packed GEMV data flow. On a 4-core ARM Neoverse-N1 CPU: official '+
         f"{summary['official']['decode_tps_median']:.2f}, OpenNeedle SDOT {summary['native_sdot']['decode_tps_median']:.2f}, "+
-        f"OpenNeedle FP32 {summary['native_fp32']['decode_tps_median']:.2f}, and PyTorch {summary['pytorch_t2']['decode_tps_median']:.2f} tokens per second. "+
+        f"OpenNeedle FP32 {summary['native_fp32']['decode_tps_median']:.2f}, and PyTorch {summary['pytorch_t1']['decode_tps_median']:.2f} tokens per second. "+
         'Medians of three queries repeated five times. Application timing definitions differ; SDOT adds quantization error. Motion is illustrative.</desc>')
     add('<metadata>'+escape(json.dumps({'source':'reports/backend_comparison.json','sha256':hashlib.sha256(REPORT.read_bytes()).hexdigest(),'theme':theme,'static':static}))+'</metadata>')
     add('<style>text{font-family:Inter,"Segoe UI",Arial,sans-serif}.mono{font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace}.overline{letter-spacing:2.2px}.flow{stroke-dasharray:5 18;stroke-linecap:round;animation:travel 2.6s linear infinite}.phase2{animation-delay:-1.3s}.phase3{animation-duration:1.8s}.spark{animation:shimmer 3.4s ease-in-out infinite}.spark2{animation-delay:-1.7s}@keyframes travel{to{stroke-dashoffset:-92}}@keyframes shimmer{0%,100%{opacity:.38}50%{opacity:1}}@media(prefers-reduced-motion:reduce){.flow,.spark{animation:none!important}.flow{stroke-dasharray:5 18;opacity:.7}}'+
@@ -86,7 +86,7 @@ def draw(theme, report, static=False):
     text(342,283,'GEMV',28,'coreink',600,'text-anchor="middle" class="mono"')
     text(342,304,'Hx + CQ lookup',11,'coreink',400,'text-anchor="middle" class="mono"')
     text(342,350,'NEON / SDOT',15,'ink',600,'text-anchor="middle"')
-    text(342,369,'shared input transform',12,'muted',400,'text-anchor="middle"')
+    text(342,369,'SDOT: four-row reuse',12,'muted',400,'text-anchor="middle"')
     path('M416 272H520','border',2)
     path('M416 272H520','accent',2.5,extra='class="flow phase2"')
     rect(520,229,125,95,'panel',12,'border')

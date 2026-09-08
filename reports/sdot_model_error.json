@@ -1,9 +1,9 @@
 {
   "model_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
   "source_sha256": {
-    "needle2/csrc/sdot.cpp": "66d416777a03d7540191f43136e61a5e15a0ce544174c8b7380bdc2772422f9a",
+    "needle2/csrc/sdot.cpp": "1ecff706e7ced6b3e5a04875f9ba9ea1808bc7f0b0e842642f09e837b607e23d",
     "needle2/csrc/cq.cpp": "ab02f20cf6a1618f0fed2ba16acc16c4769d23acad94a7d647ae07311392c085",
-    "needle2/csrc/engine.cpp": "a67dfaa9a1569967563511d9b0731fa7a95bafa8aeb091d476b928c7239f5b61"
+    "needle2/csrc/engine.cpp": "a6ee89766c7454709fd8182498b7b82b2f88fedfd41f391025a60d5e4aa66e67"
   },
   "reference": "independent FP32",
   "candidate": "CQ codebook INT8 + rotated groupwise A8 SDOT; KV FP32",

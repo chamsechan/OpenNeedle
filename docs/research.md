@@ -1,12 +1,12 @@
-# Needle 2 / CQ2.2 复现研究记录
+# Needle 2 / CQ2.2 技术参考
 
-研究日期：2026-09-08。本文区分 **源码事实**、**本地测量**、**官方声明** 和 **工程推导**；尚未运行的质量或速度实验不作为已复现结果。
+本文说明发布模型的架构、CQ 文件格式、独立 CPU 引擎的执行方式及其公开依据。性能与质量分别见 [性能对比](backend-comparison.md) 和 [验证结果](results.md)。
 
 ## 1. 研究对象与版本
 
 研究对象为 Needle 2 发布模型的 CQ2/CQ4 混合量化格式、PyTorch 转换与压缩权重推理。部署文件包含 43,634,423 个数值参数，逐张量统计见下文。
 
-本次锁定的第一手来源：
+实现依据的固定版本资料：
 
 | 来源 | 版本 / 地址 | 用途 |
 |---|---|---|
@@ -167,15 +167,9 @@ norm、Hadamard diagonals、gate 和 probe heads 保留 FP16；`mhc_phi*` 使用
 
 另一个细节是 `configure_deploy(kv_bits>=8)` 将内部 `KV_BITS` 置为 0，不模拟 KV8 舍入；只有低于 8 bit 时才通过 CQ fake quant 模拟 KV。故公开 JAX 参考无法单独证明生产 int8 KV 和全部舍入行为完全相同。相关代码见 [`decode.py`](https://github.com/cactus-compute/needle/blob/53df049c4a1a82fca1027b81f9ff21336dfb0861/needle/model/decode.py) 和 [`quantize.py`](https://github.com/cactus-compute/needle/blob/53df049c4a1a82fca1027b81f9ff21336dfb0861/needle/model/quantize.py)。
 
-质量验收应顺序完成：
+验证覆盖文件往返、独立 Hadamard/CQ 数值 oracle、逐层 hidden/logits、滑动 KV 与固定 sinks、Engram 历史，以及工具调用 JSON。四行 SDOT 另外与单行内核做逐元素完全一致检查。具体数值、数据范围和复现命令见 [验证结果](results.md)。
 
-1. 文件解析和未修改往返：tensor shape、bits、scale、codebook、tokenizer、文件哈希。
-2. 单张量 dequant / matvec：绝对与相对误差、零组、padding、非对称码本；区分数学等价与机器舍入等价。
-3. 架构：同一 token 输入逐层 hidden、logits；完整前向与 KV cache 前向；超过 256 token 的滑动窗口；sink 和 engram 的边界。
-4. 固定官方 binary 和模型，teacher forcing 相同 token 历史比较 logits/top-k（若 API 可用）；再比较自由生成 token 和规范化 JSON。
-5. 最后跑公开工具调用评估，固定 prompt renderer、工具检索数量、grammar、停止规则、采样、窗口和 scoring。只有最终 JSON 一致率才能支持用户所需的生产质量结论。
-
-## 6. 接近官方速度的可行实现方向
+## 6. CPU 推理执行方式
 
 ### 6.1 不展开权重的核心恒等式
 
@@ -187,9 +181,17 @@ dot(w_hat, x) = n_store * dot(codebook[q], H x)
 
 所以每个输入 group 的 FWHT 可以在 activation 侧只计算一次，再对所有 output rows 重用。推理时只读 packed codes 和 norms、查小码本累加，无需生成完整 dense weight。对于共享同一输入的 Q/K/V/gate，可以复用 activation 变换；out_proj 则有不同输入，不能复用错缓存。这是由格式推导的精确实数恒等式，不是速度测量。
 
-CPU 上优先保留压缩权重和缓存循环，避免每层 Python 调度开销；decode 优化 GEMV，小批量 prefill 优化 GEMM；embedding/engram 只解码被索引的行。Hadamard MLP 用 FWHT，mHC 的 4×4 路由可融合 norm、dot、Sinkhorn 和 residual 更新。
+独立 C++ 引擎将单 token 的整层循环放在 native 内执行。embedding/Engram 只解码被索引的行；Hadamard MLP 使用 FWHT；四 lane mHC 使用 SIMD Sinkhorn；GQA 中共享 KV 的两个 query head 复用 K/V 读取。native prefill 逐 token 执行，另提供显式 PyTorch 批量 prefill。
 
-### 6.2 公开 Cactus kernel 的实际参考价值
+### 6.2 SDOT 四行计算与公开内核参考
+
+OpenNeedle 的 `SdotCQ::row4` 在现有行主序 packed CQ2/CQ4 权重上同时计算四个输出行。每个 group 的激活向量只加载一次，供四组独立 INT32 累加器使用；group 点积再按各行 norm 与激活 scale 转回 FP32 并累加。尾行使用单行内核。该实现不重排磁盘或内存中的权重，也不创建整模型 INT8/dense 副本。
+
+`row4` 与单行 SDOT 保持相同的码本量化、激活量化和逐 group 求和公式。CQ2/CQ4、group64/128、padding、尾行及不同线程数的逐元素对照见 [四行内核测试](../tests/test_sdot_row4.py)。相对于 FP32 的 SDOT 舍入误差仍存在，见 [精度结果](results.md)。
+
+矩阵 `multiply` 与普通引擎 `linear` 仅在输出行数至少 128 且线程数大于 1 时进入并行区域；融合 QKVG 按四行工作单元划分任务。OpenMP 等待策略由调用方和运行时决定，库导入不修改进程环境。
+
+[Arm NEON Intrinsics Reference](https://arm-software.github.io/acle/neon_intrinsics/advsimd.html) 定义了此实现使用的 `vdotq_s32`、`vqtbl1q_s8` 与横向归约指令。运行时通过 Linux HWCAP 检查 DotProd，指令增强函数单独标记 target，默认 FP32 路径可使用普通 NEON。
 
 通用 Cactus 的 [`cactus-kernels/src/matmul.cpp`](https://github.com/cactus-compute/cactus/blob/09cb35ab29aaad66189615192d27d84bebbc0522/cactus-kernels/src/matmul.cpp) 有 `cactus_quant_2bit_gemv_interleaved`：
 
@@ -217,4 +219,4 @@ CPU 上优先保留压缩权重和缓存循环，避免每层 Python 调度开�
 | [Conditional Memory via Scalable Lookup: A New Axis of Sparsity for Large Language Models](https://arxiv.org/abs/2601.07372) | n-gram 条件存储、以 gather 分离容量与算量的背景 | 大规模 Engram 论文的 hash/config 就是 Needle 的发布配置 |
 | [LUT-GEMM: Quantized Matrix Multiplication based on LUTs for Efficient Inference in Large-Scale Generative Language Models](https://arxiv.org/abs/2206.09557) | 不完整反量化、查表累加和内存带宽的优化思路 | 其 GPU benchmark 能代表此处小模型 CPU 的速度 |
 
-搜索与阅读范围内没有发现一篇给出 Needle CQ2.2 全部部署舍入、kernel、grammar 实现细节的独立完整论文。可以重建的部分已由公开代码和文件布局明确；生产闭源路径仍须黑盒对照。这里描述的是证据边界，不是声称相关未公开材料不存在。
+公开 JAX 架构和导出格式定义模型与权重布局；生产库的全部整数舍入、grammar 候选投影和校准行为未由这些参考完整定义。独立实现的验证范围以源码对照、数值测试和工具调用结果为准。

@@ -6,7 +6,7 @@
   <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-static-dark.svg">
   <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/openeedle-hero-static.svg">
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-dark.svg">
-  <img src="docs/assets/openeedle-hero-light.svg" width="1200" alt="OpenNeedle 压缩推理流程与 CPU 速度对比：官方 407.80、OpenNeedle SDOT 168.21、原生 FP32 133.24、PyTorch 9.35 token/s。SDOT 为近似模式；完整条件见下方性能说明。">
+  <img src="docs/assets/openeedle-hero-light.svg" width="1200" alt="OpenNeedle 压缩推理流程与 CPU 速度对比：官方 504.70、OpenNeedle SDOT 152.30、原生 FP32 124.40、PyTorch 9.43 token/s。SDOT 为近似模式；完整条件见下方性能说明。">
 </picture>
 
 **面向 Needle 2 的开源 CPU 推理引擎与 PyTorch 工具链。**
@@ -17,18 +17,18 @@
 
 ## 当前性能
 
-4 核 ARM Neoverse-N1，相同发布模型，3 组工具请求各预热后重复 5 次。下表为中位数，热请求复用工具前缀。
+4 核 ARM Neoverse-N1，相同发布模型，3 组工具请求各预热后重复 5 次；各后端在独立持久进程中串行交错运行。热请求使用 [前缀缓存 API](docs/native-engine.md#固定-tools-前缀复用)，下表为 15 次测量的中位数。
 
 | 后端 | 线程 | 解码速度 ↑ | 热请求计算耗时 ↓ |
 |---|---:|---:|---:|
-| 官方闭源引擎 | 自动 | 407.80 token/s | 57.7 ms |
-| OpenNeedle FP32 | 4 | **133.24 token/s** | **236.7 ms** |
-| OpenNeedle SDOT | 4 | **168.21 token/s** | **159.9 ms** |
-| PyTorch FP32 | 2 | 9.35 token/s | 1803.3 ms |
+| 官方闭源引擎 | 自动 | 504.70 token/s | 51.7 ms |
+| OpenNeedle FP32 | 4 | **124.40 token/s** | **210.1 ms** |
+| OpenNeedle SDOT | 4 | **152.30 token/s** | **168.4 ms** |
+| PyTorch FP32 | 1 | 9.43 token/s | 1792.7 ms |
 
-FP32 / SDOT 吞吐分别为 PyTorch 的 **14.2× / 18.0×**；SDOT 达到官方的 **41.2%**。PyTorch 使用 CPU eager，未启用 `torch.compile`。各后端计时工作量有所不同，以上为应用层比较，详见 [测速方法与复现](docs/backend-comparison.md)。
+FP32 / SDOT 解码吞吐分别为表中 PyTorch 的 **13.2× / 16.2×**；SDOT 为官方的 **30.2%**。PyTorch 使用 CPU eager，未启用 `torch.compile`；1/2/4 线程完整结果见 [测速方法与复现](docs/backend-comparison.md)。测试显式设置 `OMP_WAIT_POLICY=PASSIVE`；库不修改全局等待策略。独立引擎与官方接口的计时工作量存在差异，以上为应用层比较。
 
-**默认 FP32；SDOT 为可选近似模式，会增加量化误差。** 当前 15 项质量回归中，官方与两种原生模式均通过 13 项；完整 BFCL 尚未评估。精度结果和支持范围见 [验证报告](docs/results.md) 与 [grammar 文档](docs/grammar.md)。
+**默认 FP32；SDOT 为可选近似模式，会增加量化误差。** 15 项工具调用质量回归中，官方与两种原生模式均通过 13 项；完整 BFCL 尚未评估。四行 SDOT 与单行算术的逐元素一致测试覆盖 24 种参数组合。结果和支持范围见 [验证报告](docs/results.md) 与 [grammar 文档](docs/grammar.md)。
 
 ## 快速开始
 
@@ -80,9 +80,11 @@ FP16 master 转换、Python API 与微调/QAT 见 [使用指南](docs/usage.md)�
 
 ## 实现与参考
 
-引擎在输入侧计算 Hadamard 变换，直接读取压缩码字并查表累加；通过共享投影变换、NEON/SDOT 和前缀缓存降低解码成本。模型与量化实现依据固定版本的 [Needle 源码](https://github.com/cactus-compute/needle/tree/53df049c4a1a82fca1027b81f9ff21336dfb0861) 和 [发布权重](https://huggingface.co/Cactus-Compute/needle2/tree/32e9e3a93b205f786929697446ae669cf0a84579)。
+C++ 引擎在 Q/K/V/gate 投影间共享一次 Hadamard 输入变换，直接读取 packed CQ 权重，使用 NEON FMA 或可选 SDOT 整数点积。SDOT 同时计算四个输出行以复用激活加载；普通矩阵运算的输出行数少于 128 时串行执行。权重保持原有压缩行布局，KV 状态使用 FP32。
 
-架构、CQ 格式及 SAN、mHC、Engram、QuIP#、LUT-GEMM 等参考文献见 [研究记录](docs/research.md)；内核实现与优化细节见 [原生引擎](docs/native-engine.md)。
+固定工具前缀通过 [NativeEngine 前缀缓存 API](docs/native-engine.md#固定-tools-前缀复用) 复用。解码计算全词表 logits，再根据 schema 约束选择工具调用 token。四行内核与单行 SDOT 的逐元素一致测试覆盖 CQ2/CQ4、padding、尾行及 1/2/4 线程。
+
+模型架构与量化依据固定版本的 [Needle 源码](https://github.com/cactus-compute/needle/tree/53df049c4a1a82fca1027b81f9ff21336dfb0861) 和 [发布权重](https://huggingface.co/Cactus-Compute/needle2/tree/32e9e3a93b205f786929697446ae669cf0a84579)。架构、CQ 格式、Arm 指令与 Cactus 内核参考见 [技术参考](docs/research.md)；执行细节和数值边界见 [原生引擎](docs/native-engine.md)。
 
 ## Agent Skills
 
@@ -98,7 +100,7 @@ FP16 master 转换、Python API 与微调/QAT 见 [使用指南](docs/usage.md)�
 | [编译指南](docs/build.md) | 自动编译、CMake 与预编译部署 |
 | [原生引擎](docs/native-engine.md) | 内核布局、优化策略与平台能力 |
 | [性能对比](docs/backend-comparison.md) · [精度验证](docs/results.md) | 测量方法、结果与复现命令 |
-| [研究记录](docs/research.md) | 模型架构、量化格式、版本与参考文献 |
+| [技术参考](docs/research.md) | 模型架构、量化格式、版本与参考文献 |
 
 ## 许可证
 

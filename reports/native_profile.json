@@ -1,14 +1,23 @@
 {
-  "threads": 2,
+  "matmul": "sdot",
+  "threads": 1,
   "tokens": 64,
-  "per_token_ms": {
-    "other_projections": 2.3204604843750043,
-    "embedding_rows": 0.013404515624999988,
-    "engram_including_projections": 0.17062437500000002,
-    "whole_step": 8.8220988125,
-    "sinkhorn": 0.1399216406249993,
-    "fused_qkvg": 2.436737906249999,
-    "unused": 0.0
+  "tps": 149.48333013871112,
+  "disjoint_ms_per_token": {
+    "input_engram_non_proj": 0.030892812500000005,
+    "engram_projections": 0.08590885937500001,
+    "qkvg_projections": 1.507450453124999,
+    "attention_core": 2.9537348281250013,
+    "attn_out_and_mlp": 0.7946908593749995,
+    "mhc_routing_and_mixing": 1.0076553124999998,
+    "lm_head": 0.30152840625000005,
+    "overhead_remaining": 0.007847609374998399,
+    "whole_step": 6.689709140624998
   },
-  "note": "Nested wall-clock durations overlap; profiling-only build."
+  "counters": {
+    "lm_head_projected_rows": 524288,
+    "step_calls": 64,
+    "final_kv_length": 256
+  },
+  "note": "Profiled stages are mutually exclusive (disjoint) within step() and sum to whole_step."
 }

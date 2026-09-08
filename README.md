@@ -6,7 +6,7 @@
   <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-static-dark.svg">
   <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/openeedle-hero-static.svg">
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-dark.svg">
-  <img src="docs/assets/openeedle-hero-light.svg" width="1200" alt="OpenNeedle compressed inference pipeline and CPU speed comparison: Official 407.80, OpenNeedle SDOT 168.21, Native FP32 133.24, PyTorch 9.35 token/s. SDOT is an approximate mode; see performance notes below for full conditions.">
+  <img src="docs/assets/openeedle-hero-light.svg" width="1200" alt="OpenNeedle compressed inference pipeline and CPU speed comparison: Official 504.70, OpenNeedle SDOT 152.30, Native FP32 124.40, PyTorch 9.43 token/s. SDOT is approximate; see the performance notes for full conditions.">
 </picture>
 
 **Open-source CPU inference engine and PyTorch toolchain for Needle 2.**
@@ -17,18 +17,18 @@ Supports direct inference on CQ2/CQ4 compressed weights, bidirectional PyTorch c
 
 ## Current Performance
 
-Benchmarked on a 4-core ARM Neoverse-N1 using the identical release model. 3 tool request suites were each repeated 5 times after warmup. The table reports median values; warm requests reuse the tool prefix.
+Measured on a 4-core ARM Neoverse-N1 with the same release model. Three tool requests are each repeated five times after warmup, serially interleaving separate persistent backend processes. Warm requests use the [prefix-cache API](docs/native-engine.md#固定-tools-前缀复用); values are medians of 15 measurements.
 
-| Backend | Threads | Decode Speed ↑ | Warm Request Latency ↓ |
+| Backend | Threads | Decode Speed ↑ | Warm Request Compute Time ↓ |
 |---|---:|---:|---:|
-| Official Closed-Source Engine | Auto | 407.80 token/s | 57.7 ms |
-| OpenNeedle FP32 | 4 | **133.24 token/s** | **236.7 ms** |
-| OpenNeedle SDOT | 4 | **168.21 token/s** | **159.9 ms** |
-| PyTorch FP32 | 2 | 9.35 token/s | 1803.3 ms |
+| Official Closed-Source Engine | Auto | 504.70 token/s | 51.7 ms |
+| OpenNeedle FP32 | 4 | **124.40 token/s** | **210.1 ms** |
+| OpenNeedle SDOT | 4 | **152.30 token/s** | **168.4 ms** |
+| PyTorch FP32 | 1 | 9.43 token/s | 1792.7 ms |
 
-FP32 / SDOT throughputs are **14.2× / 18.0×** that of PyTorch; SDOT reaches **41.2%** of the official engine. PyTorch runs in CPU eager mode without `torch.compile`. Workload timing boundaries vary slightly across backends; the above represents an application-level comparison. See [Benchmark Methodology & Reproduction](docs/backend-comparison.md) for details.
+FP32 / SDOT decode throughputs are **13.2× / 16.2×** the displayed PyTorch result; SDOT reaches **30.2%** of the official engine. PyTorch uses CPU eager without `torch.compile`; all 1/2/4-thread results are in [Benchmark Methodology & Reproduction](docs/backend-comparison.md). Measurements explicitly set `OMP_WAIT_POLICY=PASSIVE`; the library does not change the global wait policy. Timing workloads differ across the independent and official interfaces, so this is an application-level comparison.
 
-**FP32 is the default; SDOT is an optional approximate mode that introduces additional quantization error.** Out of the 15 quality regression tests, the official engine and both native modes pass 13 cases; full BFCL has not yet been evaluated. Precision results and supported scope can be found in the [Validation Report](docs/results.md) and [Grammar Documentation](docs/grammar.md).
+**FP32 is the default; SDOT is an optional approximate mode that adds quantization error.** The official engine and both native modes pass 13 of 15 tool-call quality cases; full BFCL has not been evaluated. Four-row SDOT is tested for exact equality with single-row arithmetic across 24 parameter combinations. See the [Validation Report](docs/results.md) and [Grammar Documentation](docs/grammar.md).
 
 <a id="快速开始"></a>
 ## Quickstart
@@ -82,9 +82,11 @@ See the [Usage Guide](docs/usage.md) for FP16 master conversion, Python API, and
 
 ## Implementation & References
 
-The engine computes Hadamard transforms on input activations, reads compressed codewords directly, and accumulates results via table lookups; decoding overhead is reduced through shared projection transforms, NEON/SDOT kernels, and prefix caching. Model architecture and quantization logic follow pinned upstream [Needle source](https://github.com/cactus-compute/needle/tree/53df049c4a1a82fca1027b81f9ff21336dfb0861) and [release weights](https://huggingface.co/Cactus-Compute/needle2/tree/32e9e3a93b205f786929697446ae669cf0a84579).
+The C++ engine shares one Hadamard input transform across Q/K/V/gate projections, reads packed CQ weights directly, and uses NEON FMA or optional SDOT integer dot products. SDOT computes four output rows together to reuse activation loads; ordinary matrix operations with fewer than 128 output rows run serially. Weights retain their packed row layout, and KV state remains FP32.
 
-For architecture, CQ format, and reference papers such as SAN, mHC, Engram, QuIP#, and LUT-GEMM, see [Research Notes](docs/research.md); for kernel implementation and optimization details, see [Native Engine](docs/native-engine.md).
+Fixed tool prefixes can be reused through the [NativeEngine prefix-cache API](docs/native-engine.md#固定-tools-前缀复用). Decoding computes full-vocabulary logits and applies schema constraints to select tool-call tokens. The four-row kernel is checked against single-row SDOT arithmetic across CQ2/CQ4, padding, tail rows, and 1/2/4 threads.
+
+Model architecture and quantization follow pinned [Needle source](https://github.com/cactus-compute/needle/tree/53df049c4a1a82fca1027b81f9ff21336dfb0861) and [release weights](https://huggingface.co/Cactus-Compute/needle2/tree/32e9e3a93b205f786929697446ae669cf0a84579). See the [Technical Reference](docs/research.md) for the architecture, CQ format, Arm intrinsics and Cactus kernel references; see the [Native Engine](docs/native-engine.md) for execution details and numerical limits.
 
 ## Agent Skills
 
@@ -101,7 +103,7 @@ You can also prompt an assistant directly: "Read `skills/openeedle-inference/SKI
 | [Build Guide](docs/build.md) | Automatic compilation, CMake, and precompiled deployment |
 | [Native Engine](docs/native-engine.md) | Kernel layout, optimization strategies, and platform capabilities |
 | [Backend Comparison](docs/backend-comparison.md) · [Validation Report](docs/results.md) | Measurement methodology, benchmark results, and reproduction commands |
-| [Research Notes](docs/research.md) | Model architecture, quantization format, pinned revisions, and references |
+| [Technical Reference](docs/research.md) | Model architecture, quantization format, pinned revisions, and references |
 
 ## License
 

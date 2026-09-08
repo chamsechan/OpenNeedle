@@ -302,7 +302,7 @@ python scripts/validate.py --output reports/reproduced/validation.json
 python scripts/validate_sdot.py --output reports/reproduced/sdot_model_error.json
 ```
 
-SDOT 验证需要支持 DotProd 的 Linux ARM64 CPU，输出是近似误差诊断。与官方库的转换回归、工具质量和性能比较涉及显式加载官方二进制，应按各脚本 `--help` 选择模型、库路径和输出文件。协议与既有结果见[实测报告](results.md)和[同轮后端对比](backend-comparison.md)；研究来源见[研究记录](research.md)。
+SDOT 验证需要支持 DotProd 的 Linux ARM64 CPU，输出是近似误差诊断。与官方库的转换回归、工具质量和性能比较涉及显式加载官方二进制，应按各脚本 `--help` 选择模型、库路径和输出文件。协议与既有结果见[实测报告](results.md)和[同轮后端对比](backend-comparison.md)；技术依据见[技术参考](research.md)。
 
 ## 当前工作区产物
 
