@@ -29,6 +29,7 @@ def main():
     p.add_argument('--threads', type=int, default=2)
     p.add_argument('--tokens', type=int, default=64)
     p.add_argument('--matmul', choices=['fp32', 'sdot'], default='fp32')
+    p.add_argument('--kv-cache', choices=['fp32', 'int8'], default='fp32')
     p.add_argument('--output', default='reports/native_profile.json')
     a = p.parse_args()
 
@@ -93,7 +94,7 @@ extern "C" void needle2_profile_reset() {
         int D=c.dim,N=c.lanes,H=c.heads,KV=c.kvheads,HD=c.head_dim,A=H*HD,K=KV*HD;
         if(token<0||token>=c.vocab)throw std::runtime_error("token outside vocabulary");
         if(!c.window&&position>=capacity)throw std::runtime_error("maximum context reached");
-        history.push_back(token);
+        history_ring[position%history_cap]=token;
         row(0,token,z.data());
         for(int n=0;n<N;++n)for(int d=0;d<D;++d)x[n*D+d]=z[d]*std::sqrt(float(D));
         engrams();
@@ -124,34 +125,28 @@ extern "C" void needle2_profile_reset() {
                 for(int h=0;h<H;++h) {float a=q[h*HD+j],b=q[h*HD+j+HD/2];q[h*HD+j]=a*co-b*si;q[h*HD+j+HD/2]=b*co+a*si;}
                 for(int h=0;h<KV;++h){float a=k[h*HD+j],b=k[h*HD+j+HD/2];k[h*HD+j]=a*co-b*si;k[h*HD+j+HD/2]=b*co+a*si;}
             }
-            auto *kc=keys.data()+size_t(l)*capacity*K,*vc=values.data()+size_t(l)*capacity*K;
-            std::copy(k.begin(),k.end(),kc+cache_slot(position)*K);std::copy(v.begin(),v.end(),vc+cache_slot(position)*K);
-            int prefix_count=c.window?std::min(prefix,position+1):0;
-            int start=c.window?std::max(prefix,position-c.window+1):0;
-            int length=prefix_count+std::max(0,position-start+1);
-            for(int h=0;h<H;) {
-                int kh=h/(H/KV),count=(h+1<H && (h+1)/(H/KV)==kh)?2:1;
-                float max0=-INFINITY,max1=-INFINITY,scale=1/std::sqrt(float(HD));
-                auto*s0=scores.data();auto*s1=scores.data()+capacity;
-                for(int s=0;s<length;++s) {
-                    int pos=cache_slot(s<prefix_count?s:start+s-prefix_count);
-                    if(count==2)dot_pair(q.data()+h*HD,q.data()+(h+1)*HD,kc+pos*K+kh*HD,HD,s0[s],s1[s]);
-                    else s0[s]=dot_f32(q.data()+h*HD,kc+pos*K+kh*HD,HD);
-                    s0[s]*=scale;max0=std::max(max0,s0[s]);
-                    if(count==2){s1[s]*=scale;max1=std::max(max1,s1[s]);}
+            int slot=cache_slot(position);
+            if(!int8_kv_enabled) {
+                auto *kc=keys.data()+size_t(l)*capacity*K,*vc=values.data()+size_t(l)*capacity*K;
+                std::copy(k.begin(),k.end(),kc+slot*K);std::copy(v.begin(),v.end(),vc+slot*K);
+            } else {
+                auto *kc_i8=keys_i8.data()+size_t(l)*capacity*K,*vc_i8=values_i8.data()+size_t(l)*capacity*K;
+                auto *ks=k_scales.data()+size_t(l)*capacity*KV,*vs=v_scales.data()+size_t(l)*capacity*KV;
+                for(int kh=0;kh<KV;++kh) {
+                    float max_k=0,max_v=0;
+                    const float*kp=k.data()+kh*HD,*vp=v.data()+kh*HD;
+                    for(int d=0;d<HD;++d){max_k=std::max(max_k,std::abs(kp[d]));max_v=std::max(max_v,std::abs(vp[d]));}
+                    float scale_k=max_k>0?max_k/127.0f:1.0f,scale_v=max_v>0?max_v/127.0f:1.0f;
+                    float inv_k=max_k>0?127.0f/max_k:0.0f,inv_v=max_v>0?127.0f/max_v:0.0f;
+                    ks[slot*KV+kh]=scale_k;vs[slot*KV+kh]=scale_v;
+                    int8_t*k_dst=kc_i8+slot*K+kh*HD,*v_dst=vc_i8+slot*K+kh*HD;
+                    for(int d=0;d<HD;++d){
+                        k_dst[d]=int8_t(std::max(-127.0f,std::min(127.0f,std::nearbyint(kp[d]*inv_k))));
+                        v_dst[d]=int8_t(std::max(-127.0f,std::min(127.0f,std::nearbyint(vp[d]*inv_v))));
+                    }
                 }
-                softmax_inplace(s0,length,max0);if(count==2)softmax_inplace(s1,length,max1);
-                auto *dst=att.data()+h*HD,*dst1=dst+HD;std::fill(dst,dst+count*HD,0);
-                for(int s=0;s<length;++s) {
-                    const auto *src=vc+cache_slot(s<prefix_count?s:start+s-prefix_count)*K+kh*HD;float prob=s0[s],prob1=count==2?s1[s]:0;
-                    int d=0;
-#ifdef __aarch64__
-                    for(;d+4<=HD;d+=4){auto value=vld1q_f32(src+d);vst1q_f32(dst+d,vfmaq_n_f32(vld1q_f32(dst+d),value,prob));if(count==2)vst1q_f32(dst1+d,vfmaq_n_f32(vld1q_f32(dst1+d),value,prob1));}
-#endif
-                    for(;d<HD;++d){dst[d]+=prob*src[d];if(count==2)dst1[d]+=prob1*src[d];}
-                }
-                h+=count;
             }
+            compute_attention(l, position, q.data(), att.data());
             sigmoid_gate(att.data(),gate.data(),A);
             activation_quant(att.data(),A,abits);linear(ti+7,att.data(),proj.data());
             rms(proj.data(),proj.data(),D,dense(ti+8));float ag=sigmoid(dense(ti+9)[0]);
@@ -181,7 +176,7 @@ extern "C" void needle2_profile_reset() {
         if(!c.window&&position>=capacity)throw std::runtime_error("maximum context reached");
         {
             ProfileScope s_in(PROF_INPUT_ENGRAM_RAW);
-            history.push_back(token);
+            history_ring[position%history_cap]=token;
             row(0,token,z.data());
             for(int n=0;n<N;++n)for(int d=0;d<D;++d)x[n*D+d]=z[d]*std::sqrt(float(D));
             engrams();
@@ -221,34 +216,28 @@ extern "C" void needle2_profile_reset() {
                     for(int h=0;h<H;++h) {float a=q[h*HD+j],b=q[h*HD+j+HD/2];q[h*HD+j]=a*co-b*si;q[h*HD+j+HD/2]=b*co+a*si;}
                     for(int h=0;h<KV;++h){float a=k[h*HD+j],b=k[h*HD+j+HD/2];k[h*HD+j]=a*co-b*si;k[h*HD+j+HD/2]=b*co+a*si;}
                 }
-                auto *kc=keys.data()+size_t(l)*capacity*K,*vc=values.data()+size_t(l)*capacity*K;
-                std::copy(k.begin(),k.end(),kc+cache_slot(position)*K);std::copy(v.begin(),v.end(),vc+cache_slot(position)*K);
-                int prefix_count=c.window?std::min(prefix,position+1):0;
-                int start=c.window?std::max(prefix,position-c.window+1):0;
-                int length=prefix_count+std::max(0,position-start+1);
-                for(int h=0;h<H;) {
-                    int kh=h/(H/KV),count=(h+1<H && (h+1)/(H/KV)==kh)?2:1;
-                    float max0=-INFINITY,max1=-INFINITY,scale=1/std::sqrt(float(HD));
-                    auto*s0=scores.data();auto*s1=scores.data()+capacity;
-                    for(int s=0;s<length;++s) {
-                        int pos=cache_slot(s<prefix_count?s:start+s-prefix_count);
-                        if(count==2)dot_pair(q.data()+h*HD,q.data()+(h+1)*HD,kc+pos*K+kh*HD,HD,s0[s],s1[s]);
-                        else s0[s]=dot_f32(q.data()+h*HD,kc+pos*K+kh*HD,HD);
-                        s0[s]*=scale;max0=std::max(max0,s0[s]);
-                        if(count==2){s1[s]*=scale;max1=std::max(max1,s1[s]);}
+                int slot=cache_slot(position);
+                if(!int8_kv_enabled) {
+                    auto *kc=keys.data()+size_t(l)*capacity*K,*vc=values.data()+size_t(l)*capacity*K;
+                    std::copy(k.begin(),k.end(),kc+slot*K);std::copy(v.begin(),v.end(),vc+slot*K);
+                } else {
+                    auto *kc_i8=keys_i8.data()+size_t(l)*capacity*K,*vc_i8=values_i8.data()+size_t(l)*capacity*K;
+                    auto *ks=k_scales.data()+size_t(l)*capacity*KV,*vs=v_scales.data()+size_t(l)*capacity*KV;
+                    for(int kh=0;kh<KV;++kh) {
+                        float max_k=0,max_v=0;
+                        const float*kp=k.data()+kh*HD,*vp=v.data()+kh*HD;
+                        for(int d=0;d<HD;++d){max_k=std::max(max_k,std::abs(kp[d]));max_v=std::max(max_v,std::abs(vp[d]));}
+                        float scale_k=max_k>0?max_k/127.0f:1.0f,scale_v=max_v>0?max_v/127.0f:1.0f;
+                        float inv_k=max_k>0?127.0f/max_k:0.0f,inv_v=max_v>0?127.0f/max_v:0.0f;
+                        ks[slot*KV+kh]=scale_k;vs[slot*KV+kh]=scale_v;
+                        int8_t*k_dst=kc_i8+slot*K+kh*HD,*v_dst=vc_i8+slot*K+kh*HD;
+                        for(int d=0;d<HD;++d){
+                            k_dst[d]=int8_t(std::max(-127.0f,std::min(127.0f,std::nearbyint(kp[d]*inv_k))));
+                            v_dst[d]=int8_t(std::max(-127.0f,std::min(127.0f,std::nearbyint(vp[d]*inv_v))));
+                        }
                     }
-                    softmax_inplace(s0,length,max0);if(count==2)softmax_inplace(s1,length,max1);
-                    auto *dst=att.data()+h*HD,*dst1=dst+HD;std::fill(dst,dst+count*HD,0);
-                    for(int s=0;s<length;++s) {
-                        const auto *src=vc+cache_slot(s<prefix_count?s:start+s-prefix_count)*K+kh*HD;float prob=s0[s],prob1=count==2?s1[s]:0;
-                        int d=0;
-#ifdef __aarch64__
-                        for(;d+4<=HD;d+=4){auto value=vld1q_f32(src+d);vst1q_f32(dst+d,vfmaq_n_f32(vld1q_f32(dst+d),value,prob));if(count==2)vst1q_f32(dst1+d,vfmaq_n_f32(vld1q_f32(dst1+d),value,prob1));}
-#endif
-                        for(;d<HD;++d){dst[d]+=prob*src[d];if(count==2)dst1[d]+=prob1*src[d];}
-                    }
-                    h+=count;
                 }
+                compute_attention(l, position, q.data(), att.data());
                 sigmoid_gate(att.data(),gate.data(),A);
             }
             {
@@ -289,9 +278,32 @@ extern "C" void needle2_profile_reset() {
     (dest / 'cq.cpp').write_text(profiler_header + cq)
 
     libpath = dest / 'profile.so'
+    import platform
+    flags = ['-O3', '-DNDEBUG', '-std=c++17', '-fPIC', '-shared', '-pthread']
+    if platform.system() == 'Darwin':
+        omp_candidates = [
+            (Path(sys.prefix) / 'include', Path(sys.prefix) / 'lib'),
+            (Path('/opt/homebrew/opt/libomp/include'), Path('/opt/homebrew/opt/libomp/lib')),
+            (Path('/usr/local/opt/libomp/include'), Path('/usr/local/opt/libomp/lib')),
+        ]
+        omp_found = False
+        for inc, lib in omp_candidates:
+            if (inc / 'omp.h').exists() and any(lib.glob('libomp*.dylib')):
+                flags += ['-Xpreprocessor', '-fopenmp', f'-I{inc}', f'-L{lib}', '-lomp']
+                omp_found = True
+                break
+        if not omp_found:
+            flags.append('-fopenmp')
+        sdk_includes = list(Path('/Library/Developer/CommandLineTools/SDKs').glob('MacOSX*.sdk/usr/include/c++/v1'))
+        if sdk_includes:
+            flags.append(f'-isystem{sorted(sdk_includes)[-1]}')
+    else:
+        flags.append('-fopenmp')
+        if platform.machine() in ('aarch64', 'arm64'):
+            flags.append('-march=armv8.2-a+dotprod')
+
     compile_cmd = [
-        'c++', '-O3', '-DNDEBUG', '-std=c++17', '-fPIC', '-shared', '-fopenmp',
-        '-march=armv8.2-a+dotprod',
+        os.environ.get('CXX', 'c++'), *flags,
         f'-I{dest}', f'-I{ROOT / "needle2/csrc"}',
         str(dest / 'cq.cpp'), '-o', str(libpath)
     ]
@@ -306,7 +318,8 @@ extern "C" void needle2_profile_reset() {
     engine = native.NativeEngine(
         ROOT / 'artifacts/official/needle2.cact',
         threads=a.threads,
-        matmul=a.matmul
+        matmul=a.matmul,
+        kv_cache=a.kv_cache
     )
     tok = RefTokenizer.from_cact(ROOT / 'artifacts/official/needle2.cact')
     tools = json.loads((ROOT / 'examples/tools.json').read_text())
@@ -355,6 +368,7 @@ extern "C" void needle2_profile_reset() {
 
     result = {
         'matmul': a.matmul,
+        'kv_cache': a.kv_cache,
         'threads': a.threads,
         'tokens': a.tokens,
         'tps': a.tokens / (whole_step / 1000.0) if whole_step > 0 else 0.0,

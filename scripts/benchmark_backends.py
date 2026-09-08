@@ -76,13 +76,12 @@ def worker(connection, spec, config):
             compiled = build_native()
             startup['compile_cache_ms'] = (time.perf_counter()-start)*1000
             start = time.perf_counter()
-            engine = NativeEngine(config['model'], threads=threads, matmul=kind)
+            engine = NativeEngine(config['model'], threads=threads, matmul=kind, kv_cache=config.get('kv_cache', 'fp32'))
             startup.update(load_ms=(time.perf_counter()-start)*1000,
                            native_library=str(compiled))
             start = time.perf_counter()
             engine.reset(prefix_len=len(prefix_ids))
-            for token in prefix_ids:
-                engine.step(token, compute_logits=False)
+            engine.prefill(prefix_ids, last_only=True)
             engine.cache_prefix()
             startup.update(prefix_setup_ms=(time.perf_counter()-start)*1000,
                            prefix_tokens=len(prefix_ids))
@@ -124,8 +123,12 @@ def worker(connection, spec, config):
                 decode_start = time.perf_counter()
                 forward_seconds = 0.0
                 steps = 0
+                candidates = None
                 for index in range(config['max_new_tokens']):
-                    token = grammar.select(logits)
+                    if candidates is not None:
+                        token = grammar.select_candidate(candidates, logits)
+                    else:
+                        token = grammar.select(logits)
                     grammar.accept(token)
                     output.append(token)
                     if token in (1, 5) or grammar.finished or index == config['max_new_tokens']-1:
@@ -134,7 +137,15 @@ def worker(connection, spec, config):
                     if kind == 'torch':
                         logits, cache = consume([token], cache)
                     else:
-                        logits = engine.step(token)
+                        candidates = grammar.candidate_tokens()
+                        if candidates is not None:
+                            if len(candidates) == 1:
+                                engine.step(token, compute_logits=False)
+                                logits = np.array([0.0], dtype=np.float32)
+                            else:
+                                logits = engine.step_candidates(token, candidates)
+                        else:
+                            logits = engine.step(token)
                     forward_seconds += time.perf_counter()-forward_start
                     steps += 1
                 decode_ms = (time.perf_counter()-decode_start)*1000
@@ -164,13 +175,17 @@ def worker(connection, spec, config):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--model', default='artifacts/official/needle2.cact')
-    parser.add_argument('--library', default='artifacts/official/python/libneedle.so')
+    default_lib = 'artifacts/official/python/libneedle.so'
+    if not Path(default_lib).exists() and Path('artifacts/official/libneedle.dylib').exists():
+        default_lib = 'artifacts/official/libneedle.dylib'
+    parser.add_argument('--library', default=default_lib)
     parser.add_argument('--tools', default='examples/tools.json')
     parser.add_argument('--cases', default='benchmarks/cases.jsonl')
     parser.add_argument('--native-threads', type=int, default=4)
     parser.add_argument('--torch-threads', default='1,2,4')
     parser.add_argument('--repeat', type=int, default=5)
     parser.add_argument('--max-new-tokens', type=int, default=128)
+    parser.add_argument('--kv-cache', choices=['fp32', 'int8'], default='fp32')
     parser.add_argument('--affinity', default='0,1,2,3')
     parser.add_argument('--output', default='reports/backend_comparison.json')
     args = parser.parse_args()
@@ -200,7 +215,8 @@ def main():
              dict(name='native_sdot',kind='sdot',threads=args.native_threads)]
     specs += [dict(name=f'pytorch_t{threads}',kind='torch',threads=threads) for threads in torch_threads]
     config = dict(model=str(Path(args.model).resolve()),library=str(Path(args.library).resolve()),
-                  tools=tools,prefix_ids=prefix_ids,cpus=cpus,max_new_tokens=args.max_new_tokens)
+                  tools=tools,prefix_ids=prefix_ids,cpus=cpus,max_new_tokens=args.max_new_tokens,
+                  kv_cache=args.kv_cache)
     sources = [Path(__file__), *sorted((ROOT/'needle2').rglob('*.py')),*sorted((ROOT/'needle2/csrc').glob('*.cpp'))]
     source_hashes = {str(p.relative_to(ROOT)):sha256(p) for p in sources}
     report = dict(created_utc=datetime.now(timezone.utc).isoformat(),hardware=hardware(),
