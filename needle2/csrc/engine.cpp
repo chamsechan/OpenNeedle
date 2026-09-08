@@ -215,7 +215,7 @@ class PersistentThreadPool {
     void worker_loop(int tid) {
         uint64_t my_task = 1;
         int spin_count = 0;
-        const int max_spins = 50000;
+        const int max_spins = 200000;
         while (!stop.load(std::memory_order_relaxed)) {
             if (current_task.load(std::memory_order_acquire) >= my_task) {
                 task_fn(task_ctx, tid, states[tid].start, states[tid].end);
@@ -234,12 +234,16 @@ class PersistentThreadPool {
 #endif
                 } else {
                     std::unique_lock<std::mutex> lock(cv_mutex);
-                    sleeping_workers.fetch_add(1, std::memory_order_relaxed);
+                    if (current_task.load(std::memory_order_acquire) >= my_task) {
+                        spin_count = 0;
+                        continue;
+                    }
+                    sleeping_workers.fetch_add(1, std::memory_order_acq_rel);
                     cv.wait(lock, [&] {
                         return stop.load(std::memory_order_relaxed) ||
-                               current_task.load(std::memory_order_relaxed) >= my_task;
+                               current_task.load(std::memory_order_acquire) >= my_task;
                     });
-                    sleeping_workers.fetch_sub(1, std::memory_order_relaxed);
+                    sleeping_workers.fetch_sub(1, std::memory_order_acq_rel);
                     spin_count = 0;
                 }
             }
@@ -255,7 +259,10 @@ public:
 
     ~PersistentThreadPool() {
         stop.store(true, std::memory_order_release);
-        cv.notify_all();
+        {
+            std::lock_guard<std::mutex> lock(cv_mutex);
+            cv.notify_all();
+        }
         for (auto& w : workers) {
             if (w.joinable()) w.join();
         }
@@ -281,7 +288,8 @@ public:
 
         uint64_t target = current_task.load(std::memory_order_relaxed) + 1;
         current_task.store(target, std::memory_order_release);
-        if (sleeping_workers.load(std::memory_order_relaxed) > 0) {
+        if (sleeping_workers.load(std::memory_order_acquire) > 0) {
+            std::lock_guard<std::mutex> lock(cv_mutex);
             cv.notify_all();
         }
 
@@ -301,6 +309,10 @@ public:
                     std::this_thread::yield();
 #endif
                 } else {
+                    {
+                        std::lock_guard<std::mutex> lock(cv_mutex);
+                        cv.notify_all();
+                    }
                     std::this_thread::yield();
                 }
             }
