@@ -1,0 +1,16 @@
+{"id":"light_kitchen_on","query":"Turn on the kitchen light.","expected_calls":[{"name":"set_light","arguments":{"room":"kitchen","on":true}}]}
+{"id":"light_bedroom_off","query":"Turn off the bedroom light.","expected_calls":[{"name":"set_light","arguments":{"room":"bedroom","on":false}}]}
+{"id":"timer_5min","query":"Set a timer for 5 minutes.","expected_calls":[{"name":"set_timer","arguments":{"minutes":5}}]}
+{"id":"timer_15min","query":"Set a timer for 15 minutes.","expected_calls":[{"name":"set_timer","arguments":{"minutes":15}}]}
+{"id":"volume_30pct","query":"Set the volume to 30 percent.","expected_calls":[{"name":"set_volume","arguments":{"percent":30}}]}
+{"id":"volume_80pct","query":"Set the volume to 80 percent.","expected_calls":[{"name":"set_volume","arguments":{"percent":80}}]}
+{"id":"weather_seattle","query":"What is the weather in Seattle?","expected_calls":[{"name":"get_weather","arguments":{"city":"Seattle"}}]}
+{"id":"weather_paris","query":"What is the weather in Paris?","expected_calls":[{"name":"get_weather","arguments":{"city":"Paris"}}]}
+{"id":"music_bohemian","query":"Play Bohemian Rhapsody.","expected_calls":[{"name":"play_music","arguments":{"song":"Bohemian Rhapsody"}}]}
+{"id":"music_hotel_california","query":"Play Hotel California.","expected_calls":[{"name":"play_music","arguments":{"song":"Hotel California"}}]}
+{"id":"thermostat_72","query":"Set the thermostat to 72 degrees.","expected_calls":[{"name":"set_thermostat","arguments":{"temperature":72}}]}
+{"id":"thermostat_68","query":"Set the thermostat to 68 degrees.","expected_calls":[{"name":"set_thermostat","arguments":{"temperature":68}}]}
+{"id":"message_bob","query":"Send a message to Bob saying Happy Birthday!","expected_calls":[{"name":"send_message","arguments":{"recipient":"Bob","message":"Happy Birthday!"}}]}
+{"id":"message_alice","query":"Send a message to Alice saying I am on my way home.","expected_calls":[{"name":"send_message","arguments":{"recipient":"Alice","message":"I am on my way home"}}]}
+{"id":"brightness_50","query":"Set the brightness to 50 percent.","expected_calls":[{"name":"set_brightness","arguments":{"percent":50}}]}
+{"id":"brightness_100","query":"Set screen brightness to 100 percent.","expected_calls":[{"name":"set_brightness","arguments":{"percent":100}}]}

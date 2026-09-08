@@ -1,0 +1,92 @@
+[
+  {
+    "name": "set_light",
+    "description": "Turn the light in a named room on or off.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "room": {"type": "string", "description": "The room name spoken by the user."},
+        "on": {"type": "boolean", "description": "True to turn on, false to turn off."}
+      },
+      "required": ["room", "on"]
+    }
+  },
+  {
+    "name": "set_timer",
+    "description": "Start a countdown timer for the requested number of minutes.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "minutes": {"type": "integer", "description": "Timer duration in minutes."}
+      },
+      "required": ["minutes"]
+    }
+  },
+  {
+    "name": "set_volume",
+    "description": "Set the speaker volume to a percentage from 0 to 100.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "percent": {"type": "integer", "description": "Volume percentage from 0 to 100."}
+      },
+      "required": ["percent"]
+    }
+  },
+  {
+    "name": "get_weather",
+    "description": "Get the current weather for a given city.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "city": {"type": "string", "description": "The city name."}
+      },
+      "required": ["city"]
+    }
+  },
+  {
+    "name": "play_music",
+    "description": "Play a song or music track.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "song": {"type": "string", "description": "The name of the song."}
+      },
+      "required": ["song"]
+    }
+  },
+  {
+    "name": "set_thermostat",
+    "description": "Set the target temperature on the thermostat.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "temperature": {"type": "integer", "description": "The target temperature."}
+      },
+      "required": ["temperature"]
+    }
+  },
+  {
+    "name": "send_message",
+    "description": "Send a message to a contact.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "recipient": {"type": "string", "description": "Name of the recipient."},
+        "message": {"type": "string", "description": "Body of the message."}
+      },
+      "required": ["recipient", "message"]
+    }
+  },
+  {
+    "name": "set_brightness",
+    "description": "Set display or screen brightness percentage.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "percent": {"type": "integer", "description": "Brightness percentage from 0 to 100."}
+      },
+      "required": ["percent"]
+    }
+  }
+]
