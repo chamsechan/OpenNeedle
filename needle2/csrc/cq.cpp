@@ -107,6 +107,49 @@ struct CQ {
         for(;i<group;++i) sum+=weight(p,i)*x[i];
         return sum;
     }
+    void group_dot_pair(const uint8_t *p, const float *x0, const float *x1, float &sum0, float &sum1) const {
+        int i=0;
+#ifdef __aarch64__
+        float32x4_t a0=vdupq_n_f32(0),b0=vdupq_n_f32(0),c0=vdupq_n_f32(0),d0=vdupq_n_f32(0);
+        float32x4_t a1=vdupq_n_f32(0),b1=vdupq_n_f32(0),c1=vdupq_n_f32(0),d1=vdupq_n_f32(0);
+        if (storage_bits==2) {
+            for (;i+16<=group;i+=16) {
+                float32x4_t w0=vld1q_f32(lut[p[i/4]]);
+                a0=vfmaq_f32(a0,w0,vld1q_f32(x0+i));
+                a1=vfmaq_f32(a1,w0,vld1q_f32(x1+i));
+                float32x4_t w1=vld1q_f32(lut[p[i/4+1]]);
+                b0=vfmaq_f32(b0,w1,vld1q_f32(x0+i+4));
+                b1=vfmaq_f32(b1,w1,vld1q_f32(x1+i+4));
+                float32x4_t w2=vld1q_f32(lut[p[i/4+2]]);
+                c0=vfmaq_f32(c0,w2,vld1q_f32(x0+i+8));
+                c1=vfmaq_f32(c1,w2,vld1q_f32(x1+i+8));
+                float32x4_t w3=vld1q_f32(lut[p[i/4+3]]);
+                d0=vfmaq_f32(d0,w3,vld1q_f32(x0+i+12));
+                d1=vfmaq_f32(d1,w3,vld1q_f32(x1+i+12));
+            }
+        } else if (storage_bits==4) {
+            for (;i+16<=group;i+=16) {
+                auto w0=vcombine_f32(vld1_f32(lut[p[i/2]]),vld1_f32(lut[p[i/2+1]]));
+                auto w1=vcombine_f32(vld1_f32(lut[p[i/2+2]]),vld1_f32(lut[p[i/2+3]]));
+                auto w2=vcombine_f32(vld1_f32(lut[p[i/2+4]]),vld1_f32(lut[p[i/2+5]]));
+                auto w3=vcombine_f32(vld1_f32(lut[p[i/2+6]]),vld1_f32(lut[p[i/2+7]]));
+                a0=vfmaq_f32(a0,w0,vld1q_f32(x0+i));a1=vfmaq_f32(a1,w0,vld1q_f32(x1+i));
+                b0=vfmaq_f32(b0,w1,vld1q_f32(x0+i+4));b1=vfmaq_f32(b1,w1,vld1q_f32(x1+i+4));
+                c0=vfmaq_f32(c0,w2,vld1q_f32(x0+i+8));c1=vfmaq_f32(c1,w2,vld1q_f32(x1+i+8));
+                d0=vfmaq_f32(d0,w3,vld1q_f32(x0+i+12));d1=vfmaq_f32(d1,w3,vld1q_f32(x1+i+12));
+            }
+        }
+        sum0=vaddvq_f32(vaddq_f32(vaddq_f32(a0,b0),vaddq_f32(c0,d0)));
+        sum1=vaddvq_f32(vaddq_f32(vaddq_f32(a1,b1),vaddq_f32(c1,d1)));
+#else
+        sum0=0; sum1=0;
+#endif
+        for(;i<group;++i) {
+            float w=weight(p,i);
+            sum0+=w*x0[i];
+            sum1+=w*x1[i];
+        }
+    }
     void transform(const float *x,float *rot) const {
         std::copy(x,x+in,rot);std::fill(rot+in,rot+padded,0);
         for(int g=0;g<groups;++g) hadamard(rot+g*group,group);
@@ -125,7 +168,32 @@ struct CQ {
 #ifdef _OPENMP
 #pragma omp parallel for num_threads(threads) if(threads > 1) schedule(static)
 #endif
-        for(int r=0;r<batch*out;++r) y[r]=dot_row(r%out,rot.data()+size_t(r/out)*padded);
+        for(int r=0;r<out;++r) {
+            const auto *p=packed+size_t(r)*rowbytes;
+            const auto *s=norms+size_t(r)*groups;
+            int b=0;
+            for(;b+2<=batch;b+=2) {
+                const float *rot0=rot.data()+size_t(b)*padded;
+                const float *rot1=rot.data()+size_t(b+1)*padded;
+                float sum0=0,sum1=0;
+                for(int g=0;g<groups;++g) {
+                    float norm=half_float(s[g]);
+                    float g0=0,g1=0;
+                    group_dot_pair(p+g*group*storage_bits/8,rot0+g*group,rot1+g*group,g0,g1);
+                    sum0+=g0*norm;sum1+=g1*norm;
+                }
+                y[size_t(b)*out+r]=sum0;
+                y[size_t(b+1)*out+r]=sum1;
+            }
+            for(;b<batch;++b) {
+                const float *rot_b=rot.data()+size_t(b)*padded;
+                float sum=0;
+                for(int g=0;g<groups;++g) {
+                    sum+=group_dot(p+g*group*storage_bits/8,rot_b+g*group)*half_float(s[g]);
+                }
+                y[size_t(b)*out+r]=sum;
+            }
+        }
     }
     // Activation-dependent exact FP32 sums. Modes 1/3 use one 256-entry
     // table per packed byte; mode 2 uses 16-entry tables per 2 CQ2 values.

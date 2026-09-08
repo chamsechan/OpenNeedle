@@ -391,5 +391,48 @@ def test_int8_kv_cache_accuracy_and_snapshot():
     assert corr > 0.98, f"Expected high correlation with INT8 KV, got {corr}"
 
 
+def test_native_batched_prefill_matches_step_and_torch():
+    """Verify native batched prefill matches token-by-token step across multiple chunks."""
+    from test_model import tiny_model
+    from needle2.archive import FP32, CQ, TensorRecord
+    from needle2.quantize import quantize_matrix, codebook
+    from types import SimpleNamespace
+    from needle2.native import NativeEngine, sdot_available
+
+    model = tiny_model(window=0)
+    records = {}
+    for name, tensor in model.canonical_state_dict().items():
+        a = tensor.numpy()
+        if a.ndim == 2 and (name == "embedding" or name.endswith("_proj") or name.endswith(".tables")):
+            packed, norms = quantize_matrix(a, bits=2)
+            records[name] = TensorRecord(name, CQ, a.shape, packed.tobytes() + norms.tobytes(), 128, 2, codebook(2, 128))
+        else:
+            records[name] = TensorRecord(name, FP32, a.shape, a.tobytes())
+    meta = model.config.to_dict()
+    meta["hada_n"] = 16
+    archive = SimpleNamespace(metadata=meta, tensors=records)
+
+    # Test sequence of 45 tokens (crosses chunk boundary of 32)
+    tokens = np.random.RandomState(42).randint(1, 31, size=45).astype(np.int32)
+
+    for kv_mode in ("fp32", "int8"):
+        for matmul in ["fp32"] + (["sdot"] if sdot_available() else []):
+            engine_step = NativeEngine(archive, threads=2, matmul=matmul, kv_cache=kv_mode)
+            engine_pref = NativeEngine(archive, threads=2, matmul=matmul, kv_cache=kv_mode)
+
+            step_all = np.stack([engine_step.step(int(t)) for t in tokens])
+            pref_all = engine_pref.prefill(tokens, last_only=False)
+
+            np.testing.assert_allclose(pref_all, step_all, atol=2e-6, rtol=5e-5)
+            assert engine_pref.position == len(tokens)
+
+            # Test last_only
+            engine_last = NativeEngine(archive, threads=2, matmul=matmul, kv_cache=kv_mode)
+            pref_last = engine_last.prefill(tokens, last_only=True)
+            np.testing.assert_allclose(pref_last, step_all[-1], atol=2e-6, rtol=5e-5)
+            assert engine_last.position == len(tokens)
+
+
+
 
 

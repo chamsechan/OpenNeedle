@@ -451,11 +451,35 @@ class NativeEngine:
             return self._torch_prefill(ids, last_only)
         if backend != "native":
             raise ValueError("prefill backend must be 'native' or 'torch'")
+        ids_c = np.ascontiguousarray(ids, dtype=np.int32)
+        num_tokens = int(ids.size)
+        vocab_size = int(self.metadata["vocab_size"])
         if last_only:
-            for token in ids[:-1]:
-                self.step(int(token), compute_logits=False)
-            return self.step(int(ids[-1]))
-        return np.stack([self.step(int(i)) for i in ids])
+            logits = np.empty(vocab_size, dtype=np.float32)
+        else:
+            logits = np.empty((num_tokens, vocab_size), dtype=np.float32)
+        lib = self._lib
+        lib.needle2_engine_prefill.argtypes = [
+            ct.c_void_p,
+            ct.POINTER(ct.c_int),
+            ct.c_int,
+            ct.c_int,
+            ct.POINTER(ct.c_float),
+            ct.POINTER(ct.c_float),
+        ]
+        lib.needle2_engine_prefill.restype = ct.c_int
+        status = lib.needle2_engine_prefill(
+            self._handle,
+            ids_c.ctypes.data_as(ct.POINTER(ct.c_int)),
+            num_tokens,
+            1 if last_only else 0,
+            logits.ctypes.data_as(ct.POINTER(ct.c_float)),
+            None,
+        )
+        if status:
+            raise RuntimeError(self._lib.needle2_engine_error().decode())
+        self.position += num_tokens
+        return logits
 
     def _torch_prefill(self, ids, last_only):
         import torch
