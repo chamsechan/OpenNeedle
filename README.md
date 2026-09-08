@@ -7,9 +7,9 @@
   <img src="docs/assets/openeedle-hero-light.svg" width="1200" alt="OpenNeedle 压缩推理流程与 CPU 速度对比：官方 407.80、OpenNeedle SDOT 168.21、原生 FP32 133.24、PyTorch 9.35 token/s。SDOT 为近似模式；完整条件见下方性能说明。">
 </picture>
 
-**Needle 2 的开放复现：PyTorch 双向转换、量化训练与独立 CPU 推理。**
+**面向 Needle 2 的开源 CPU 推理引擎与 PyTorch 工具链。**
 
-OpenNeedle 基于公开论文、官方源码和发布权重，实现 Needle 2 的 CQ2/CQ4 混合量化格式与模型前向。你可以将官方模型转为可训练的 PyTorch 模型，重新量化为官方兼容的 `.cact`，或直接使用独立 C++ 引擎运行压缩权重。
+OpenNeedle 支持 CQ2/CQ4 压缩权重直接推理、官方模型与 PyTorch 双向转换，以及微调和量化感知训练（QAT）。独立 C++ 引擎提供 FP32 与 ARM SDOT 路径，支持前缀缓存和工具调用约束解码。
 
 [快速开始](#快速开始) · [模型转换](#模型转换) · [实现原理](#实现原理) · [优化策略](#优化策略) · [复现实验](#复现实验) · [参考资料](#参考资料) · [高级用法](docs/usage.md)
 
@@ -24,17 +24,17 @@ OpenNeedle 基于公开论文、官方源码和发布权重，实现 Needle 2 �
 | **OpenNeedle · SDOT 近似模式** | 4 | **168.21 token/s** | **159.9 ms** |
 | PyTorch FP32 参考模型 | 2 | 9.35 token/s | 1803.3 ms |
 
-以上为本轮中位数。原生 FP32 / SDOT 的解码吞吐分别约为 PyTorch 的 **14.2× / 18.0×**；SDOT 达到同轮官方的 **41.2%**，仍有明显差距。PyTorch 的 1/2/4 线程均约 9.2–9.4 token/s，本次使用 CPU eager，未启用 `torch.compile`。
+表中为测量中位数。原生 FP32 / SDOT 的解码吞吐分别为 PyTorch 的 **14.2× / 18.0×**；SDOT 为官方的 **41.2%**。PyTorch 基线使用 CPU eager，未启用 `torch.compile`。
 
-独立路径计入缓存恢复、query prefill、grammar 和 decode，不计预分词、输出解析与首次加载。官方内部工作量及 TPS 定义有所不同，速度比属于应用层比较。首次前缀成本、全部样本与计时边界见 [测速报告](docs/backend-comparison.md)；原始数据见 [backend_comparison.json](reports/backend_comparison.json)。
+OpenNeedle 热请求计入缓存恢复、query prefill、grammar 和 decode，不计预分词、输出解析与首次加载。官方内部工作量及 TPS 定义有所不同，以上为应用层比较。完整计时口径见 [测速报告](docs/backend-comparison.md)，原始数据见 [backend_comparison.json](reports/backend_comparison.json)。
 
-**默认使用 FP32。** SDOT 会额外舍入激活和码本：64 个位置的诊断中，logits 相对 L2 误差为 0.335%，top-1 一致率为 62/64。本轮速度回归中，各后端 15/15 次调用正确，所有独立路径的生成 token 一致；这不代表完整任务精度已经与官方对齐。
+**默认使用 FP32；SDOT 为可选近似模式。** SDOT 额外量化激活和码本，64 个位置的诊断中 logits 相对 L2 误差为 0.335%，top-1 一致率为 62/64。更多结果见 [精度验证](#精度验证)。
 
 ## 快速开始
 
 需要 **Python ≥ 3.10**。原生后端还需要支持 **C++17 和 OpenMP** 的编译器；已实测 Linux ARM64，SDOT 额外要求 CPU 支持 DotProd 指令。
 
-首次获取项目并运行；已在仓库根目录时跳过前两行：
+安装并运行工具调用示例：
 
 ```bash
 git clone https://github.com/chamsechan/OpenNeedle.git
@@ -43,7 +43,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e .
 
-# 首次准备模型；已有 artifacts/official/needle2.cact 时可跳过
+# 下载固定版本的官方模型
 python scripts/download_official.py
 
 # 独立原生推理：默认 FP32、工具 schema 约束
@@ -59,7 +59,7 @@ python -m needle2 run artifacts/official/needle2.cact \
 [{"name": "set_light", "arguments": {"room": "kitchen", "on": true}}]
 ```
 
-首次原生调用会编译随包提供的 C++ 源码并缓存到 `~/.cache/needle2`。推理命令生成工具调用，不执行工具；无需加载官方闭源库。模型、构建产物和本地缓存不随源码分发，下载器固定官方发布版本。
+首次原生调用会自动编译 C++ 内核并缓存到 `~/.cache/needle2`，无需官方闭源库。命令返回工具调用 JSON，工具执行由应用接入。
 
 切换后端只需调整参数：
 
@@ -96,7 +96,7 @@ python -m needle2 to-torch artifacts/official/checkpoints/needle2.pkl \
 python -m needle2 quantize artifacts/pytorch_master artifacts/from_master.cact
 ```
 
-转换目录包含 `weights.safetensors`、`config.json` 和 `source.cact`。后两者保存模型结构、tokenizer、码本与原始压缩数据，必须随权重一起保留。**未改动的张量恢复原始压缩字节；修改过的张量重新执行 CQ 量化。** 从发布模型转换不会恢复量化前的 master 精度，转换器面向相同 Needle 2 架构。
+转换器支持相同 Needle 2 架构。输出目录中的 `weights.safetensors`、`config.json` 和 `source.cact` 应一并保留，用于保存权重、模型结构、tokenizer 和量化元数据。重新导出时，**未改动的张量保留原始压缩字节，修改过的张量执行 CQ 量化**。部署权重反量化后的精度以原量化结果为限；微调可从上述 FP16 master 开始。
 
 可训练模型使用普通 `nn.Module` 接口：
 
@@ -113,9 +113,9 @@ logits = model(torch.tensor([[2, 4, 123, 5]]))  # [batch, time, 8192]
 
 ## 实现原理
 
-### 发布架构与执行路径
+### 模型架构与执行路径
 
-实现规格来自锁定的官方 `architecture.py`、`quantize.py`、`export.py` 和 `decode.py`。发布模型包含 **27 层、512 维隐藏状态、8 个 Q heads / 4 个 KV heads、四路 mHC 和 Hadamard MLP**；Engram 注入层的索引为 **2、15（从 0 开始）**。SAN 论文提供设计背景，完整发布架构以源码和模型文件为准。
+发布模型包含 **27 层、512 维隐藏状态、8 个 Q heads / 4 个 KV heads、四路 mHC 和 Hadamard MLP**，Engram 注入第 3、16 层。实现依据为固定版本的官方架构、量化、导出与解码源码；对应版本见 [参考资料](#参考资料)。
 
 ```mermaid
 flowchart LR
@@ -131,7 +131,7 @@ flowchart LR
 
 ### CQ2.2 量化与压缩计算
 
-**“2.2”是混合权重位宽，不是 2.2B 参数。** 发布文件包含 43,634,423 个部署参数，采用 `embedding=4,mhc=4,default=2`、128 维分组。量化码字的加权位宽约为 2.255 bit；加入 FP16 norms 和高精度小张量后，数值 payload 为 2.494 bit/weight。完整文件为 13,737,807 字节。[格式与统计](docs/research.md)
+发布模型采用 `embedding=4,mhc=4,default=2` 的混合量化配置和 128 维分组，包含 **43.6M 部署参数**，文件大小为 **13.74 MB**。码字平均位宽为 2.255 bit，计入 FP16 norms 与高精度小张量后，数值载荷为 2.494 bit/weight。文件布局与逐张量统计见 [格式说明](docs/research.md)。
 
 对一个非零权重分组，令 `H` 为归一化 Hadamard 矩阵，`C` 为文件内嵌的非均匀 Lloyd-Max 码本：
 
@@ -168,9 +168,9 @@ w_hatᵀ x = FP16(n) · C[q]ᵀ (H x)
 | 前缀缓存与按需词表投影 | 固定工具描述只预计算一次，跳过不需要的 prefill logits | 快照额外保存前缀 KV 和 Engram 状态 |
 | PyTorch 批量 prefill | 批量计算初始 prompt，再交给 native decode | 额外保留约 175 MB FP32 权重 |
 
-具体启用条件、缓存 API 和原始优化实验见 [原生引擎说明](docs/native-engine.md)。这些策略分别验证，单矩阵加速比不直接代表整网提速。
+内核启用条件、缓存 API 与优化实验见 [原生引擎说明](docs/native-engine.md)；整网性能见上方 [当前性能](#当前性能)。
 
-## 精度与复现状态
+## 精度验证
 
 | 检验 | 已验证结果 | 证据 |
 |---|---|---|
@@ -180,7 +180,7 @@ w_hatᵀ x = FP16(n) · C[q]ᵀ (H x)
 | 固定 15 项质量案例 | 官方、原生 FP32、SDOT 均正确 13 项；两个独立模式生成序列一致 | [quality.json](reports/quality.json)、[quality_sdot.json](reports/quality_sdot.json) |
 | 测试与安装 | 61 项测试、4 项子测试通过；wheel 在独立环境安装并重新编译验证 | [pytest.txt](reports/pytest.txt)、[wheel_install.json](reports/wheel_install.json) |
 
-默认原生路径以公开 FP32 参考计算为目标；公开 C ABI 不提供 logits 导出，无法直接证明与闭源整数引擎逐元素一致。15 项质量案例是小型回归，区别于上方 3 组请求 × 5 次的速度测试；完整 BFCL、官方置信度校准、自动工具检索及全部 grammar 行为尚未复刻。详细边界见 [实测报告](docs/results.md) 和 [grammar 支持范围](docs/grammar.md)。
+数值对齐以公开 FP32 参考实现为基准，官方闭源库通过工具调用结果对照。质量验证覆盖 15 项回归案例，完整 BFCL 尚未评估；官方置信度校准、自动工具检索与部分 grammar 行为尚未实现。验证方法见 [实测报告](docs/results.md)，支持的 schema 见 [grammar 文档](docs/grammar.md)。
 
 ## 复现实验
 
@@ -193,7 +193,7 @@ python scripts/validate.py
 python scripts/validate_sdot.py  # 需要 ARM DotProd
 ```
 
-准备官方基线库，再复现首页的同轮对比：
+准备官方基线库并运行速度对比：
 
 ```bash
 python scripts/benchmark_official.py --fetch-library --repeat 1
@@ -202,22 +202,22 @@ OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python scripts/benchmark_backends.py \
   --output reports/backend_comparison.json
 ```
 
-官方库仅由明确的比较脚本使用。测速应串行运行，避免与编译、训练或其他 CPU 密集任务重叠；报告记录模型/源码哈希、线程配置、全部样本和运行负载。可选 JAX oracle、质量评估及更细的 kernel 测量见 [使用指南](docs/usage.md)。
+测速应串行运行，避免与其他 CPU 密集任务重叠。报告记录模型与源码哈希、线程配置、全部样本和运行负载。JAX 参考验证、质量评估及内核测速见 [使用指南](docs/usage.md)。
 
 ## 参考资料
 
-以下资料分别用于实现规格、设计背景和工程参考。**具体模型结构、码本、参数化和文件布局以锁定的 Needle 源码与发布模型为准。**
+模型结构、量化数值和文件布局依据固定版本的 Needle 源码与发布权重；相关论文用于架构与算法研究。
 
 | 资料 | 在 OpenNeedle 中的用途 |
 |---|---|
 | [Needle 官方源码 · `53df049`](https://github.com/cactus-compute/needle/tree/53df049c4a1a82fca1027b81f9ff21336dfb0861) | 直接实现依据：架构、CQ 数值、CACT/tokenizer 与缓存前向 |
 | [Needle 2 官方模型 · `32e9e3a`](https://huggingface.co/Cactus-Compute/needle2/tree/32e9e3a93b205f786929697446ae669cf0a84579) | 配置、部署权重、FP16 master 与官方比较基线 |
 | [A Controlled Study of Attention-Only Transformers](https://arxiv.org/abs/2607.18363v1) | SAN 架构研究背景；完整 Needle 2 发布规格还包含源码中的扩展 |
-| [Cactus Quants](https://github.com/cactus-compute/cactus/blob/09cb35ab29aaad66189615192d27d84bebbc0522/docs/cactus_quants.md) / [公开 CQ kernels](https://github.com/cactus-compute/cactus/blob/09cb35ab29aaad66189615192d27d84bebbc0522/cactus-kernels/src/matmul.cpp) | activation 侧 Hadamard、分组缩放、查表和 ARM SDOT 的工程参考；这不是 Needle 闭源库源码 |
+| [Cactus Quants](https://github.com/cactus-compute/cactus/blob/09cb35ab29aaad66189615192d27d84bebbc0522/docs/cactus_quants.md) / [公开 CQ kernels](https://github.com/cactus-compute/cactus/blob/09cb35ab29aaad66189615192d27d84bebbc0522/cactus-kernels/src/matmul.cpp) | Cactus 通用引擎的 activation 侧 Hadamard、分组缩放、查表与 ARM SDOT 工程参考 |
 | [mHC: Manifold-Constrained Hyper-Connections](https://arxiv.org/abs/2512.24880v2) | 多路残差流和双随机 routing 的背景；具体参数化采用 Needle 源码 |
 | [Conditional Memory via Scalable Lookup: A New Axis of Sparsity for Large Language Models](https://arxiv.org/abs/2601.07372v2) | Engram 的 n-gram 条件存储背景；散列、表尺寸和注入层采用发布配置 |
-| [QuIP#: Even Better LLM Quantization with Hadamard Incoherence and Lattice Codebooks](https://arxiv.org/abs/2402.04396v2) | Hadamard 与低比特码本量化的背景；本项目使用 CQ 标量码本，不采用 QuIP# 的 E8 向量码本 |
-| [LUT-GEMM: Quantized Matrix Multiplication based on LUTs for Efficient Inference in Large-Scale Generative Language Models](https://arxiv.org/abs/2206.09557v4) | 查表计算与减少反量化开销的背景；其 GPU 性能结论不作为本项目 CPU 结果 |
+| [QuIP#: Even Better LLM Quantization with Hadamard Incoherence and Lattice Codebooks](https://arxiv.org/abs/2402.04396v2) | Hadamard 变换与低比特码本量化的研究背景 |
+| [LUT-GEMM: Quantized Matrix Multiplication based on LUTs for Efficient Inference in Large-Scale Generative Language Models](https://arxiv.org/abs/2206.09557v4) | 查表矩阵乘法与减少反量化开销的研究背景 |
 
 公式推导、文件布局、公开参考与生产数值差异详见 [研究记录](docs/research.md)。
 
@@ -243,4 +243,4 @@ OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python scripts/benchmark_backends.py \
 
 ## 许可证
 
-OpenNeedle 源码采用 [Apache-2.0](LICENSE)。上游实现归因见 [NOTICE](NOTICE)；下载的官方权重与基线库保留各自上游许可。官方模型、闭源比较库及大型生成文件不包含在源码包中。
+OpenNeedle 源码采用 [Apache-2.0](LICENSE)，上游归因见 [NOTICE](NOTICE)。官方模型与基线库单独下载，遵循各自的上游许可。
