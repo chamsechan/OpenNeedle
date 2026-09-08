@@ -59,7 +59,13 @@ python -m needle2 run artifacts/official/needle2.cact \
 [{"name": "set_light", "arguments": {"room": "kitchen", "on": true}}]
 ```
 
-首次原生调用会自动编译 C++ 内核并缓存到 `~/.cache/needle2`，无需官方闭源库。命令返回工具调用 JSON，工具执行由应用接入。
+首次原生调用会自动编译 C++ 内核并缓存到 `~/.cache/needle2`，无需官方闭源库。安装 Python 包时尚未编译，也可提前执行：
+
+```bash
+python -m needle2 build-native
+```
+
+命令会输出共享库路径与 CPU 能力。CMake 构建、编译器配置及预编译库部署见 [编译指南](docs/build.md)。推理命令返回工具调用 JSON，工具执行由应用接入。
 
 切换后端只需调整参数：
 
@@ -239,6 +245,7 @@ OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python scripts/benchmark_backends.py \
 | 入口 | 内容 |
 |---|---|
 | [使用指南](docs/usage.md) | Python API、训练/QAT、缓存、probe、产物清单与扩展验证 |
+| [编译指南](docs/build.md) | 自动编译、CMake、构建缓存与预编译库部署 |
 | [原生引擎](docs/native-engine.md) | 内核布局、平台能力、快照与实验开关 |
 | [同轮速度对比](docs/backend-comparison.md) / [精度与历史实验](docs/results.md) | 测量方法、结果和适用边界 |
 | [needle2/](needle2/) | Python 模型、转换器、量化、grammar 与独立 C++ 源码 |

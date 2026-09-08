@@ -2,6 +2,9 @@
 
 `needle2/csrc/cq.cpp`、`engine.cpp` 与 `sdot.cpp` 是基于公开 CACT 格式和公开模型计算图独立实现的 C++17 代码，不链接或执行官方 `libneedle.a` / `libneedle.so`。首次使用由 `CXX` 指定的编译器编译（默认 `c++`，需支持 OpenMP），共享库按源码哈希缓存到 `~/.cache/needle2`；可用 `NEEDLE2_NATIVE_CACHE` 指定缓存目录。安装 wheel 会包含源码。
 
+可用 `python -m needle2 build-native` 提前构建并检查能力，或使用 CMake 生成共享库，
+通过 `NEEDLE2_NATIVE_LIBRARY` 指定预编译产物。完整步骤见[编译指南](build.md)。
+
 ## 数值与布局
 
 - CQ 权重保留 `[out, in]` 压缩布局，每组保存 LSB-first 2/3/4 bit 索引及 FP16 L2 norm。也支持 marker 5 的 ternary crumbs。

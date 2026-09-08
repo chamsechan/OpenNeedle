@@ -56,3 +56,7 @@ python -m needle2 run artifacts/official/needle2.cact \
 
 编译和能力检测细节见 `docs/native-engine.md`。排障先保留实际错误、平台和
 编译器信息，再修复对应依赖或配置。
+
+需要提前编译或检查运行库时使用 `python -m needle2 build-native`。
+CMake 和预编译部署见 `docs/build.md`；`NEEDLE2_NATIVE_LIBRARY` 可指定同版本
+共享库并跳过编译，必须在启动 Python 前设置。

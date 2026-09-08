@@ -1,7 +1,9 @@
 """ctypes access to the independently implemented, directly packed CQ CPU kernels.
 
 Compilation is cached outside the source tree. ``CXX`` selects the compiler;
-``NEEDLE2_NATIVE_CACHE`` selects the cache directory. No closed library is loaded.
+``NEEDLE2_NATIVE_CACHE`` selects the cache directory. ``NEEDLE2_NATIVE_LIBRARY``
+selects a prebuilt OpenNeedle library and bypasses compilation.
+No closed library is loaded.
 """
 from __future__ import annotations
 
@@ -20,10 +22,20 @@ import numpy as np
 
 @functools.lru_cache(maxsize=1)
 def build_native() -> Path:
+    prebuilt = os.environ.get("NEEDLE2_NATIVE_LIBRARY")
+    if prebuilt is not None:
+        if not prebuilt.strip():
+            raise RuntimeError("NEEDLE2_NATIVE_LIBRARY must name a prebuilt OpenNeedle shared library")
+        target = Path(prebuilt).expanduser().resolve()
+        if not target.is_file():
+            raise RuntimeError(f"Prebuilt OpenNeedle library not found: {target}")
+        return target
     source = Path(__file__).resolve().parent / "csrc" / "cq.cpp"
     if not source.is_file():
         raise RuntimeError(f"Native source not found: {source}")
     compiler = shlex.split(os.environ.get("CXX", "c++"))
+    if not compiler:
+        raise RuntimeError("CXX must name a C++17 compiler with OpenMP support")
     flags = ["-O3", "-DNDEBUG", "-std=c++17", "-fPIC", "-shared", "-pthread", "-fopenmp"]
     key = hashlib.sha256(b"".join(p.read_bytes() for p in sorted(source.parent.glob("*.cpp"))) + repr((compiler, flags, platform.machine())).encode()).hexdigest()[:20]
     cache = Path(os.environ.get("NEEDLE2_NATIVE_CACHE", str(Path.home() / ".cache" / "needle2")))
@@ -33,7 +45,13 @@ def build_native() -> Path:
         fd, temporary = tempfile.mkstemp(prefix="build-", suffix=".so", dir=cache)
         os.close(fd)
         try:
-            result = subprocess.run(compiler + flags + [str(source), "-o", temporary], capture_output=True, text=True)
+            try:
+                result = subprocess.run(compiler + flags + [str(source), "-o", temporary], capture_output=True, text=True)
+            except FileNotFoundError as exc:
+                raise RuntimeError(
+                    f"Native compiler not found: {compiler[0]}. Install a C++17/OpenMP compiler, "
+                    "set CXX, or load a prebuilt library with NEEDLE2_NATIVE_LIBRARY."
+                ) from exc
             if result.returncode:
                 raise RuntimeError(f"Native CQ compilation failed:\n{result.stderr}")
             os.replace(temporary, target)

@@ -6,6 +6,7 @@ from pathlib import Path
 def main():
     p=argparse.ArgumentParser(prog='needle2')
     sub=p.add_subparsers(dest='command',required=True)
+    sub.add_parser('build-native',help='build or load the native shared library and report CPU capabilities')
     inspect=sub.add_parser('inspect',help='inspect CACT precision, geometry and hash')
     inspect.add_argument('model')
     convert=sub.add_parser('to-torch',help='official .cact or FP16 .pkl -> canonical PyTorch safetensors')
@@ -22,7 +23,13 @@ def main():
     run.add_argument('--matmul',choices=['fp32','sdot'],default='fp32',help='sdot is an approximate ARM dot-product mode; adds rotated A8/codebook quantization')
     run.add_argument('--activation-quant',action='store_true',help='public JAX A8 fake quantization; does not emulate the production integer kernel')
     args=p.parse_args()
-    if args.command=='inspect':
+    if args.command=='build-native':
+        from .native import build_native, features, sdot_available
+        try:
+            result=dict(library=str(build_native().resolve()),features=features(),sdot_available=sdot_available())
+        except (OSError, RuntimeError, AttributeError) as exc:
+            p.error(str(exc))
+    elif args.command=='inspect':
         from .archive import Archive
         a=Archive.load(args.model)
         result=dict(geometry=a.metadata,storage=a.stats())
