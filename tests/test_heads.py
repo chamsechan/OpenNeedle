@@ -73,3 +73,62 @@ def test_native_probe_heads_match_torch():
             encoder.encode([2, 0, 3])
     finally:
         torch.set_num_threads(previous_threads)
+
+
+def test_tool_retrieval_and_prompt_pruning():
+    from pathlib import Path
+    model_path = Path("artifacts/official/needle2.cact")
+    if not model_path.exists():
+        pytest.skip("official cact artifact not present")
+
+    from needle2.inference import generate, retrieve_tools
+    from needle2.archive import Archive
+    from needle2.tokenizer import RefTokenizer
+
+    archive = Archive.load(model_path)
+    tokenizer = RefTokenizer.from_cact(model_path)
+
+    tools = [
+        {
+            "name": "get_weather",
+            "description": "Fetch current weather conditions for a given city",
+            "parameters": {"type": "object", "properties": {"city": {"type": "string"}}, "required": ["city"]},
+        },
+        {
+            "name": "send_email",
+            "description": "Send an electronic mail message to a recipient",
+            "parameters": {"type": "object", "properties": {"to": {"type": "string"}, "body": {"type": "string"}}, "required": ["to", "body"]},
+        },
+        {
+            "name": "calculator",
+            "description": "Evaluate arbitrary mathematical expressions and calculate formulas",
+            "parameters": {"type": "object", "properties": {"expr": {"type": "string"}}, "required": ["expr"]},
+        },
+    ]
+
+    # Test retrieve_tools ranking
+    selected, scored = retrieve_tools(archive, tokenizer, "What is the temperature in London?", tools, top_k=1)
+    assert len(selected) == 1
+    assert selected[0]["name"] == "get_weather"
+    assert scored[0][0] > scored[1][0]
+    assert scored[0][0] > scored[2][0]
+
+    # Test precomputed embedding bypasses encode
+    dummy_emb = np.zeros(128, dtype=np.float32)
+    dummy_emb[0] = 1.0
+    tools_with_cached = [
+        {"name": "cached_tool", "description": "some tool", "_embedding": dummy_emb},
+        {"name": "other_tool", "description": "other tool"},
+    ]
+    selected_cached, _ = retrieve_tools(archive, tokenizer, "test", tools_with_cached, top_k=1)
+    assert len(selected_cached) == 1
+
+    # Test end-to-end generate() with retrieval enabled
+    full_res = generate(model_path, "What is the temperature in London?", tools=tools, max_new_tokens=10, threads=2, retrieval=False)
+    assert full_res["retrieval_enabled"] is False
+    assert full_res["retrieved_tools"] is None
+
+    pruned_res = generate(model_path, "What is the temperature in London?", tools=tools, max_new_tokens=10, threads=2, retrieval=True, top_k_tools=1)
+    assert pruned_res["retrieval_enabled"] is True
+    assert pruned_res["retrieved_tools"] == ["get_weather"]
+    assert pruned_res["prompt_tokens"] < full_res["prompt_tokens"]

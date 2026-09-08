@@ -21,7 +21,10 @@ def main():
     run.add_argument('--prefill-backend',choices=['native','torch'],default='native',help='torch uses ~175 MB dense weights for faster prompt processing')
     run.add_argument('--no-grammar',action='store_true',help='disable schema-constrained decoding')
     run.add_argument('--matmul',choices=['fp32','sdot'],default='fp32',help='sdot is an approximate ARM dot-product mode; adds rotated A8/codebook quantization')
+    run.add_argument('--kv-cache',choices=['fp32','int8'],default='fp32',help='KV cache precision')
     run.add_argument('--activation-quant',action='store_true',help='public JAX A8 fake quantization; does not emulate the production integer kernel')
+    run.add_argument('--retrieval',action='store_true',help='use NativeProbeEncoder to retrieve top-k tools')
+    run.add_argument('--top-k-tools',type=int,default=None,help='maximum number of retrieved tools in prompt')
     args=p.parse_args()
     if args.command=='build-native':
         from .native import build_native, features, sdot_available
@@ -44,7 +47,8 @@ def main():
         tools=json.loads(Path(args.tools).read_text()) if args.tools else None
         result=generate(args.model,args.prompt,tools=tools,system=args.system,backend=args.backend,
                         max_new_tokens=args.max_new_tokens,threads=args.threads,quant_activations=args.activation_quant,
-                        prefill_backend=args.prefill_backend,constrain=not args.no_grammar,matmul=args.matmul)
+                        prefill_backend=args.prefill_backend,constrain=not args.no_grammar,matmul=args.matmul,
+                        kv_cache=args.kv_cache,retrieval=args.retrieval,top_k_tools=args.top_k_tools)
     print(json.dumps(result,ensure_ascii=False,indent=2))
 
 if __name__=='__main__': main()

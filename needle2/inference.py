@@ -6,7 +6,35 @@ from .archive import Archive
 from .prompt import render_prompt,parse_response
 from .tokenizer import RefTokenizer,parse_tokenizer_blob
 
-def generate(model_path,prompt,*,tools=None,system=None,backend='native',max_new_tokens=96,threads=1,quant_activations=False,prefill_backend='native',constrain=True,matmul='fp32',kv_cache='fp32'):
+def retrieve_tools(archive, tokenizer, prompt, tools, top_k=4, threads=1):
+    """Rank candidate tools against prompt using NativeProbeEncoder and return top-k."""
+    if "contrastive_head.probes" not in archive.tensors:
+        raise ValueError("retrieval requested but archive contains no exported contrastive_head")
+    from .heads import NativeProbeEncoder
+    encoder = NativeProbeEncoder(archive, threads=threads)
+    max_len = archive.metadata.get("max_seq_len", 8192)
+    query_ids = ([2] + tokenizer.encode(prompt))[:max_len]
+    query_emb = encoder.encode(query_ids)
+
+    scored_tools = []
+    for tool in tools:
+        if "_embedding" in tool:
+            tool_emb = np.asarray(tool["_embedding"], dtype=np.float32)
+        else:
+            desc = tool.get("description", "")
+            text = f"{tool.get('name', '')}: {desc}".strip(": ") if desc else tool.get("name", "")
+            t_ids = ([2] + tokenizer.encode(text))[:max_len]
+            tool_emb = encoder.encode(t_ids)
+        sim = float(np.dot(query_emb, tool_emb))
+        scored_tools.append((sim, tool))
+
+    scored_tools.sort(key=lambda item: item[0], reverse=True)
+    k = min(top_k, len(tools))
+    selected = [tool for _, tool in scored_tools[:k]]
+    return selected, scored_tools
+
+
+def generate(model_path,prompt,*,tools=None,system=None,backend='native',max_new_tokens=96,threads=1,quant_activations=False,prefill_backend='native',constrain=True,matmul='fp32',kv_cache='fp32',retrieval=False,top_k_tools=None):
     if max_new_tokens < 0 or threads < 1:
         raise ValueError('max_new_tokens must be nonnegative; threads must be positive')
     model_path=Path(model_path)
@@ -15,6 +43,17 @@ def generate(model_path,prompt,*,tools=None,system=None,backend='native',max_new
         raise ValueError('export the PyTorch checkpoint to .cact before using the native backend')
     archive=Archive.load(archive_path)
     tokenizer=RefTokenizer(parse_tokenizer_blob(archive.tensors['tokenizer'].blob))
+    retrieval_performed = False
+    retrieved_tools_info = None
+    if tools is not None:
+        from .prompt import normalize_tools
+        tools = normalize_tools(tools)
+        if (retrieval or top_k_tools is not None) and len(tools) > 0:
+            k = top_k_tools if top_k_tools is not None else min(4, len(tools))
+            selected_tools, scored = retrieve_tools(archive, tokenizer, prompt, tools, top_k=k, threads=threads)
+            tools = selected_tools
+            retrieval_performed = True
+            retrieved_tools_info = [{"name": t.get("name"), "score": round(s, 4)} for s, t in scored]
     text=render_prompt(prompt,tools,system) if tools is not None else prompt
     ids=[2]+tokenizer.encode(text)
     prefix_len=0
@@ -92,5 +131,8 @@ def generate(model_path,prompt,*,tools=None,system=None,backend='native',max_new
                   decode_forward_steps=decode_steps,
                   decode_tokens_per_second=decode_steps/decode_wall if decode_steps else None,
                   model_sha256=archive.sha256,
-                  grammar_constrained=grammar is not None,retrieval_enabled=False,prefix_tokens=prefix_len,prefill_backend=prefill_backend if backend=='native' else 'torch')
+                  grammar_constrained=grammar is not None,
+                  retrieval_enabled=retrieval_performed,
+                  retrieved_tools=[t['name'] for t in tools] if (retrieval_performed and tools is not None) else None,
+                  prefix_tokens=prefix_len,prefill_backend=prefill_backend if backend=='native' else 'torch')
     return result
