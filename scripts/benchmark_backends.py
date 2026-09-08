@@ -25,7 +25,8 @@ sys.path.insert(0, str(ROOT))
 def worker(connection, spec, config):
     official = None
     try:
-        os.sched_setaffinity(0, set(config['cpus']))
+        if hasattr(os, 'sched_setaffinity'):
+            os.sched_setaffinity(0, set(config['cpus']))
         import numpy as np
         from needle2.official import OfficialEngine, strict_json_equal
         from needle2.tokenizer import RefTokenizer
@@ -177,7 +178,8 @@ def main():
     if args.repeat < 1 or args.native_threads < 1 or not torch_threads or min(torch_threads) < 1 or args.max_new_tokens < 2:
         parser.error('positive repeat and threads, max_new_tokens >= 2 required')
     cpus = [int(value) for value in args.affinity.split(',')]
-    os.sched_setaffinity(0, set(cpus))
+    if hasattr(os, 'sched_setaffinity'):
+        os.sched_setaffinity(0, set(cpus))
     from needle2.official import sha256
     from needle2.tokenizer import RefTokenizer
     from needle2.prompt import render_prompt

@@ -3,10 +3,19 @@
 #if defined(__aarch64__) && defined(__linux__)
 #include <sys/auxv.h>
 #include <asm/hwcap.h>
+#elif defined(__aarch64__) && defined(__APPLE__)
+#include <sys/sysctl.h>
 #endif
 static bool runtime_dotprod() {
 #if defined(__aarch64__) && defined(__linux__)
     return (getauxval(AT_HWCAP)&HWCAP_ASIMDDP)!=0;
+#elif defined(__aarch64__) && defined(__APPLE__)
+    int supported = 0;
+    size_t size = sizeof(supported);
+    if (sysctlbyname("hw.optional.arm.FEAT_DotProd", &supported, &size, NULL, 0) == 0) {
+        return supported != 0;
+    }
+    return false;
 #else
     return false;
 #endif

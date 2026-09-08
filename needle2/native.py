@@ -36,11 +36,32 @@ def build_native() -> Path:
     compiler = shlex.split(os.environ.get("CXX", "c++"))
     if not compiler:
         raise RuntimeError("CXX must name a C++17 compiler with OpenMP support")
-    flags = ["-O3", "-DNDEBUG", "-std=c++17", "-fPIC", "-shared", "-pthread", "-fopenmp"]
+    flags = ["-O3", "-DNDEBUG", "-std=c++17", "-fPIC", "-shared", "-pthread"]
+    if platform.system() == "Darwin":
+        import sys
+        omp_candidates = [
+            (Path(sys.prefix) / "include", Path(sys.prefix) / "lib"),
+            (Path("/opt/homebrew/opt/libomp/include"), Path("/opt/homebrew/opt/libomp/lib")),
+            (Path("/usr/local/opt/libomp/include"), Path("/usr/local/opt/libomp/lib")),
+        ]
+        omp_found = False
+        for inc, lib in omp_candidates:
+            if (inc / "omp.h").exists() and any(lib.glob("libomp*.dylib")):
+                flags += ["-Xpreprocessor", "-fopenmp", f"-I{inc}", f"-L{lib}", "-lomp"]
+                omp_found = True
+                break
+        if not omp_found:
+            flags.append("-fopenmp")
+        sdk_includes = list(Path("/Library/Developer/CommandLineTools/SDKs").glob("MacOSX*.sdk/usr/include/c++/v1"))
+        if sdk_includes:
+            flags.append(f"-isystem{sorted(sdk_includes)[-1]}")
+    else:
+        flags.append("-fopenmp")
+    suffix = ".dylib" if platform.system() == "Darwin" else ".so"
     key = hashlib.sha256(b"".join(p.read_bytes() for p in sorted(source.parent.glob("*.cpp"))) + repr((compiler, flags, platform.machine())).encode()).hexdigest()[:20]
     cache = Path(os.environ.get("NEEDLE2_NATIVE_CACHE", str(Path.home() / ".cache" / "needle2")))
     cache.mkdir(parents=True, exist_ok=True)
-    target = cache / f"libneedle2-{key}.so"
+    target = cache / f"libneedle2-{key}{suffix}"
     if not target.exists():
         fd, temporary = tempfile.mkstemp(prefix="build-", suffix=".so", dir=cache)
         os.close(fd)
