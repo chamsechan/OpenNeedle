@@ -11,7 +11,7 @@
 
 OpenNeedle 支持 CQ2/CQ4 压缩权重直接推理、官方模型与 PyTorch 双向转换，以及微调和量化感知训练（QAT）。独立 C++ 引擎提供 FP32 与 ARM SDOT 路径，支持前缀缓存和工具调用约束解码。
 
-[快速开始](#快速开始) · [模型转换](#模型转换) · [实现原理](#实现原理) · [优化策略](#优化策略) · [复现实验](#复现实验) · [参考资料](#参考资料) · [高级用法](docs/usage.md)
+[快速开始](#快速开始) · [Agent Skills](#agent-skills) · [模型转换](#模型转换) · [实现原理](#实现原理) · [优化策略](#优化策略) · [复现实验](#复现实验) · [参考资料](#参考资料) · [高级用法](docs/usage.md)
 
 ## 当前性能
 
@@ -70,6 +70,19 @@ python -m needle2 run artifacts/official/needle2.cact \
 | PyTorch 参考 | `--backend torch --threads 1` | 支持直接读取 `.cact` 或转换后的模型目录 |
 
 线程数需按目标 CPU 重新选择。混合 prefill、前缀缓存、训练与 Python API 见 [使用指南](docs/usage.md)。
+
+## Agent Skills
+
+为 AI 编程助手提供四个可独立使用的任务流程，安装方式与调用示例见 [Skills 指南](skills/README.md)。
+
+| Skill | 用途 |
+|---|---|
+| [openeedle-inference](skills/openeedle-inference/SKILL.md) | 安装、工具调用推理与应用接入 |
+| [openeedle-convert](skills/openeedle-convert/SKILL.md) | PyTorch 双向转换、量化导出与一致性检查 |
+| [openeedle-finetune](skills/openeedle-finetune/SKILL.md) | 监督微调、CQ QAT 与训练后验证 |
+| [openeedle-benchmark](skills/openeedle-benchmark/SKILL.md) | 官方、原生和 PyTorch 的性能对比 |
+
+无需安装也可直接使用，例如：“请读取 `skills/openeedle-inference/SKILL.md`，用我的工具 schema 跑通一次推理。”
 
 ## 模型转换
 
