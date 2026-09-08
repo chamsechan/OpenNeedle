@@ -1,0 +1,700 @@
+{
+  "schema_version": 1,
+  "created_utc": "2026-09-08T01:21:01.263440+00:00",
+  "hardware": {
+    "platform": "Linux-6.17.0-1020-oracle-aarch64-with-glibc2.39",
+    "machine": "aarch64",
+    "python": "3.12.3",
+    "logical_cpus": 4,
+    "affinity": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "lscpu": [
+      {
+        "field": "Architecture:",
+        "data": "aarch64"
+      },
+      {
+        "field": "CPU op-mode(s):",
+        "data": "32-bit, 64-bit"
+      },
+      {
+        "field": "Byte Order:",
+        "data": "Little Endian"
+      },
+      {
+        "field": "CPU(s):",
+        "data": "4"
+      },
+      {
+        "field": "On-line CPU(s) list:",
+        "data": "0-3"
+      },
+      {
+        "field": "Vendor ID:",
+        "data": "ARM"
+      },
+      {
+        "field": "Model name:",
+        "data": "Neoverse-N1"
+      },
+      {
+        "field": "Model:",
+        "data": "1"
+      },
+      {
+        "field": "Thread(s) per core:",
+        "data": "1"
+      },
+      {
+        "field": "Core(s) per socket:",
+        "data": "4"
+      },
+      {
+        "field": "Socket(s):",
+        "data": "1"
+      },
+      {
+        "field": "Stepping:",
+        "data": "r3p1"
+      },
+      {
+        "field": "BogoMIPS:",
+        "data": "50.00"
+      },
+      {
+        "field": "Flags:",
+        "data": "fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm lrcpc dcpop asimddp"
+      },
+      {
+        "field": "NUMA node(s):",
+        "data": "1"
+      },
+      {
+        "field": "NUMA node0 CPU(s):",
+        "data": "0-3"
+      },
+      {
+        "field": "Vulnerability Gather data sampling:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Ghostwrite:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Indirect target selection:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Itlb multihit:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability L1tf:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Mds:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Meltdown:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Mmio stale data:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Old microcode:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Reg file data sampling:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Retbleed:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Spec rstack overflow:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Spec store bypass:",
+        "data": "Mitigation; Speculative Store Bypass disabled via prctl"
+      },
+      {
+        "field": "Vulnerability Spectre v1:",
+        "data": "Mitigation; __user pointer sanitization"
+      },
+      {
+        "field": "Vulnerability Spectre v2:",
+        "data": "Mitigation; CSV2, BHB"
+      },
+      {
+        "field": "Vulnerability Srbds:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Tsa:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Tsx async abort:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Vmscape:",
+        "data": "Not affected"
+      }
+    ]
+  },
+  "workload_before": {
+    "load_average": [
+      3.18017578125,
+      3.10595703125,
+      1.681640625
+    ],
+    "cpu.stat": "usage_usec 1348252175\nuser_usec 1198924086\nsystem_usec 149328088\nnice_usec 0\ncore_sched.force_idle_usec 0\nnr_periods 0\nnr_throttled 0\nthrottled_usec 0\nnr_bursts 0\nburst_usec 0\n"
+  },
+  "official_engine_version_expected": "2.0.4",
+  "hf_revision_expected": "32e9e3a93b205f786929697446ae669cf0a84579",
+  "library_sha256": "9e0effc7f6124eaa07e73ba91966b28cc2351332648a60875efd4e59bdbdd9bd",
+  "settings": {
+    "tools": [
+      {
+        "name": "set_light",
+        "description": "Turn the light in a named room on or off.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "room": {
+              "type": "string",
+              "description": "The room name spoken by the user."
+            },
+            "on": {
+              "type": "boolean",
+              "description": "True to turn on, false to turn off."
+            }
+          },
+          "required": [
+            "room",
+            "on"
+          ]
+        }
+      },
+      {
+        "name": "set_timer",
+        "description": "Start a countdown timer for the requested number of minutes.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "minutes": {
+              "type": "integer",
+              "description": "Timer duration in minutes."
+            }
+          },
+          "required": [
+            "minutes"
+          ]
+        }
+      },
+      {
+        "name": "set_volume",
+        "description": "Set the speaker volume to a percentage from 0 to 100.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "percent": {
+              "type": "integer",
+              "description": "Volume percentage from 0 to 100."
+            }
+          },
+          "required": [
+            "percent"
+          ]
+        }
+      }
+    ],
+    "cases": [
+      {
+        "id": "light_on",
+        "query": "Turn on the kitchen light.",
+        "expected_calls": [
+          {
+            "name": "set_light",
+            "arguments": {
+              "room": "kitchen",
+              "on": true
+            }
+          }
+        ]
+      },
+      {
+        "id": "timer_5",
+        "query": "Set a timer for 5 minutes.",
+        "expected_calls": [
+          {
+            "name": "set_timer",
+            "arguments": {
+              "minutes": 5
+            }
+          }
+        ]
+      },
+      {
+        "id": "volume_30",
+        "query": "Set the volume to 30 percent.",
+        "expected_calls": [
+          {
+            "name": "set_volume",
+            "arguments": {
+              "percent": 30
+            }
+          }
+        ]
+      }
+    ],
+    "max_new_tokens": 256,
+    "reset_before_each_case": true,
+    "execute_function_calls": false,
+    "telemetry": false
+  },
+  "notes": [
+    "These are three smoke cases, not full benchmark quality equivalence.",
+    "response_except_timing_match retains peak_ram_mb, which can change across loads.",
+    "semantic_response_match excludes only prefill_tps, decode_tps, peak_ram_mb.",
+    "Timing is diagnostic under concurrent host workload, not a speed comparison."
+  ],
+  "models": [
+    {
+      "path": "/home/ubuntu/project/needle2/artifacts/official/needle2.cact",
+      "sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+      "cases": [
+        {
+          "id": "light_on",
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_light",
+                "arguments": {
+                  "room": "kitchen",
+                  "on": true
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 124.5,
+            "decode_tps": 55.1,
+            "peak_ram_mb": 119.1,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 501.8694970000297,
+          "return_code": 21,
+          "expected_call_match": true
+        },
+        {
+          "id": "timer_5",
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_timer",
+                "arguments": {
+                  "minutes": 5
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 135.3,
+            "decode_tps": 36.6,
+            "peak_ram_mb": 119.1,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 505.88691899997684,
+          "return_code": 15,
+          "expected_call_match": true
+        },
+        {
+          "id": "volume_30",
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_volume",
+                "arguments": {
+                  "percent": 30
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 127.5,
+            "decode_tps": 43.2,
+            "peak_ram_mb": 119.1,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 472.88236999997935,
+          "return_code": 16,
+          "expected_call_match": true
+        }
+      ],
+      "thread_affinities": {
+        "20607": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "20626": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "20627": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "20628": [
+          0,
+          1,
+          2,
+          3
+        ]
+      }
+    },
+    {
+      "path": "/home/ubuntu/project/needle2/artifacts/roundtrip.cact",
+      "sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+      "cases": [
+        {
+          "id": "light_on",
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_light",
+                "arguments": {
+                  "room": "kitchen",
+                  "on": true
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 95.3,
+            "decode_tps": 42.4,
+            "peak_ram_mb": 119.1,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 653.4518349999416,
+          "return_code": 21,
+          "expected_call_match": true,
+          "reference_call_match": true,
+          "response_except_timing_match": true,
+          "semantic_response_match": true,
+          "different_response_fields": [
+            "decode_tps",
+            "prefill_tps"
+          ]
+        },
+        {
+          "id": "timer_5",
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_timer",
+                "arguments": {
+                  "minutes": 5
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 138.8,
+            "decode_tps": 49.1,
+            "peak_ram_mb": 119.1,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 399.6209119999321,
+          "return_code": 15,
+          "expected_call_match": true,
+          "reference_call_match": true,
+          "response_except_timing_match": true,
+          "semantic_response_match": true,
+          "different_response_fields": [
+            "decode_tps",
+            "prefill_tps"
+          ]
+        },
+        {
+          "id": "volume_30",
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_volume",
+                "arguments": {
+                  "percent": 30
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 142.9,
+            "decode_tps": 52.3,
+            "peak_ram_mb": 119.1,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 397.1285770001032,
+          "return_code": 16,
+          "expected_call_match": true,
+          "reference_call_match": true,
+          "response_except_timing_match": true,
+          "semantic_response_match": true,
+          "different_response_fields": [
+            "decode_tps",
+            "prefill_tps"
+          ]
+        }
+      ],
+      "thread_affinities": {
+        "20607": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "20670": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "20671": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "20672": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      "all_calls_match_reference": true,
+      "all_semantic_responses_match_reference": true
+    },
+    {
+      "path": "/home/ubuntu/project/needle2/artifacts/from_master.cact",
+      "sha256": "3c0ed5c9de659bb0e168eafe0bac71572720983727b0cd0a1690deb518d23222",
+      "cases": [
+        {
+          "id": "light_on",
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_light",
+                "arguments": {
+                  "room": "kitchen",
+                  "on": true
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 76.4,
+            "decode_tps": 41.9,
+            "peak_ram_mb": 119.1,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 697.8115640000624,
+          "return_code": 21,
+          "expected_call_match": true,
+          "reference_call_match": true,
+          "response_except_timing_match": true,
+          "semantic_response_match": true,
+          "different_response_fields": [
+            "decode_tps",
+            "prefill_tps"
+          ]
+        },
+        {
+          "id": "timer_5",
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_timer",
+                "arguments": {
+                  "minutes": 5
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 125.6,
+            "decode_tps": 45.4,
+            "peak_ram_mb": 119.1,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 433.8832639999737,
+          "return_code": 15,
+          "expected_call_match": true,
+          "reference_call_match": true,
+          "response_except_timing_match": true,
+          "semantic_response_match": true,
+          "different_response_fields": [
+            "decode_tps",
+            "prefill_tps"
+          ]
+        },
+        {
+          "id": "volume_30",
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_volume",
+                "arguments": {
+                  "percent": 30
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 133.1,
+            "decode_tps": 37.0,
+            "peak_ram_mb": 119.1,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 529.7330480000255,
+          "return_code": 16,
+          "expected_call_match": true,
+          "reference_call_match": true,
+          "response_except_timing_match": true,
+          "semantic_response_match": true,
+          "different_response_fields": [
+            "decode_tps",
+            "prefill_tps"
+          ]
+        }
+      ],
+      "thread_affinities": {
+        "20607": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "20772": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "20773": [
+          0,
+          1,
+          2,
+          3
+        ],
+        "20774": [
+          0,
+          1,
+          2,
+          3
+        ]
+      },
+      "all_calls_match_reference": true,
+      "all_semantic_responses_match_reference": true
+    }
+  ],
+  "workload_after": {
+    "load_average": [
+      3.7744140625,
+      3.23486328125,
+      1.7392578125
+    ],
+    "cpu.stat": "usage_usec 1376450877\nuser_usec 1225095366\nsystem_usec 151355510\nnice_usec 0\ncore_sched.force_idle_usec 0\nnr_periods 0\nnr_throttled 0\nthrottled_usec 0\nnr_bursts 0\nburst_usec 0\n"
+  }
+}

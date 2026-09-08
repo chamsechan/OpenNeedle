@@ -1,0 +1,32 @@
+[
+  {
+    "name": "set_light",
+    "description": "Turn the light in a named room on or off.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "room": {"type": "string", "description": "The room name spoken by the user."},
+        "on": {"type": "boolean", "description": "True to turn on, false to turn off."}
+      },
+      "required": ["room", "on"]
+    }
+  },
+  {
+    "name": "set_timer",
+    "description": "Start a countdown timer for the requested number of minutes.",
+    "parameters": {
+      "type": "object",
+      "properties": {"minutes": {"type": "integer", "description": "Timer duration in minutes."}},
+      "required": ["minutes"]
+    }
+  },
+  {
+    "name": "set_volume",
+    "description": "Set the speaker volume to a percentage from 0 to 100.",
+    "parameters": {
+      "type": "object",
+      "properties": {"percent": {"type": "integer", "description": "Volume percentage from 0 to 100."}},
+      "required": ["percent"]
+    }
+  }
+]

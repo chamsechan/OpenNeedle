@@ -1,0 +1,1074 @@
+{
+  "hardware": {
+    "platform": "Linux-6.17.0-1020-oracle-aarch64-with-glibc2.39",
+    "machine": "aarch64",
+    "python": "3.12.3",
+    "logical_cpus": 4,
+    "affinity": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "lscpu": [
+      {
+        "field": "Architecture:",
+        "data": "aarch64"
+      },
+      {
+        "field": "CPU op-mode(s):",
+        "data": "32-bit, 64-bit"
+      },
+      {
+        "field": "Byte Order:",
+        "data": "Little Endian"
+      },
+      {
+        "field": "CPU(s):",
+        "data": "4"
+      },
+      {
+        "field": "On-line CPU(s) list:",
+        "data": "0-3"
+      },
+      {
+        "field": "Vendor ID:",
+        "data": "ARM"
+      },
+      {
+        "field": "Model name:",
+        "data": "Neoverse-N1"
+      },
+      {
+        "field": "Model:",
+        "data": "1"
+      },
+      {
+        "field": "Thread(s) per core:",
+        "data": "1"
+      },
+      {
+        "field": "Core(s) per socket:",
+        "data": "4"
+      },
+      {
+        "field": "Socket(s):",
+        "data": "1"
+      },
+      {
+        "field": "Stepping:",
+        "data": "r3p1"
+      },
+      {
+        "field": "BogoMIPS:",
+        "data": "50.00"
+      },
+      {
+        "field": "Flags:",
+        "data": "fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm lrcpc dcpop asimddp"
+      },
+      {
+        "field": "NUMA node(s):",
+        "data": "1"
+      },
+      {
+        "field": "NUMA node0 CPU(s):",
+        "data": "0-3"
+      },
+      {
+        "field": "Vulnerability Gather data sampling:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Ghostwrite:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Indirect target selection:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Itlb multihit:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability L1tf:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Mds:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Meltdown:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Mmio stale data:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Old microcode:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Reg file data sampling:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Retbleed:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Spec rstack overflow:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Spec store bypass:",
+        "data": "Mitigation; Speculative Store Bypass disabled via prctl"
+      },
+      {
+        "field": "Vulnerability Spectre v1:",
+        "data": "Mitigation; __user pointer sanitization"
+      },
+      {
+        "field": "Vulnerability Spectre v2:",
+        "data": "Mitigation; CSV2, BHB"
+      },
+      {
+        "field": "Vulnerability Srbds:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Tsa:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Tsx async abort:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Vmscape:",
+        "data": "Not affected"
+      }
+    ]
+  },
+  "workload_before": {
+    "load_average": [
+      0.62890625,
+      0.76953125,
+      1.3642578125
+    ],
+    "cpu.stat": "usage_usec 3406323193\nuser_usec 3062882723\nsystem_usec 343440469\nnice_usec 0\ncore_sched.force_idle_usec 0\nnr_periods 0\nnr_throttled 0\nthrottled_usec 0\nnr_bursts 0\nburst_usec 0\n"
+  },
+  "model_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+  "official_library_sha256": "9e0effc7f6124eaa07e73ba91966b28cc2351332648a60875efd4e59bdbdd9bd",
+  "native_source_sha256": {
+    "needle2/csrc/cq.cpp": "ab02f20cf6a1618f0fed2ba16acc16c4769d23acad94a7d647ae07311392c085",
+    "needle2/csrc/engine.cpp": "5bcdf4d8f83e8618dc18be9a6a3a9efefa25d2ea11f218c823998caa08a3fcff",
+    "needle2/csrc/sdot.cpp": "c5236a16c73afbf38ef5ef521b1ed3d6ccbd660a739a2708f8a0178f3b9155df"
+  },
+  "native_threads": 2,
+  "native_matmul": "fp32",
+  "official_threads": "automatic",
+  "repeat": 5,
+  "cases": [
+    {
+      "id": "light_on",
+      "query": "Turn on the kitchen light.",
+      "expected_calls": [
+        {
+          "name": "set_light",
+          "arguments": {
+            "room": "kitchen",
+            "on": true
+          }
+        }
+      ],
+      "native": [
+        {
+          "response": {
+            "function_calls": [
+              {
+                "name": "set_light",
+                "arguments": {
+                  "room": "kitchen",
+                  "on": true
+                }
+              }
+            ],
+            "reasoning": "",
+            "parse_error": null,
+            "text": "<tool_call>[{\"name\":\"set_light\",\"arguments\":{\"room\":\"kitchen\",\"on\":true}}]</tool_call>"
+          },
+          "wall_ms": 274.15040200003205,
+          "process_cpu_ms": 536.0975599999999,
+          "decode_tps": 116.74948125729883,
+          "prefill_tps": 145.85561338616867,
+          "generated_tokens": 21,
+          "prompt_tokens": 192,
+          "prefix_tokens": 177,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "function_calls": [
+              {
+                "name": "set_light",
+                "arguments": {
+                  "room": "kitchen",
+                  "on": true
+                }
+              }
+            ],
+            "reasoning": "",
+            "parse_error": null,
+            "text": "<tool_call>[{\"name\":\"set_light\",\"arguments\":{\"room\":\"kitchen\",\"on\":true}}]</tool_call>"
+          },
+          "wall_ms": 279.8916969995844,
+          "process_cpu_ms": 547.1331199999998,
+          "decode_tps": 114.63782863443049,
+          "prefill_tps": 142.27744222647752,
+          "generated_tokens": 21,
+          "prompt_tokens": 192,
+          "prefix_tokens": 177,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "function_calls": [
+              {
+                "name": "set_light",
+                "arguments": {
+                  "room": "kitchen",
+                  "on": true
+                }
+              }
+            ],
+            "reasoning": "",
+            "parse_error": null,
+            "text": "<tool_call>[{\"name\":\"set_light\",\"arguments\":{\"room\":\"kitchen\",\"on\":true}}]</tool_call>"
+          },
+          "wall_ms": 285.4107070002101,
+          "process_cpu_ms": 556.7893200000001,
+          "decode_tps": 110.86085136165266,
+          "prefill_tps": 142.85288312007822,
+          "generated_tokens": 21,
+          "prompt_tokens": 192,
+          "prefix_tokens": 177,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "function_calls": [
+              {
+                "name": "set_light",
+                "arguments": {
+                  "room": "kitchen",
+                  "on": true
+                }
+              }
+            ],
+            "reasoning": "",
+            "parse_error": null,
+            "text": "<tool_call>[{\"name\":\"set_light\",\"arguments\":{\"room\":\"kitchen\",\"on\":true}}]</tool_call>"
+          },
+          "wall_ms": 285.51174699987314,
+          "process_cpu_ms": 559.3885199999988,
+          "decode_tps": 112.83086282447982,
+          "prefill_tps": 138.5639295310388,
+          "generated_tokens": 21,
+          "prompt_tokens": 192,
+          "prefix_tokens": 177,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "function_calls": [
+              {
+                "name": "set_light",
+                "arguments": {
+                  "room": "kitchen",
+                  "on": true
+                }
+              }
+            ],
+            "reasoning": "",
+            "parse_error": null,
+            "text": "<tool_call>[{\"name\":\"set_light\",\"arguments\":{\"room\":\"kitchen\",\"on\":true}}]</tool_call>"
+          },
+          "wall_ms": 288.13917099978426,
+          "process_cpu_ms": 564.1030800000024,
+          "decode_tps": 112.57836495535972,
+          "prefill_tps": 135.76658060929904,
+          "generated_tokens": 21,
+          "prompt_tokens": 192,
+          "prefix_tokens": 177,
+          "exact_call_match": true
+        }
+      ],
+      "official": [
+        {
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_light",
+                "arguments": {
+                  "room": "kitchen",
+                  "on": true
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 712.2,
+            "decode_tps": 456.2,
+            "peak_ram_mb": 156.0,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 67.2681289997854,
+          "return_code": 21,
+          "process_cpu_ms": 236.65180000000063,
+          "decode_tps": 456.2,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_light",
+                "arguments": {
+                  "room": "kitchen",
+                  "on": true
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 888.8,
+            "decode_tps": 351.5,
+            "peak_ram_mb": 156.0,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 76.7791399998714,
+          "return_code": 21,
+          "process_cpu_ms": 261.4480399999994,
+          "decode_tps": 351.5,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_light",
+                "arguments": {
+                  "room": "kitchen",
+                  "on": true
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 623.5,
+            "decode_tps": 328.4,
+            "peak_ram_mb": 156.0,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 88.18788799999311,
+          "return_code": 21,
+          "process_cpu_ms": 292.54539999999986,
+          "decode_tps": 328.4,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_light",
+                "arguments": {
+                  "room": "kitchen",
+                  "on": true
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 836.5,
+            "decode_tps": 461.4,
+            "peak_ram_mb": 156.0,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 63.61281199997393,
+          "return_code": 21,
+          "process_cpu_ms": 231.32176000000015,
+          "decode_tps": 461.4,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_light",
+                "arguments": {
+                  "room": "kitchen",
+                  "on": true
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 862.7,
+            "decode_tps": 400.5,
+            "peak_ram_mb": 156.0,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 69.99659300026906,
+          "return_code": 21,
+          "process_cpu_ms": 248.23755999999975,
+          "decode_tps": 400.5,
+          "exact_call_match": true
+        }
+      ]
+    },
+    {
+      "id": "timer_5",
+      "query": "Set a timer for 5 minutes.",
+      "expected_calls": [
+        {
+          "name": "set_timer",
+          "arguments": {
+            "minutes": 5
+          }
+        }
+      ],
+      "native": [
+        {
+          "response": {
+            "function_calls": [
+              {
+                "name": "set_timer",
+                "arguments": {
+                  "minutes": 5
+                }
+              }
+            ],
+            "reasoning": "",
+            "parse_error": null,
+            "text": "<tool_call>[{\"name\":\"set_timer\",\"arguments\":{\"minutes\":5}}]</tool_call>"
+          },
+          "wall_ms": 216.0983550002129,
+          "process_cpu_ms": 424.4240000000019,
+          "decode_tps": 113.7149099952196,
+          "prefill_tps": 139.8118667859366,
+          "generated_tokens": 15,
+          "prompt_tokens": 190,
+          "prefix_tokens": 177,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "function_calls": [
+              {
+                "name": "set_timer",
+                "arguments": {
+                  "minutes": 5
+                }
+              }
+            ],
+            "reasoning": "",
+            "parse_error": null,
+            "text": "<tool_call>[{\"name\":\"set_timer\",\"arguments\":{\"minutes\":5}}]</tool_call>"
+          },
+          "wall_ms": 217.21984499981772,
+          "process_cpu_ms": 425.81623999999965,
+          "decode_tps": 114.56552257116913,
+          "prefill_tps": 136.81619371614283,
+          "generated_tokens": 15,
+          "prompt_tokens": 190,
+          "prefix_tokens": 177,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "function_calls": [
+              {
+                "name": "set_timer",
+                "arguments": {
+                  "minutes": 5
+                }
+              }
+            ],
+            "reasoning": "",
+            "parse_error": null,
+            "text": "<tool_call>[{\"name\":\"set_timer\",\"arguments\":{\"minutes\":5}}]</tool_call>"
+          },
+          "wall_ms": 213.87553199974718,
+          "process_cpu_ms": 420.10308000000055,
+          "decode_tps": 114.71170110396262,
+          "prefill_tps": 141.56686048759482,
+          "generated_tokens": 15,
+          "prompt_tokens": 190,
+          "prefix_tokens": 177,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "function_calls": [
+              {
+                "name": "set_timer",
+                "arguments": {
+                  "minutes": 5
+                }
+              }
+            ],
+            "reasoning": "",
+            "parse_error": null,
+            "text": "<tool_call>[{\"name\":\"set_timer\",\"arguments\":{\"minutes\":5}}]</tool_call>"
+          },
+          "wall_ms": 215.16526200002772,
+          "process_cpu_ms": 422.5445600000022,
+          "decode_tps": 114.16581222393145,
+          "prefill_tps": 140.48664378876748,
+          "generated_tokens": 15,
+          "prompt_tokens": 190,
+          "prefix_tokens": 177,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "function_calls": [
+              {
+                "name": "set_timer",
+                "arguments": {
+                  "minutes": 5
+                }
+              }
+            ],
+            "reasoning": "",
+            "parse_error": null,
+            "text": "<tool_call>[{\"name\":\"set_timer\",\"arguments\":{\"minutes\":5}}]</tool_call>"
+          },
+          "wall_ms": 213.49832500027333,
+          "process_cpu_ms": 418.7594400000023,
+          "decode_tps": 114.77091041743205,
+          "prefill_tps": 142.05427705973094,
+          "generated_tokens": 15,
+          "prompt_tokens": 190,
+          "prefix_tokens": 177,
+          "exact_call_match": true
+        }
+      ],
+      "official": [
+        {
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_timer",
+                "arguments": {
+                  "minutes": 5
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 779.8,
+            "decode_tps": 499.2,
+            "peak_ram_mb": 156.0,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 46.899531000235584,
+          "return_code": 15,
+          "process_cpu_ms": 174.32288000000185,
+          "decode_tps": 499.2,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_timer",
+                "arguments": {
+                  "minutes": 5
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 878.2,
+            "decode_tps": 509.1,
+            "peak_ram_mb": 156.0,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 44.444986999678804,
+          "return_code": 15,
+          "process_cpu_ms": 168.2463599999977,
+          "decode_tps": 509.1,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_timer",
+                "arguments": {
+                  "minutes": 5
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 607.9,
+            "decode_tps": 493.3,
+            "peak_ram_mb": 156.0,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 52.03249899977891,
+          "return_code": 15,
+          "process_cpu_ms": 185.53771999999924,
+          "decode_tps": 493.3,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_timer",
+                "arguments": {
+                  "minutes": 5
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 922.9,
+            "decode_tps": 507.7,
+            "peak_ram_mb": 156.0,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 43.811660000301345,
+          "return_code": 15,
+          "process_cpu_ms": 166.21411999999935,
+          "decode_tps": 507.7,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_timer",
+                "arguments": {
+                  "minutes": 5
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 864.0,
+            "decode_tps": 393.6,
+            "peak_ram_mb": 156.0,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 53.33899100014605,
+          "return_code": 15,
+          "process_cpu_ms": 190.24715999999842,
+          "decode_tps": 393.6,
+          "exact_call_match": true
+        }
+      ]
+    },
+    {
+      "id": "volume_30",
+      "query": "Set the volume to 30 percent.",
+      "expected_calls": [
+        {
+          "name": "set_volume",
+          "arguments": {
+            "percent": 30
+          }
+        }
+      ],
+      "native": [
+        {
+          "response": {
+            "function_calls": [
+              {
+                "name": "set_volume",
+                "arguments": {
+                  "percent": 30
+                }
+              }
+            ],
+            "reasoning": "",
+            "parse_error": null,
+            "text": "<tool_call>[{\"name\":\"set_volume\",\"arguments\":{\"percent\":30}}]</tool_call>"
+          },
+          "wall_ms": 224.7314300002472,
+          "process_cpu_ms": 440.60972000000476,
+          "decode_tps": 114.0947670220029,
+          "prefill_tps": 139.3938460744245,
+          "generated_tokens": 16,
+          "prompt_tokens": 190,
+          "prefix_tokens": 177,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "function_calls": [
+              {
+                "name": "set_volume",
+                "arguments": {
+                  "percent": 30
+                }
+              }
+            ],
+            "reasoning": "",
+            "parse_error": null,
+            "text": "<tool_call>[{\"name\":\"set_volume\",\"arguments\":{\"percent\":30}}]</tool_call>"
+          },
+          "wall_ms": 218.03796499989403,
+          "process_cpu_ms": 427.68771999999444,
+          "decode_tps": 116.96035385514466,
+          "prefill_tps": 144.7851415789775,
+          "generated_tokens": 16,
+          "prompt_tokens": 190,
+          "prefix_tokens": 177,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "function_calls": [
+              {
+                "name": "set_volume",
+                "arguments": {
+                  "percent": 30
+                }
+              }
+            ],
+            "reasoning": "",
+            "parse_error": null,
+            "text": "<tool_call>[{\"name\":\"set_volume\",\"arguments\":{\"percent\":30}}]</tool_call>"
+          },
+          "wall_ms": 220.97499200026505,
+          "process_cpu_ms": 432.6830800000039,
+          "decode_tps": 115.38866020087096,
+          "prefill_tps": 142.89132842974774,
+          "generated_tokens": 16,
+          "prompt_tokens": 190,
+          "prefix_tokens": 177,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "function_calls": [
+              {
+                "name": "set_volume",
+                "arguments": {
+                  "percent": 30
+                }
+              }
+            ],
+            "reasoning": "",
+            "parse_error": null,
+            "text": "<tool_call>[{\"name\":\"set_volume\",\"arguments\":{\"percent\":30}}]</tool_call>"
+          },
+          "wall_ms": 217.30939600001875,
+          "process_cpu_ms": 425.9065200000052,
+          "decode_tps": 115.5858770701101,
+          "prefill_tps": 148.51277705642045,
+          "generated_tokens": 16,
+          "prompt_tokens": 190,
+          "prefix_tokens": 177,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "function_calls": [
+              {
+                "name": "set_volume",
+                "arguments": {
+                  "percent": 30
+                }
+              }
+            ],
+            "reasoning": "",
+            "parse_error": null,
+            "text": "<tool_call>[{\"name\":\"set_volume\",\"arguments\":{\"percent\":30}}]</tool_call>"
+          },
+          "wall_ms": 216.55106699972748,
+          "process_cpu_ms": 424.5638000000014,
+          "decode_tps": 117.57688340672611,
+          "prefill_tps": 146.1109387318718,
+          "generated_tokens": 16,
+          "prompt_tokens": 190,
+          "prefix_tokens": 177,
+          "exact_call_match": true
+        }
+      ],
+      "official": [
+        {
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_volume",
+                "arguments": {
+                  "percent": 30
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 842.3,
+            "decode_tps": 491.8,
+            "peak_ram_mb": 156.0,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 48.16514100002678,
+          "return_code": 16,
+          "process_cpu_ms": 178.58756000000398,
+          "decode_tps": 491.8,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_volume",
+                "arguments": {
+                  "percent": 30
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 901.8,
+            "decode_tps": 504.4,
+            "peak_ram_mb": 156.0,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 46.31932300026165,
+          "return_code": 16,
+          "process_cpu_ms": 174.53323999999526,
+          "decode_tps": 504.4,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_volume",
+                "arguments": {
+                  "percent": 30
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 826.6,
+            "decode_tps": 497.4,
+            "peak_ram_mb": 156.0,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 48.086059000070236,
+          "return_code": 16,
+          "process_cpu_ms": 178.62691999999925,
+          "decode_tps": 497.4,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_volume",
+                "arguments": {
+                  "percent": 30
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 837.9,
+            "decode_tps": 506.4,
+            "peak_ram_mb": 156.0,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 47.30101199993442,
+          "return_code": 16,
+          "process_cpu_ms": 176.57851999999963,
+          "decode_tps": 506.4,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_volume",
+                "arguments": {
+                  "percent": 30
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 909.6,
+            "decode_tps": 488.6,
+            "peak_ram_mb": 156.0,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 47.23156999989442,
+          "return_code": 16,
+          "process_cpu_ms": 176.2080399999988,
+          "decode_tps": 488.6,
+          "exact_call_match": true
+        }
+      ]
+    }
+  ],
+  "notes": [
+    "Requests are interleaved; tool prefix setup is outside request timing in both paths.",
+    "Official performs its own confidence/retrieval/grammar; independent path uses bounded grammar without confidence and public FP32 math.",
+    "Internal prompts and generated token counts differ: TPS ratio is not equal-work kernel speedup.",
+    "Native decode timing includes grammar selection and token forward. Official TPS is its own reported field."
+  ],
+  "workload_after": {
+    "load_average": [
+      1.17724609375,
+      0.88623046875,
+      1.38671875
+    ],
+    "cpu.stat": "usage_usec 3458354098\nuser_usec 3112768480\nsystem_usec 345585618\nnice_usec 0\ncore_sched.force_idle_usec 0\nnr_periods 0\nnr_throttled 0\nthrottled_usec 0\nnr_bursts 0\nburst_usec 0\n"
+  },
+  "summary": {
+    "native": {
+      "decode_tps_median": 114.63782863443049,
+      "wall_ms_median": 218.03796499989403,
+      "exact_call_matches": 15,
+      "runs": 15
+    },
+    "official": {
+      "decode_tps_median": 491.8,
+      "wall_ms_median": 48.16514100002678,
+      "exact_call_matches": 15,
+      "runs": 15
+    }
+  }
+}

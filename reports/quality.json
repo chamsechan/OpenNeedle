@@ -1,0 +1,2268 @@
+{
+  "schema_version": 1,
+  "created_utc": "2026-09-08T01:44:32.863725+00:00",
+  "hardware": {
+    "platform": "Linux-6.17.0-1020-oracle-aarch64-with-glibc2.39",
+    "machine": "aarch64",
+    "python": "3.12.3",
+    "logical_cpus": 4,
+    "affinity": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "lscpu": [
+      {
+        "field": "Architecture:",
+        "data": "aarch64"
+      },
+      {
+        "field": "CPU op-mode(s):",
+        "data": "32-bit, 64-bit"
+      },
+      {
+        "field": "Byte Order:",
+        "data": "Little Endian"
+      },
+      {
+        "field": "CPU(s):",
+        "data": "4"
+      },
+      {
+        "field": "On-line CPU(s) list:",
+        "data": "0-3"
+      },
+      {
+        "field": "Vendor ID:",
+        "data": "ARM"
+      },
+      {
+        "field": "Model name:",
+        "data": "Neoverse-N1"
+      },
+      {
+        "field": "Model:",
+        "data": "1"
+      },
+      {
+        "field": "Thread(s) per core:",
+        "data": "1"
+      },
+      {
+        "field": "Core(s) per socket:",
+        "data": "4"
+      },
+      {
+        "field": "Socket(s):",
+        "data": "1"
+      },
+      {
+        "field": "Stepping:",
+        "data": "r3p1"
+      },
+      {
+        "field": "BogoMIPS:",
+        "data": "50.00"
+      },
+      {
+        "field": "Flags:",
+        "data": "fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm lrcpc dcpop asimddp"
+      },
+      {
+        "field": "NUMA node(s):",
+        "data": "1"
+      },
+      {
+        "field": "NUMA node0 CPU(s):",
+        "data": "0-3"
+      },
+      {
+        "field": "Vulnerability Gather data sampling:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Ghostwrite:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Indirect target selection:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Itlb multihit:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability L1tf:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Mds:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Meltdown:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Mmio stale data:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Old microcode:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Reg file data sampling:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Retbleed:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Spec rstack overflow:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Spec store bypass:",
+        "data": "Mitigation; Speculative Store Bypass disabled via prctl"
+      },
+      {
+        "field": "Vulnerability Spectre v1:",
+        "data": "Mitigation; __user pointer sanitization"
+      },
+      {
+        "field": "Vulnerability Spectre v2:",
+        "data": "Mitigation; CSV2, BHB"
+      },
+      {
+        "field": "Vulnerability Srbds:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Tsa:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Tsx async abort:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Vmscape:",
+        "data": "Not affected"
+      }
+    ]
+  },
+  "workload_before": {
+    "load_average": [
+      0.8095703125,
+      0.76123046875,
+      1.45703125
+    ],
+    "cpu.stat": "usage_usec 3291646286\nuser_usec 2956370478\nsystem_usec 335275808\nnice_usec 0\ncore_sched.force_idle_usec 0\nnr_periods 0\nnr_throttled 0\nthrottled_usec 0\nnr_bursts 0\nburst_usec 0\n"
+  },
+  "model_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+  "official_library_sha256": "9e0effc7f6124eaa07e73ba91966b28cc2351332648a60875efd4e59bdbdd9bd",
+  "independent_source_sha256": {
+    "needle2/native.py": "b332066057f911543a5105c328f04b0a6d2767bcd54d48ff5deeb361daa60651",
+    "needle2/inference.py": "82a3c1b7ae2781e113e3d6ee107f098d2174165760c574ca9d7d1ad560c8325d",
+    "needle2/grammar.py": "fb9be56d3ea417c7b063546fc7704d5c11bbf02c2d77db1eac73d9e17d07068b",
+    "needle2/prompt.py": "565c4ff6e243e1e377f6efa1106ac9376893489bf69784a039bfa9822aa8874b",
+    "needle2/archive.py": "d33e34868ea392117d372becef6e6ec0231ee7bade156f4a9e41ea6c3f13f637",
+    "needle2/tokenizer.py": "36806592904e46011b4ea6a90fa9469c1d19619435101c2575f0a661b595767e",
+    "needle2/csrc/cq.cpp": "ab02f20cf6a1618f0fed2ba16acc16c4769d23acad94a7d647ae07311392c085",
+    "needle2/csrc/engine.cpp": "5bcdf4d8f83e8618dc18be9a6a3a9efefa25d2ea11f218c823998caa08a3fcff",
+    "needle2/csrc/sdot.cpp": "c5236a16c73afbf38ef5ef521b1ed3d6ccbd660a739a2708f8a0178f3b9155df"
+  },
+  "independent_library_sha256": "25286f8ef90551edbfc71581ce38434323f9ac865abf8ca02b691b54a75a928b",
+  "official_version_expected": "2.0.4",
+  "official_hf_revision_expected": "32e9e3a93b205f786929697446ae669cf0a84579",
+  "tools": [
+    {
+      "name": "set_light",
+      "description": "Turn a room light on or off; optionally set its brightness when the user specifies it.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "room": {
+            "type": "string",
+            "enum": [
+              "kitchen",
+              "bedroom",
+              "living room"
+            ],
+            "description": "Which room's light to control."
+          },
+          "on": {
+            "type": "boolean",
+            "description": "True to turn on, false to turn off."
+          },
+          "brightness": {
+            "type": "integer",
+            "enum": [
+              25,
+              50,
+              75,
+              100
+            ],
+            "description": "Optional brightness percentage, only when explicitly requested."
+          }
+        },
+        "required": [
+          "room",
+          "on"
+        ]
+      }
+    },
+    {
+      "name": "set_timer",
+      "description": "Start a countdown timer for a duration in minutes; optionally label it.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "minutes": {
+            "type": "integer",
+            "description": "Requested timer duration in minutes."
+          },
+          "label": {
+            "type": "string",
+            "enum": [
+              "tea",
+              "pasta",
+              "break"
+            ],
+            "description": "Optional label, include only when the user names a label."
+          }
+        },
+        "required": [
+          "minutes"
+        ]
+      }
+    },
+    {
+      "name": "set_volume",
+      "description": "Set the speaker volume to a percentage from 0 to 100.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "percent": {
+            "type": "integer",
+            "description": "Requested volume percentage."
+          }
+        },
+        "required": [
+          "percent"
+        ]
+      }
+    }
+  ],
+  "cases_sha256": "a2d74580c09bd53a50fe6e067ada50eda254dd4af539b540e98ffa13088fa131",
+  "settings": {
+    "threads_independent": 1,
+    "prefill_backend": "native",
+    "matmul": "fp32",
+    "max_new_tokens": 192,
+    "independent_activation_bits": 0,
+    "rotated_matmul_activation_bits": 32,
+    "independent_kv_arithmetic": "fp32",
+    "independent_grammar": "restricted byte-level schema grammar; canonical property order",
+    "official_grammar": "official default",
+    "execute_function_calls": false,
+    "telemetry": false,
+    "reset_before_each_official_case": true
+  },
+  "notes": [
+    "Manually authored diagnostic cases, not a representative public accuracy benchmark.",
+    "Expected calls were fixed in the case file before evaluating either model.",
+    "Each expected result is an ordered exact match of function names and every argument.",
+    "Both engines use the same three tool schemas and query; their prompt rendering differs.",
+    "Scores compare raw function_calls; no confidence threshold or validation-based suppression is applied.",
+    "Official envelopes include negation/ungrounded flags and confidence that a product may use to reject candidates.",
+    "Independent inference includes every tool and does not reproduce official tool retrieval.",
+    "Independent FP32 activation/KV arithmetic differs from the official int8 path.",
+    "Wall times include setup and may reflect host contention; not a performance comparison.",
+    "One sample per case, greedy/default decoding; agreement does not establish general parity."
+  ],
+  "cases": [
+    {
+      "id": "light_on",
+      "category": "simple",
+      "query": "Turn on the kitchen light.",
+      "expected_calls": [
+        {
+          "name": "set_light",
+          "arguments": {
+            "room": "kitchen",
+            "on": true
+          }
+        }
+      ],
+      "official": {
+        "response": {
+          "type": "call",
+          "success": true,
+          "error": null,
+          "error_code": null,
+          "reason": null,
+          "function_calls": [
+            {
+              "name": "set_light",
+              "arguments": {
+                "room": "kitchen",
+                "on": true
+              }
+            }
+          ],
+          "reasoning": null,
+          "confidence": 0.9417,
+          "prefill_tps": 550.9,
+          "decode_tps": 339.0,
+          "peak_ram_mb": 155.8,
+          "validation": {
+            "ungrounded": [],
+            "negation": false
+          }
+        },
+        "wall_ms": 92.31131800015646,
+        "return_code": 22
+      },
+      "independent": {
+        "function_calls": [
+          {
+            "name": "set_light",
+            "arguments": {
+              "room": "kitchen",
+              "on": true
+            }
+          }
+        ],
+        "reasoning": "",
+        "parse_error": null,
+        "text": "<tool_call>[{\"name\":\"set_light\",\"arguments\":{\"room\":\"kitchen\",\"on\":true}}]</tool_call>",
+        "backend": "native",
+        "arithmetic": "fp32_reference",
+        "matmul": "fp32",
+        "activation_fake_quant": false,
+        "token_ids": [
+          10,
+          1075,
+          598,
+          359,
+          1643,
+          8097,
+          2549,
+          362,
+          1376,
+          433,
+          4923,
+          359,
+          8069,
+          292,
+          2119,
+          362,
+          270,
+          314,
+          1111,
+          1270,
+          11
+        ],
+        "prompt_tokens": 278,
+        "generated_tokens": 21,
+        "prefill_seconds": 2.550184740000077,
+        "decode_seconds": 0.26640927800008285,
+        "decode_forward_seconds": 0.25315846100102135,
+        "prefill_tokens_per_second": 109.01171026534792,
+        "decode_forward_steps": 20,
+        "decode_tokens_per_second": 75.07246050189656,
+        "model_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+        "grammar_constrained": true,
+        "retrieval_enabled": false,
+        "prefix_tokens": 263,
+        "prefill_backend": "native"
+      },
+      "independent_wall_ms_including_setup": 3041.468871000234,
+      "independent_error": null,
+      "independent_parse_success": true,
+      "official_expected_match": true,
+      "independent_expected_match": true,
+      "call_agreement": true
+    },
+    {
+      "id": "timer_5",
+      "category": "simple",
+      "query": "Set a timer for 5 minutes.",
+      "expected_calls": [
+        {
+          "name": "set_timer",
+          "arguments": {
+            "minutes": 5
+          }
+        }
+      ],
+      "official": {
+        "response": {
+          "type": "call",
+          "success": true,
+          "error": null,
+          "error_code": null,
+          "reason": null,
+          "function_calls": [
+            {
+              "name": "set_timer",
+              "arguments": {
+                "minutes": 5
+              }
+            }
+          ],
+          "reasoning": null,
+          "confidence": 0.9722,
+          "prefill_tps": 762.8,
+          "decode_tps": 463.7,
+          "peak_ram_mb": 155.8,
+          "validation": {
+            "ungrounded": [],
+            "negation": false
+          }
+        },
+        "wall_ms": 49.578634000226884,
+        "return_code": 15
+      },
+      "independent": {
+        "function_calls": [
+          {
+            "name": "set_timer",
+            "arguments": {
+              "minutes": 5
+            }
+          }
+        ],
+        "reasoning": "",
+        "parse_error": null,
+        "text": "<tool_call>[{\"name\":\"set_timer\",\"arguments\":{\"minutes\":5}}]</tool_call>",
+        "backend": "native",
+        "arithmetic": "fp32_reference",
+        "matmul": "fp32",
+        "activation_fake_quant": false,
+        "token_ids": [
+          10,
+          1075,
+          598,
+          359,
+          1643,
+          8097,
+          5475,
+          362,
+          1376,
+          433,
+          2498,
+          314,
+          8104,
+          1270,
+          11
+        ],
+        "prompt_tokens": 276,
+        "generated_tokens": 15,
+        "prefill_seconds": 2.561254249000285,
+        "decode_seconds": 0.1982302090000303,
+        "decode_forward_seconds": 0.18872007199979635,
+        "prefill_tokens_per_second": 107.75970410111725,
+        "decode_forward_steps": 14,
+        "decode_tokens_per_second": 70.6249570669517,
+        "model_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+        "grammar_constrained": true,
+        "retrieval_enabled": false,
+        "prefix_tokens": 263,
+        "prefill_backend": "native"
+      },
+      "independent_wall_ms_including_setup": 2952.447294999729,
+      "independent_error": null,
+      "independent_parse_success": true,
+      "official_expected_match": true,
+      "independent_expected_match": true,
+      "call_agreement": true
+    },
+    {
+      "id": "volume_30",
+      "category": "simple",
+      "query": "Set the volume to 30 percent.",
+      "expected_calls": [
+        {
+          "name": "set_volume",
+          "arguments": {
+            "percent": 30
+          }
+        }
+      ],
+      "official": {
+        "response": {
+          "type": "call",
+          "success": true,
+          "error": null,
+          "error_code": null,
+          "reason": null,
+          "function_calls": [
+            {
+              "name": "set_volume",
+              "arguments": {
+                "percent": 30
+              }
+            }
+          ],
+          "reasoning": null,
+          "confidence": 1.0,
+          "prefill_tps": 669.9,
+          "decode_tps": 479.5,
+          "peak_ram_mb": 155.8,
+          "validation": {
+            "ungrounded": [],
+            "negation": false
+          }
+        },
+        "wall_ms": 52.968309999869234,
+        "return_code": 16
+      },
+      "independent": {
+        "function_calls": [
+          {
+            "name": "set_volume",
+            "arguments": {
+              "percent": 30
+            }
+          }
+        ],
+        "reasoning": "",
+        "parse_error": null,
+        "text": "<tool_call>[{\"name\":\"set_volume\",\"arguments\":{\"percent\":30}}]</tool_call>",
+        "backend": "native",
+        "arithmetic": "fp32_reference",
+        "matmul": "fp32",
+        "activation_fake_quant": false,
+        "token_ids": [
+          10,
+          1075,
+          598,
+          359,
+          1643,
+          8097,
+          7791,
+          362,
+          1376,
+          433,
+          435,
+          1837,
+          314,
+          1885,
+          1270,
+          11
+        ],
+        "prompt_tokens": 276,
+        "generated_tokens": 16,
+        "prefill_seconds": 2.654409124999802,
+        "decode_seconds": 0.2146289339998475,
+        "decode_forward_seconds": 0.2046701490007763,
+        "prefill_tokens_per_second": 103.97794273707547,
+        "decode_forward_steps": 15,
+        "decode_tokens_per_second": 69.88806085208743,
+        "model_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+        "grammar_constrained": true,
+        "retrieval_enabled": false,
+        "prefix_tokens": 263,
+        "prefill_backend": "native"
+      },
+      "independent_wall_ms_including_setup": 3056.678477999867,
+      "independent_error": null,
+      "independent_parse_success": true,
+      "official_expected_match": true,
+      "independent_expected_match": true,
+      "call_agreement": true
+    },
+    {
+      "id": "light_off",
+      "category": "boolean",
+      "query": "Turn off the bedroom light.",
+      "expected_calls": [
+        {
+          "name": "set_light",
+          "arguments": {
+            "room": "bedroom",
+            "on": false
+          }
+        }
+      ],
+      "official": {
+        "response": {
+          "type": "call",
+          "success": true,
+          "error": null,
+          "error_code": null,
+          "reason": null,
+          "function_calls": [
+            {
+              "name": "set_light",
+              "arguments": {
+                "room": "bedroom",
+                "on": false
+              }
+            }
+          ],
+          "reasoning": null,
+          "confidence": 0.9371,
+          "prefill_tps": 742.0,
+          "decode_tps": 362.0,
+          "peak_ram_mb": 155.8,
+          "validation": {
+            "ungrounded": [],
+            "negation": false
+          }
+        },
+        "wall_ms": 77.0524800000203,
+        "return_code": 21
+      },
+      "independent": {
+        "function_calls": [
+          {
+            "name": "set_light",
+            "arguments": {
+              "room": "bedroom",
+              "on": false
+            }
+          }
+        ],
+        "reasoning": "",
+        "parse_error": null,
+        "text": "<tool_call>[{\"name\":\"set_light\",\"arguments\":{\"room\":\"bedroom\",\"on\":false}}]</tool_call>",
+        "backend": "native",
+        "arithmetic": "fp32_reference",
+        "matmul": "fp32",
+        "activation_fake_quant": false,
+        "token_ids": [
+          10,
+          1075,
+          598,
+          359,
+          1643,
+          8097,
+          2549,
+          362,
+          1376,
+          433,
+          4923,
+          359,
+          2302,
+          4923,
+          362,
+          270,
+          314,
+          1325,
+          1270,
+          11
+        ],
+        "prompt_tokens": 277,
+        "generated_tokens": 20,
+        "prefill_seconds": 2.5317105329995684,
+        "decode_seconds": 0.26134625099984987,
+        "decode_forward_seconds": 0.24884900200095217,
+        "prefill_tokens_per_second": 109.41219242462552,
+        "decode_forward_steps": 19,
+        "decode_tokens_per_second": 72.70048805869772,
+        "model_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+        "grammar_constrained": true,
+        "retrieval_enabled": false,
+        "prefix_tokens": 263,
+        "prefill_backend": "native"
+      },
+      "independent_wall_ms_including_setup": 2981.3109259998782,
+      "independent_error": null,
+      "independent_parse_success": true,
+      "official_expected_match": true,
+      "independent_expected_match": true,
+      "call_agreement": true
+    },
+    {
+      "id": "negation_no_action",
+      "category": "negation",
+      "query": "Do not turn on any lights.",
+      "expected_calls": [],
+      "official": {
+        "response": {
+          "type": "call",
+          "success": true,
+          "error": null,
+          "error_code": null,
+          "reason": null,
+          "function_calls": [
+            {
+              "name": "set_light",
+              "arguments": {
+                "room": "bedroom",
+                "on": false
+              }
+            }
+          ],
+          "reasoning": "Intended tool: set_light_mode. Missing required parameter: room (the user didn't specify which room).",
+          "confidence": 0.4511,
+          "prefill_tps": 692.1,
+          "decode_tps": 223.2,
+          "peak_ram_mb": 155.8,
+          "validation": {
+            "ungrounded": [],
+            "negation": true
+          }
+        },
+        "wall_ms": 250.3226789999644,
+        "return_code": 51
+      },
+      "independent": {
+        "function_calls": [
+          {
+            "name": "set_light",
+            "arguments": {
+              "room": "living room",
+              "on": true
+            }
+          }
+        ],
+        "reasoning": "'Do not turn on' -> action 'on'. No room specified, so 'living room' is default. No brightness specified.",
+        "parse_error": null,
+        "text": "<think>\n'Do not turn on' -> action 'on'. No room specified, so 'living room' is default. No brightness specified.\n</think>\n<tool_call>[{\"name\":\"set_light\",\"arguments\":{\"room\":\"living room\",\"on\":true}}]</tool_call>",
+        "backend": "native",
+        "arithmetic": "fp32_reference",
+        "matmul": "fp32",
+        "activation_fake_quant": false,
+        "token_ids": [
+          6,
+          24,
+          8075,
+          8096,
+          8048,
+          581,
+          3392,
+          437,
+          8075,
+          2002,
+          2776,
+          591,
+          270,
+          2948,
+          1060,
+          4928,
+          3711,
+          8066,
+          1282,
+          591,
+          8051,
+          2750,
+          4928,
+          8075,
+          444,
+          6880,
+          8063,
+          1060,
+          303,
+          4949,
+          3711,
+          8063,
+          24,
+          7,
+          24,
+          10,
+          1075,
+          598,
+          359,
+          1643,
+          8097,
+          2549,
+          362,
+          1376,
+          433,
+          4923,
+          359,
+          8051,
+          2750,
+          4928,
+          362,
+          270,
+          314,
+          1111,
+          1270,
+          11
+        ],
+        "prompt_tokens": 278,
+        "generated_tokens": 56,
+        "prefill_seconds": 2.66141466199997,
+        "decode_seconds": 0.7973337160001392,
+        "decode_forward_seconds": 0.7809585840004729,
+        "prefill_tokens_per_second": 104.45572573463305,
+        "decode_forward_steps": 55,
+        "decode_tokens_per_second": 68.97990000461789,
+        "model_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+        "grammar_constrained": true,
+        "retrieval_enabled": false,
+        "prefix_tokens": 263,
+        "prefill_backend": "native"
+      },
+      "independent_wall_ms_including_setup": 3647.7371629998743,
+      "independent_error": null,
+      "independent_parse_success": true,
+      "official_expected_match": false,
+      "independent_expected_match": false,
+      "call_agreement": false
+    },
+    {
+      "id": "off_topic",
+      "category": "irrelevance",
+      "query": "Who wrote Pride and Prejudice?",
+      "expected_calls": [],
+      "official": {
+        "response": {
+          "type": "call",
+          "success": true,
+          "error": null,
+          "error_code": null,
+          "reason": null,
+          "function_calls": [
+            {
+              "name": "set_timer",
+              "arguments": {
+                "minutes": 0,
+                "label": "pasta"
+              }
+            },
+            {
+              "name": "set_timer",
+              "arguments": {
+                "minutes": 0,
+                "label": "break"
+              }
+            }
+          ],
+          "reasoning": "'Pride' -> contact_pride_889; 'Prejudice' -> contact_prejudice_889; two calls to get_recent_messages.",
+          "confidence": 0.033,
+          "prefill_tps": 449.3,
+          "decode_tps": 197.1,
+          "peak_ram_mb": 155.8,
+          "validation": {
+            "ungrounded": [
+              "set_timer.minutes",
+              "set_timer.minutes"
+            ],
+            "negation": false
+          }
+        },
+        "wall_ms": 478.7392080002064,
+        "return_code": 86
+      },
+      "independent": {
+        "function_calls": [
+          {
+            "name": "set_timer",
+            "arguments": {
+              "minutes": 30,
+              "label": "tea"
+            }
+          },
+          {
+            "name": "set_timer",
+            "arguments": {
+              "minutes": 30,
+              "label": "pasta"
+            }
+          },
+          {
+            "name": "set_timer",
+            "arguments": {
+              "minutes": 30,
+              "label": "break"
+            }
+          },
+          {
+            "name": "set_timer",
+            "arguments": {
+              "minutes": 30,
+              "label": "tea"
+            }
+          },
+          {
+            "name": "set_timer",
+            "arguments": {
+              "minutes": 30,
+              "label": "break"
+            }
+          }
+        ],
+        "reasoning": "'Pride' -> contact_pride_889; 'Prejudice' -> contact_prejudice_889; two calls to get_recent_messages.",
+        "parse_error": null,
+        "text": "<think>\n'Pride' -> contact_pride_889; 'Prejudice' -> contact_prejudice_889; two calls to get_recent_messages.\n</think>\n<tool_call>[{\"name\":\"set_timer\",\"arguments\":{\"minutes\":30,\"label\":\"tea\"}},{\"name\":\"set_timer\",\"arguments\":{\"minutes\":30,\"label\":\"pasta\"}},{\"name\":\"set_timer\",\"arguments\":{\"minutes\":30,\"label\":\"break\"}},{\"name\":\"set_timer\",\"arguments\":{\"minutes\":30,\"label\":\"tea\"}},{\"name\":\"set_timer\",\"arguments\":{\"minutes\":30,\"label\":\"break\"}}]</tool_call>",
+        "backend": "native",
+        "arithmetic": "fp32_reference",
+        "matmul": "fp32",
+        "activation_fake_quant": false,
+        "token_ids": [
+          6,
+          24,
+          8075,
+          7066,
+          560,
+          8075,
+          2002,
+          2754,
+          8097,
+          1711,
+          560,
+          8097,
+          8110,
+          8110,
+          8107,
+          8137,
+          591,
+          6868,
+          8090,
+          2896,
+          8043,
+          8075,
+          2002,
+          2754,
+          8097,
+          975,
+          8090,
+          2896,
+          8043,
+          8097,
+          8110,
+          8110,
+          8107,
+          8137,
+          1819,
+          1987,
+          8049,
+          330,
+          1952,
+          8097,
+          279,
+          1837,
+          8097,
+          8055,
+          351,
+          1176,
+          8063,
+          24,
+          7,
+          24,
+          10,
+          1075,
+          598,
+          359,
+          1643,
+          8097,
+          5475,
+          362,
+          1376,
+          433,
+          2498,
+          314,
+          1885,
+          342,
+          5840,
+          359,
+          422,
+          8046,
+          4816,
+          598,
+          359,
+          1643,
+          8097,
+          5475,
+          362,
+          1376,
+          433,
+          2498,
+          314,
+          1885,
+          342,
+          5840,
+          359,
+          8057,
+          743,
+          8046,
+          4816,
+          598,
+          359,
+          1643,
+          8097,
+          5475,
+          362,
+          1376,
+          433,
+          2498,
+          314,
+          1885,
+          342,
+          5840,
+          359,
+          5496,
+          4816,
+          598,
+          359,
+          1643,
+          8097,
+          5475,
+          362,
+          1376,
+          433,
+          2498,
+          314,
+          1885,
+          342,
+          5840,
+          359,
+          422,
+          8046,
+          4816,
+          598,
+          359,
+          1643,
+          8097,
+          5475,
+          362,
+          1376,
+          433,
+          2498,
+          314,
+          1885,
+          342,
+          5840,
+          359,
+          5496,
+          2389,
+          11
+        ],
+        "prompt_tokens": 282,
+        "generated_tokens": 137,
+        "prefill_seconds": 2.6026452829996742,
+        "decode_seconds": 1.9387923209997098,
+        "decode_forward_seconds": 1.8761871530009557,
+        "prefill_tokens_per_second": 108.35130005691033,
+        "decode_forward_steps": 136,
+        "decode_tokens_per_second": 70.14676019031971,
+        "model_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+        "grammar_constrained": true,
+        "retrieval_enabled": false,
+        "prefix_tokens": 263,
+        "prefill_backend": "native"
+      },
+      "independent_wall_ms_including_setup": 4730.593427000258,
+      "independent_error": null,
+      "independent_parse_success": true,
+      "official_expected_match": false,
+      "independent_expected_match": false,
+      "call_agreement": false
+    },
+    {
+      "id": "timer_words",
+      "category": "number_paraphrase",
+      "query": "Start a ten-minute timer.",
+      "expected_calls": [
+        {
+          "name": "set_timer",
+          "arguments": {
+            "minutes": 10
+          }
+        }
+      ],
+      "official": {
+        "response": {
+          "type": "call",
+          "success": true,
+          "error": null,
+          "error_code": null,
+          "reason": null,
+          "function_calls": [
+            {
+              "name": "set_timer",
+              "arguments": {
+                "minutes": 10
+              }
+            }
+          ],
+          "reasoning": "'ten-minute' -> minutes 10; no label given so omitted.",
+          "confidence": 1.0,
+          "prefill_tps": 732.0,
+          "decode_tps": 462.5,
+          "peak_ram_mb": 155.8,
+          "validation": {
+            "ungrounded": [
+              "set_timer.minutes"
+            ],
+            "negation": false
+          }
+        },
+        "wall_ms": 94.98126500011494,
+        "return_code": 35
+      },
+      "independent": {
+        "function_calls": [
+          {
+            "name": "set_timer",
+            "arguments": {
+              "minutes": 10
+            }
+          }
+        ],
+        "reasoning": "'ten-minute' -> minutes 10; no label given so omitted.",
+        "parse_error": null,
+        "text": "<think>\n'ten-minute' -> minutes 10; no label given so omitted.\n</think>\n<tool_call>[{\"name\":\"set_timer\",\"arguments\":{\"minutes\":10}}]</tool_call>",
+        "backend": "native",
+        "arithmetic": "fp32_reference",
+        "matmul": "fp32",
+        "activation_fake_quant": false,
+        "token_ids": [
+          6,
+          24,
+          8075,
+          837,
+          8068,
+          635,
+          1273,
+          8075,
+          2002,
+          2599,
+          1872,
+          8137,
+          972,
+          6150,
+          2253,
+          1282,
+          6134,
+          8063,
+          24,
+          7,
+          24,
+          10,
+          1075,
+          598,
+          359,
+          1643,
+          8097,
+          5475,
+          362,
+          1376,
+          433,
+          2498,
+          314,
+          2210,
+          1270,
+          11
+        ],
+        "prompt_tokens": 277,
+        "generated_tokens": 36,
+        "prefill_seconds": 2.41650450599991,
+        "decode_seconds": 0.4473450179998508,
+        "decode_forward_seconds": 0.43607930000052875,
+        "prefill_tokens_per_second": 114.6283813302396,
+        "decode_forward_steps": 35,
+        "decode_tokens_per_second": 78.23938703171535,
+        "model_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+        "grammar_constrained": true,
+        "retrieval_enabled": false,
+        "prefix_tokens": 263,
+        "prefill_backend": "native"
+      },
+      "independent_wall_ms_including_setup": 3052.637377999872,
+      "independent_error": null,
+      "independent_parse_success": true,
+      "official_expected_match": true,
+      "independent_expected_match": true,
+      "call_agreement": true
+    },
+    {
+      "id": "volume_zero",
+      "category": "zero_value",
+      "query": "Mute the speaker by setting its volume to 0 percent.",
+      "expected_calls": [
+        {
+          "name": "set_volume",
+          "arguments": {
+            "percent": 0
+          }
+        }
+      ],
+      "official": {
+        "response": {
+          "type": "call",
+          "success": true,
+          "error": null,
+          "error_code": null,
+          "reason": null,
+          "function_calls": [
+            {
+              "name": "set_volume",
+              "arguments": {
+                "percent": 0
+              }
+            }
+          ],
+          "reasoning": "set_volume tool chosen. '0 percent' -> percent 0.",
+          "confidence": 1.0,
+          "prefill_tps": 752.2,
+          "decode_tps": 365.0,
+          "peak_ram_mb": 155.8,
+          "validation": {
+            "ungrounded": [],
+            "negation": false
+          }
+        },
+        "wall_ms": 118.76275299982808,
+        "return_code": 34
+      },
+      "independent": {
+        "function_calls": [
+          {
+            "name": "set_volume",
+            "arguments": {
+              "percent": 0
+            }
+          }
+        ],
+        "reasoning": "set_volume tool chosen. '0 percent' -> percent 0.",
+        "parse_error": null,
+        "text": "<think>\nset_volume tool chosen. '0 percent' -> percent 0.\n</think>\n<tool_call>[{\"name\":\"set_volume\",\"arguments\":{\"percent\":0}}]</tool_call>",
+        "backend": "native",
+        "arithmetic": "fp32_reference",
+        "matmul": "fp32",
+        "activation_fake_quant": false,
+        "token_ids": [
+          6,
+          24,
+          1643,
+          8097,
+          7791,
+          3093,
+          425,
+          7814,
+          8063,
+          591,
+          8079,
+          3986,
+          8075,
+          2002,
+          3986,
+          1874,
+          24,
+          7,
+          24,
+          10,
+          1075,
+          598,
+          359,
+          1643,
+          8097,
+          7791,
+          362,
+          1376,
+          433,
+          435,
+          1837,
+          314,
+          8079,
+          1270,
+          11
+        ],
+        "prompt_tokens": 282,
+        "generated_tokens": 35,
+        "prefill_seconds": 2.577410107000105,
+        "decode_seconds": 0.4505130009997629,
+        "decode_forward_seconds": 0.4386087240013694,
+        "prefill_tokens_per_second": 109.41215727916305,
+        "decode_forward_steps": 34,
+        "decode_tokens_per_second": 75.46952013493146,
+        "model_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+        "grammar_constrained": true,
+        "retrieval_enabled": false,
+        "prefix_tokens": 263,
+        "prefill_backend": "native"
+      },
+      "independent_wall_ms_including_setup": 3217.0223230000374,
+      "independent_error": null,
+      "independent_parse_success": true,
+      "official_expected_match": true,
+      "independent_expected_match": true,
+      "call_agreement": true
+    },
+    {
+      "id": "optional_brightness",
+      "category": "optional_enum",
+      "query": "Turn on the living room light at 50 percent brightness.",
+      "expected_calls": [
+        {
+          "name": "set_light",
+          "arguments": {
+            "room": "living room",
+            "on": true,
+            "brightness": 50
+          }
+        }
+      ],
+      "official": {
+        "response": {
+          "type": "call",
+          "success": true,
+          "error": null,
+          "error_code": null,
+          "reason": null,
+          "function_calls": [
+            {
+              "name": "set_light",
+              "arguments": {
+                "room": "living room",
+                "on": true,
+                "brightness": 50
+              }
+            }
+          ],
+          "reasoning": null,
+          "confidence": 0.992,
+          "prefill_tps": 668.4,
+          "decode_tps": 378.5,
+          "peak_ram_mb": 155.8,
+          "validation": {
+            "ungrounded": [],
+            "negation": false
+          }
+        },
+        "wall_ms": 100.1534389997687,
+        "return_code": 27
+      },
+      "independent": {
+        "function_calls": [
+          {
+            "name": "set_light",
+            "arguments": {
+              "room": "living room",
+              "on": true,
+              "brightness": 50
+            }
+          }
+        ],
+        "reasoning": "",
+        "parse_error": null,
+        "text": "<tool_call>[{\"name\":\"set_light\",\"arguments\":{\"room\":\"living room\",\"on\":true,\"brightness\":50}}]</tool_call>",
+        "backend": "native",
+        "arithmetic": "fp32_reference",
+        "matmul": "fp32",
+        "activation_fake_quant": false,
+        "token_ids": [
+          10,
+          1075,
+          598,
+          359,
+          1643,
+          8097,
+          2549,
+          362,
+          1376,
+          433,
+          4923,
+          359,
+          8051,
+          2750,
+          4928,
+          362,
+          270,
+          314,
+          1111,
+          342,
+          8064,
+          4949,
+          314,
+          1688,
+          1270,
+          11
+        ],
+        "prompt_tokens": 282,
+        "generated_tokens": 26,
+        "prefill_seconds": 2.657055672000297,
+        "decode_seconds": 0.35399240800006737,
+        "decode_forward_seconds": 0.33752560099947004,
+        "prefill_tokens_per_second": 106.13251463703938,
+        "decode_forward_steps": 25,
+        "decode_tokens_per_second": 70.62298353018701,
+        "model_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+        "grammar_constrained": true,
+        "retrieval_enabled": false,
+        "prefix_tokens": 263,
+        "prefill_backend": "native"
+      },
+      "independent_wall_ms_including_setup": 3201.9834299999275,
+      "independent_error": null,
+      "independent_parse_success": true,
+      "official_expected_match": true,
+      "independent_expected_match": true,
+      "call_agreement": true
+    },
+    {
+      "id": "optional_omitted",
+      "category": "optional_omission",
+      "query": "Switch off the kitchen light.",
+      "expected_calls": [
+        {
+          "name": "set_light",
+          "arguments": {
+            "room": "kitchen",
+            "on": false
+          }
+        }
+      ],
+      "official": {
+        "response": {
+          "type": "call",
+          "success": true,
+          "error": null,
+          "error_code": null,
+          "reason": null,
+          "function_calls": [
+            {
+              "name": "set_light",
+              "arguments": {
+                "room": "kitchen",
+                "on": false
+              }
+            }
+          ],
+          "reasoning": "room 'kitchen' from query; action 'off' from 'switch off'.",
+          "confidence": 0.9925,
+          "prefill_tps": 731.1,
+          "decode_tps": 339.0,
+          "peak_ram_mb": 155.8,
+          "validation": {
+            "ungrounded": [],
+            "negation": false
+          }
+        },
+        "wall_ms": 154.8393660000329,
+        "return_code": 45
+      },
+      "independent": {
+        "function_calls": [
+          {
+            "name": "set_light",
+            "arguments": {
+              "room": "kitchen",
+              "on": false
+            }
+          }
+        ],
+        "reasoning": "room 'kitchen' from 'kitchen light'; action 'off' from 'switch off'.",
+        "parse_error": null,
+        "text": "<think>\nroom 'kitchen' from 'kitchen light'; action 'off' from 'switch off'.\n</think>\n<tool_call>[{\"name\":\"set_light\",\"arguments\":{\"room\":\"kitchen\",\"on\":false}}]</tool_call>",
+        "backend": "native",
+        "arithmetic": "fp32_reference",
+        "matmul": "fp32",
+        "activation_fake_quant": false,
+        "token_ids": [
+          6,
+          24,
+          4923,
+          591,
+          8069,
+          292,
+          2119,
+          8075,
+          507,
+          591,
+          8069,
+          292,
+          2119,
+          2903,
+          3014,
+          2776,
+          591,
+          2249,
+          8075,
+          507,
+          591,
+          7222,
+          3638,
+          2127,
+          2948,
+          24,
+          7,
+          24,
+          10,
+          1075,
+          598,
+          359,
+          1643,
+          8097,
+          2549,
+          362,
+          1376,
+          433,
+          4923,
+          359,
+          8069,
+          292,
+          2119,
+          362,
+          270,
+          314,
+          1325,
+          1270,
+          11
+        ],
+        "prompt_tokens": 279,
+        "generated_tokens": 49,
+        "prefill_seconds": 2.495740461999958,
+        "decode_seconds": 0.646912422999776,
+        "decode_forward_seconds": 0.6313096249991759,
+        "prefill_tokens_per_second": 111.79047030251846,
+        "decode_forward_steps": 48,
+        "decode_tokens_per_second": 74.19860601442898,
+        "model_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+        "grammar_constrained": true,
+        "retrieval_enabled": false,
+        "prefix_tokens": 263,
+        "prefill_backend": "native"
+      },
+      "independent_wall_ms_including_setup": 3330.993805000162,
+      "independent_error": null,
+      "independent_parse_success": true,
+      "official_expected_match": true,
+      "independent_expected_match": true,
+      "call_agreement": true
+    },
+    {
+      "id": "timer_label",
+      "category": "optional_enum",
+      "query": "Set a 3-minute timer labeled tea.",
+      "expected_calls": [
+        {
+          "name": "set_timer",
+          "arguments": {
+            "minutes": 3,
+            "label": "tea"
+          }
+        }
+      ],
+      "official": {
+        "response": {
+          "type": "call",
+          "success": true,
+          "error": null,
+          "error_code": null,
+          "reason": null,
+          "function_calls": [
+            {
+              "name": "set_timer",
+              "arguments": {
+                "minutes": 3,
+                "label": "tea"
+              }
+            }
+          ],
+          "reasoning": "'3-minute' -> minutes 3; 'labeled tea' -> label 'tea'.",
+          "confidence": 0.9811,
+          "prefill_tps": 763.9,
+          "decode_tps": 432.2,
+          "peak_ram_mb": 155.8,
+          "validation": {
+            "ungrounded": [],
+            "negation": false
+          }
+        },
+        "wall_ms": 132.51597499993295,
+        "return_code": 47
+      },
+      "independent": {
+        "function_calls": [
+          {
+            "name": "set_timer",
+            "arguments": {
+              "minutes": 3,
+              "label": "tea"
+            }
+          }
+        ],
+        "reasoning": "'3-minute' -> minutes 3; 'labeled tea' -> label 'tea'.",
+        "parse_error": null,
+        "text": "<think>\n'3-minute' -> minutes 3; 'labeled tea' -> label 'tea'.\n</think>\n<tool_call>[{\"name\":\"set_timer\",\"arguments\":{\"minutes\":3,\"label\":\"tea\"}}]</tool_call>",
+        "backend": "native",
+        "arithmetic": "fp32_reference",
+        "matmul": "fp32",
+        "activation_fake_quant": false,
+        "token_ids": [
+          6,
+          24,
+          8075,
+          8105,
+          8068,
+          635,
+          1273,
+          8075,
+          2002,
+          2599,
+          585,
+          8137,
+          591,
+          5840,
+          293,
+          877,
+          8046,
+          8075,
+          2002,
+          6150,
+          591,
+          422,
+          8046,
+          2948,
+          24,
+          7,
+          24,
+          10,
+          1075,
+          598,
+          359,
+          1643,
+          8097,
+          5475,
+          362,
+          1376,
+          433,
+          2498,
+          314,
+          8105,
+          342,
+          5840,
+          359,
+          422,
+          8046,
+          2389,
+          11
+        ],
+        "prompt_tokens": 281,
+        "generated_tokens": 47,
+        "prefill_seconds": 2.587951071000134,
+        "decode_seconds": 0.6013631480000186,
+        "decode_forward_seconds": 0.5865670790008153,
+        "prefill_tokens_per_second": 108.58010537711029,
+        "decode_forward_steps": 46,
+        "decode_tokens_per_second": 76.492881469349,
+        "model_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+        "grammar_constrained": true,
+        "retrieval_enabled": false,
+        "prefix_tokens": 263,
+        "prefill_backend": "native"
+      },
+      "independent_wall_ms_including_setup": 3377.6162149997617,
+      "independent_error": null,
+      "independent_parse_success": true,
+      "official_expected_match": true,
+      "independent_expected_match": true,
+      "call_agreement": true
+    },
+    {
+      "id": "two_tools_ordered",
+      "category": "multiple_calls",
+      "query": "Turn off the bedroom light, then set the volume to 20 percent.",
+      "expected_calls": [
+        {
+          "name": "set_light",
+          "arguments": {
+            "room": "bedroom",
+            "on": false
+          }
+        },
+        {
+          "name": "set_volume",
+          "arguments": {
+            "percent": 20
+          }
+        }
+      ],
+      "official": {
+        "response": {
+          "type": "call",
+          "success": true,
+          "error": null,
+          "error_code": null,
+          "reason": null,
+          "function_calls": [
+            {
+              "name": "set_light",
+              "arguments": {
+                "room": "bedroom",
+                "on": false
+              }
+            },
+            {
+              "name": "set_volume",
+              "arguments": {
+                "percent": 20
+              }
+            }
+          ],
+          "reasoning": "room 'bedroom' from 'bedroom light'; action 'off' from 'turn off'; percent 20 from '20 percent'.",
+          "confidence": 0.9952,
+          "prefill_tps": 776.9,
+          "decode_tps": 416.0,
+          "peak_ram_mb": 155.8,
+          "validation": {
+            "ungrounded": [],
+            "negation": false
+          }
+        },
+        "wall_ms": 185.26216200007184,
+        "return_code": 65
+      },
+      "independent": {
+        "function_calls": [
+          {
+            "name": "set_light",
+            "arguments": {
+              "room": "bedroom",
+              "on": false
+            }
+          },
+          {
+            "name": "set_volume",
+            "arguments": {
+              "percent": 20
+            }
+          }
+        ],
+        "reasoning": "room 'bedroom' from 'bedroom light'; action 'off' from 'turn off'; percent 20 from '20 percent'.",
+        "parse_error": null,
+        "text": "<think>\nroom 'bedroom' from 'bedroom light'; action 'off' from 'turn off'; percent 20 from '20 percent'.\n</think>\n<tool_call>[{\"name\":\"set_light\",\"arguments\":{\"room\":\"bedroom\",\"on\":false}},{\"name\":\"set_volume\",\"arguments\":{\"percent\":20}}]</tool_call>",
+        "backend": "native",
+        "arithmetic": "fp32_reference",
+        "matmul": "fp32",
+        "activation_fake_quant": false,
+        "token_ids": [
+          6,
+          24,
+          4923,
+          591,
+          2302,
+          4923,
+          8075,
+          507,
+          591,
+          2302,
+          4923,
+          2903,
+          3014,
+          2776,
+          591,
+          2249,
+          8075,
+          507,
+          591,
+          6794,
+          2127,
+          3014,
+          3986,
+          940,
+          507,
+          591,
+          1185,
+          3986,
+          2948,
+          24,
+          7,
+          24,
+          10,
+          1075,
+          598,
+          359,
+          1643,
+          8097,
+          2549,
+          362,
+          1376,
+          433,
+          4923,
+          359,
+          2302,
+          4923,
+          362,
+          270,
+          314,
+          1325,
+          1223,
+          598,
+          359,
+          1643,
+          8097,
+          7791,
+          362,
+          1376,
+          433,
+          435,
+          1837,
+          314,
+          1185,
+          1270,
+          11
+        ],
+        "prompt_tokens": 285,
+        "generated_tokens": 65,
+        "prefill_seconds": 2.689160369000092,
+        "decode_seconds": 0.903843482999946,
+        "decode_forward_seconds": 0.8799615200005064,
+        "prefill_tokens_per_second": 105.9810353020974,
+        "decode_forward_steps": 64,
+        "decode_tokens_per_second": 70.80871987656278,
+        "model_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+        "grammar_constrained": true,
+        "retrieval_enabled": false,
+        "prefix_tokens": 263,
+        "prefill_backend": "native"
+      },
+      "independent_wall_ms_including_setup": 3782.60213700014,
+      "independent_error": null,
+      "independent_parse_success": true,
+      "official_expected_match": true,
+      "independent_expected_match": true,
+      "call_agreement": true
+    },
+    {
+      "id": "two_timers",
+      "category": "repeated_tool",
+      "query": "Set a timer for 2 minutes, then set another timer for 4 minutes.",
+      "expected_calls": [
+        {
+          "name": "set_timer",
+          "arguments": {
+            "minutes": 2
+          }
+        },
+        {
+          "name": "set_timer",
+          "arguments": {
+            "minutes": 4
+          }
+        }
+      ],
+      "official": {
+        "response": {
+          "type": "call",
+          "success": true,
+          "error": null,
+          "error_code": null,
+          "reason": null,
+          "function_calls": [
+            {
+              "name": "set_timer",
+              "arguments": {
+                "minutes": 2
+              }
+            },
+            {
+              "name": "set_timer",
+              "arguments": {
+                "minutes": 4
+              }
+            }
+          ],
+          "reasoning": "First timer: minutes 2 from '2 minutes', no label. Second timer: minutes 4 from '4 minutes', no label. Both use set_timer.",
+          "confidence": 1.0,
+          "prefill_tps": 760.9,
+          "decode_tps": 434.0,
+          "peak_ram_mb": 155.8,
+          "validation": {
+            "ungrounded": [],
+            "negation": false
+          }
+        },
+        "wall_ms": 175.5399399999078,
+        "return_code": 64
+      },
+      "independent": {
+        "function_calls": [
+          {
+            "name": "set_timer",
+            "arguments": {
+              "minutes": 2
+            }
+          },
+          {
+            "name": "set_timer",
+            "arguments": {
+              "minutes": 4
+            }
+          }
+        ],
+        "reasoning": "First timer: minutes 2 from '2 minutes', no label. Second timer: minutes 4 from '4 minutes', no label.",
+        "parse_error": null,
+        "text": "<think>\nFirst timer: minutes 2 from '2 minutes', no label. Second timer: minutes 4 from '4 minutes', no label.\n</think>\n<tool_call>[{\"name\":\"set_timer\",\"arguments\":{\"minutes\":2}},{\"name\":\"set_timer\",\"arguments\":{\"minutes\":4}}]</tool_call>",
+        "backend": "native",
+        "arithmetic": "fp32_reference",
+        "matmul": "fp32",
+        "activation_fake_quant": false,
+        "token_ids": [
+          6,
+          24,
+          8101,
+          1182,
+          4842,
+          8067,
+          2599,
+          466,
+          507,
+          591,
+          8088,
+          2599,
+          1105,
+          972,
+          6150,
+          8063,
+          4220,
+          4842,
+          8067,
+          2599,
+          626,
+          507,
+          591,
+          8109,
+          2599,
+          1105,
+          972,
+          6150,
+          8063,
+          24,
+          7,
+          24,
+          10,
+          1075,
+          598,
+          359,
+          1643,
+          8097,
+          5475,
+          362,
+          1376,
+          433,
+          2498,
+          314,
+          8088,
+          1223,
+          598,
+          359,
+          1643,
+          8097,
+          5475,
+          362,
+          1376,
+          433,
+          2498,
+          314,
+          8109,
+          1270,
+          11
+        ],
+        "prompt_tokens": 284,
+        "generated_tokens": 59,
+        "prefill_seconds": 2.5718715240000165,
+        "decode_seconds": 0.7619765479998932,
+        "decode_forward_seconds": 0.7419279419996201,
+        "prefill_tokens_per_second": 110.42542263475762,
+        "decode_forward_steps": 58,
+        "decode_tokens_per_second": 76.1178282353227,
+        "model_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+        "grammar_constrained": true,
+        "retrieval_enabled": false,
+        "prefix_tokens": 263,
+        "prefill_backend": "native"
+      },
+      "independent_wall_ms_including_setup": 3524.9179689999437,
+      "independent_error": null,
+      "independent_parse_success": true,
+      "official_expected_match": true,
+      "independent_expected_match": true,
+      "call_agreement": true
+    },
+    {
+      "id": "enum_brightness",
+      "category": "enum",
+      "query": "Turn on the kitchen light at 75 percent brightness.",
+      "expected_calls": [
+        {
+          "name": "set_light",
+          "arguments": {
+            "room": "kitchen",
+            "on": true,
+            "brightness": 75
+          }
+        }
+      ],
+      "official": {
+        "response": {
+          "type": "call",
+          "success": true,
+          "error": null,
+          "error_code": null,
+          "reason": null,
+          "function_calls": [
+            {
+              "name": "set_light",
+              "arguments": {
+                "room": "kitchen",
+                "on": true,
+                "brightness": 75
+              }
+            }
+          ],
+          "reasoning": "room 'kitchen' from query; action 'on' from 'Turn on'; brightness 75 from '75 percent'.",
+          "confidence": 0.8637,
+          "prefill_tps": 775.5,
+          "decode_tps": 419.6,
+          "peak_ram_mb": 155.8,
+          "validation": {
+            "ungrounded": [],
+            "negation": false
+          }
+        },
+        "wall_ms": 168.05530200008434,
+        "return_code": 59
+      },
+      "independent": {
+        "function_calls": [
+          {
+            "name": "set_light",
+            "arguments": {
+              "room": "kitchen",
+              "on": true,
+              "brightness": 75
+            }
+          }
+        ],
+        "reasoning": "room 'kitchen' from query; action 'on' from 'turn on'; brightness 75 from '75 percent'.",
+        "parse_error": null,
+        "text": "<think>\nroom 'kitchen' from query; action 'on' from 'turn on'; brightness 75 from '75 percent'.\n</think>\n<tool_call>[{\"name\":\"set_light\",\"arguments\":{\"room\":\"kitchen\",\"on\":true,\"brightness\":75}}]</tool_call>",
+        "backend": "native",
+        "arithmetic": "fp32_reference",
+        "matmul": "fp32",
+        "activation_fake_quant": false,
+        "token_ids": [
+          6,
+          24,
+          4923,
+          591,
+          8069,
+          292,
+          2119,
+          8075,
+          507,
+          1973,
+          8137,
+          2776,
+          591,
+          270,
+          8075,
+          507,
+          591,
+          6794,
+          437,
+          3014,
+          303,
+          4949,
+          1235,
+          8104,
+          507,
+          591,
+          5285,
+          3986,
+          2948,
+          24,
+          7,
+          24,
+          10,
+          1075,
+          598,
+          359,
+          1643,
+          8097,
+          2549,
+          362,
+          1376,
+          433,
+          4923,
+          359,
+          8069,
+          292,
+          2119,
+          362,
+          270,
+          314,
+          1111,
+          342,
+          8064,
+          4949,
+          314,
+          5285,
+          1270,
+          11
+        ],
+        "prompt_tokens": 284,
+        "generated_tokens": 58,
+        "prefill_seconds": 2.6740040660001796,
+        "decode_seconds": 0.8050821289998566,
+        "decode_forward_seconds": 0.7858465730014359,
+        "prefill_tokens_per_second": 106.20776670127208,
+        "decode_forward_steps": 57,
+        "decode_tokens_per_second": 70.80023012162793,
+        "model_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+        "grammar_constrained": true,
+        "retrieval_enabled": false,
+        "prefix_tokens": 263,
+        "prefill_backend": "native"
+      },
+      "independent_wall_ms_including_setup": 3667.909945000247,
+      "independent_error": null,
+      "independent_parse_success": true,
+      "official_expected_match": true,
+      "independent_expected_match": true,
+      "call_agreement": true
+    },
+    {
+      "id": "self_correction",
+      "category": "correction",
+      "query": "Set the volume to 60 percent. Actually, make that 40 percent.",
+      "expected_calls": [
+        {
+          "name": "set_volume",
+          "arguments": {
+            "percent": 40
+          }
+        }
+      ],
+      "official": {
+        "response": {
+          "type": "call",
+          "success": true,
+          "error": null,
+          "error_code": null,
+          "reason": null,
+          "function_calls": [
+            {
+              "name": "set_volume",
+              "arguments": {
+                "percent": 40
+              }
+            }
+          ],
+          "reasoning": "percent 40 from '40 percent' after self-correction; set_volume tool chosen.",
+          "confidence": 1.0,
+          "prefill_tps": 770.6,
+          "decode_tps": 472.0,
+          "peak_ram_mb": 155.8,
+          "validation": {
+            "ungrounded": [],
+            "negation": false
+          }
+        },
+        "wall_ms": 115.3585959996235,
+        "return_code": 42
+      },
+      "independent": {
+        "function_calls": [
+          {
+            "name": "set_volume",
+            "arguments": {
+              "percent": 40
+            }
+          }
+        ],
+        "reasoning": "percent 40 from '40 percent' after self-correction; set_volume tool chosen.",
+        "parse_error": null,
+        "text": "<think>\npercent 40 from '40 percent' after self-correction; set_volume tool chosen.\n</think>\n<tool_call>[{\"name\":\"set_volume\",\"arguments\":{\"percent\":40}}]</tool_call>",
+        "backend": "native",
+        "arithmetic": "fp32_reference",
+        "matmul": "fp32",
+        "activation_fake_quant": false,
+        "token_ids": [
+          6,
+          24,
+          435,
+          1837,
+          4585,
+          507,
+          591,
+          2574,
+          3986,
+          8075,
+          2001,
+          2697,
+          8068,
+          5492,
+          279,
+          480,
+          8137,
+          1408,
+          8097,
+          7791,
+          3093,
+          425,
+          7814,
+          8063,
+          24,
+          7,
+          24,
+          10,
+          1075,
+          598,
+          359,
+          1643,
+          8097,
+          7791,
+          362,
+          1376,
+          433,
+          435,
+          1837,
+          314,
+          2574,
+          1270,
+          11
+        ],
+        "prompt_tokens": 283,
+        "generated_tokens": 43,
+        "prefill_seconds": 2.5073098910002045,
+        "decode_seconds": 0.5436528790000921,
+        "decode_forward_seconds": 0.5309034679994511,
+        "prefill_tokens_per_second": 112.86997311971953,
+        "decode_forward_steps": 42,
+        "decode_tokens_per_second": 77.25517811521216,
+        "model_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+        "grammar_constrained": true,
+        "retrieval_enabled": false,
+        "prefix_tokens": 263,
+        "prefill_backend": "native"
+      },
+      "independent_wall_ms_including_setup": 3241.142050000235,
+      "independent_error": null,
+      "independent_parse_success": true,
+      "official_expected_match": true,
+      "independent_expected_match": true,
+      "call_agreement": true
+    }
+  ],
+  "workload_after": {
+    "load_average": [
+      0.91943359375,
+      0.80029296875,
+      1.43212890625
+    ],
+    "cpu.stat": "usage_usec 3356098484\nuser_usec 3018103059\nsystem_usec 337995424\nnice_usec 0\ncore_sched.force_idle_usec 0\nnr_periods 0\nnr_throttled 0\nthrottled_usec 0\nnr_bursts 0\nburst_usec 0\n"
+  },
+  "source_changed_during_run": true,
+  "summary": {
+    "cases": 15,
+    "official_expected_matches": 13,
+    "independent_expected_matches": 13,
+    "call_agreements": 13,
+    "independent_parse_successes": 15,
+    "independent_errors": 0
+  }
+}

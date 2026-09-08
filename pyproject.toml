@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "needle2-open"
+version = "0.1.0"
+description = "OpenNeedle: independent Needle 2 CQ archive conversion and PyTorch/CPU inference"
+license = {file = "LICENSE"}
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24", "torch>=2.2", "safetensors>=0.4", "regex>=2024.5.15"]
+
+[project.optional-dependencies]
+test = ["pytest>=8", "sentencepiece"]
+reference = ["jax", "flax", "sentencepiece"]
+
+[project.scripts]
+needle2 = "needle2.cli:main"
+
+[tool.setuptools]
+license-files = ["LICENSE", "NOTICE"]
+
+[tool.setuptools.packages.find]
+include = ["needle2*"]
+
+[tool.setuptools.package-data]
+needle2 = ["csrc/*.cpp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integration: requires downloaded official model", "reference: requires upstream JAX/Flax"]

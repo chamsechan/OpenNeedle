@@ -1,0 +1,318 @@
+{
+  "experimental": true,
+  "production_backend_changed": false,
+  "platform": "Linux-6.17.0-1020-oracle-aarch64-with-glibc2.39",
+  "cpu_affinity": [
+    3
+  ],
+  "model_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+  "compiler_flag": "-march=armv8.2-a+dotprod",
+  "shared_library": "/home/ubuntu/project/needle2/artifacts/experimental/sdot-2377b4e82829c971.so",
+  "matrices": [
+    {
+      "name": "layer00.q_proj",
+      "shape": [
+        512,
+        512
+      ],
+      "bits": 2,
+      "group_size": 128,
+      "packed_payload_bytes": 69632,
+      "extra_norm_scale_bytes": 8192,
+      "centroids_int8": [
+        -127,
+        -38,
+        38,
+        127
+      ],
+      "accuracy": {
+        "gaussian": {
+          "max_abs": 0.37737464904785156,
+          "mse": 0.007911608469158206,
+          "relative_l2": 0.006518612846766426,
+          "cosine_similarity": 0.9999792463151023,
+          "top1_agreement": 1.0
+        },
+        "real_model_activations": {
+          "max_abs": 0.30187225341796875,
+          "mse": 0.0050384320350110945,
+          "relative_l2": 0.005687587874886917,
+          "cosine_similarity": 0.9999842551993129,
+          "top1_agreement": 0.875
+        }
+      },
+      "integer_reference_verified": true,
+      "including_activation_preparation": {
+        "fp32": {
+          "median_wall_us": 56.95153,
+          "median_cpu_us": 56.9684,
+          "samples": [
+            {
+              "wall_us": 57.25394,
+              "cpu_us": 57.3204
+            },
+            {
+              "wall_us": 57.10474,
+              "cpu_us": 57.124
+            },
+            {
+              "wall_us": 56.575919999999996,
+              "cpu_us": 56.6016
+            },
+            {
+              "wall_us": 56.95153,
+              "cpu_us": 56.9684
+            },
+            {
+              "wall_us": 56.87193,
+              "cpu_us": 56.896
+            }
+          ]
+        },
+        "sdot": {
+          "median_wall_us": 24.787509999999997,
+          "median_cpu_us": 24.7784,
+          "samples": [
+            {
+              "wall_us": 24.75591,
+              "cpu_us": 24.7784
+            },
+            {
+              "wall_us": 24.787509999999997,
+              "cpu_us": 24.632
+            },
+            {
+              "wall_us": 24.85512,
+              "cpu_us": 24.872
+            },
+            {
+              "wall_us": 24.40191,
+              "cpu_us": 24.4144
+            },
+            {
+              "wall_us": 24.78792,
+              "cpu_us": 24.8044
+            }
+          ]
+        },
+        "wall_speedup": 2.2975897942149093,
+        "cpu_speedup": 2.2991153585380815
+      },
+      "fp32_full_vs_sdot_prepared_lower_bound": {
+        "fp32": {
+          "median_wall_us": 56.86153,
+          "median_cpu_us": 56.9084,
+          "samples": [
+            {
+              "wall_us": 56.86153,
+              "cpu_us": 56.9084
+            },
+            {
+              "wall_us": 56.650330000000004,
+              "cpu_us": 56.672
+            },
+            {
+              "wall_us": 57.053129999999996,
+              "cpu_us": 57.075199999999995
+            },
+            {
+              "wall_us": 56.55032,
+              "cpu_us": 56.5696
+            },
+            {
+              "wall_us": 56.95033,
+              "cpu_us": 56.970800000000004
+            }
+          ]
+        },
+        "sdot": {
+          "median_wall_us": 20.56186,
+          "median_cpu_us": 20.5716,
+          "samples": [
+            {
+              "wall_us": 20.46146,
+              "cpu_us": 20.4748
+            },
+            {
+              "wall_us": 20.56186,
+              "cpu_us": 20.5716
+            },
+            {
+              "wall_us": 20.95187,
+              "cpu_us": 20.7692
+            },
+            {
+              "wall_us": 20.639470000000003,
+              "cpu_us": 20.6516
+            },
+            {
+              "wall_us": 20.495060000000002,
+              "cpu_us": 20.5084
+            }
+          ]
+        },
+        "wall_speedup": 2.765388442485262,
+        "cpu_speedup": 2.7663575025763674
+      }
+    },
+    {
+      "name": "embedding",
+      "shape": [
+        8192,
+        512
+      ],
+      "bits": 4,
+      "group_size": 128,
+      "packed_payload_bytes": 2162688,
+      "extra_norm_scale_bytes": 131072,
+      "centroids_int8": [
+        -126,
+        -95,
+        -74,
+        -57,
+        -43,
+        -30,
+        -17,
+        -5,
+        7,
+        19,
+        31,
+        45,
+        59,
+        76,
+        97,
+        127
+      ],
+      "accuracy": {
+        "gaussian": {
+          "max_abs": 10.390960693359375,
+          "mse": 0.23103926994655782,
+          "relative_l2": 0.009605185170502432,
+          "cosine_similarity": 0.9999550424058575,
+          "top1_agreement": 1.0
+        },
+        "real_model_activations": {
+          "max_abs": 30.9736328125,
+          "mse": 1.8391645672776253,
+          "relative_l2": 0.0024589094060591247,
+          "cosine_similarity": 0.9999997518312508,
+          "top1_agreement": 1.0
+        }
+      },
+      "integer_reference_verified": true,
+      "including_activation_preparation": {
+        "fp32": {
+          "median_wall_us": 1380.2596899999999,
+          "median_cpu_us": 1380.326,
+          "samples": [
+            {
+              "wall_us": 1380.2596899999999,
+              "cpu_us": 1380.326
+            },
+            {
+              "wall_us": 1385.3689399999998,
+              "cpu_us": 1385.2472
+            },
+            {
+              "wall_us": 1380.97728,
+              "cpu_us": 1381.0148000000002
+            },
+            {
+              "wall_us": 1379.33006,
+              "cpu_us": 1378.9596000000001
+            },
+            {
+              "wall_us": 1376.56403,
+              "cpu_us": 1376.6036000000001
+            }
+          ]
+        },
+        "sdot": {
+          "median_wall_us": 282.66882,
+          "median_cpu_us": 282.7328,
+          "samples": [
+            {
+              "wall_us": 284.80805,
+              "cpu_us": 284.872
+            },
+            {
+              "wall_us": 283.88884,
+              "cpu_us": 283.9348
+            },
+            {
+              "wall_us": 282.66882,
+              "cpu_us": 282.7328
+            },
+            {
+              "wall_us": 281.80440999999996,
+              "cpu_us": 281.8648
+            },
+            {
+              "wall_us": 281.90761,
+              "cpu_us": 281.9692
+            }
+          ]
+        },
+        "wall_speedup": 4.882956988322943,
+        "cpu_speedup": 4.882086549561989
+      },
+      "fp32_full_vs_sdot_prepared_lower_bound": {
+        "fp32": {
+          "median_wall_us": 1375.15081,
+          "median_cpu_us": 1375.2112,
+          "samples": [
+            {
+              "wall_us": 1375.15081,
+              "cpu_us": 1375.2112
+            },
+            {
+              "wall_us": 1377.99684,
+              "cpu_us": 1378.0331999999999
+            },
+            {
+              "wall_us": 1376.40521,
+              "cpu_us": 1376.2803999999999
+            },
+            {
+              "wall_us": 1373.34436,
+              "cpu_us": 1373.3848
+            },
+            {
+              "wall_us": 1373.54917,
+              "cpu_us": 1373.2043999999999
+            }
+          ]
+        },
+        "sdot": {
+          "median_wall_us": 276.65153999999995,
+          "median_cpu_us": 276.536,
+          "samples": [
+            {
+              "wall_us": 276.39554,
+              "cpu_us": 276.448
+            },
+            {
+              "wall_us": 276.79114000000004,
+              "cpu_us": 276.83759999999995
+            },
+            {
+              "wall_us": 276.65153999999995,
+              "cpu_us": 276.7092
+            },
+            {
+              "wall_us": 275.95072999999996,
+              "cpu_us": 275.8152
+            },
+            {
+              "wall_us": 276.74514,
+              "cpu_us": 276.536
+            }
+          ]
+        },
+        "wall_speedup": 4.970696385785527,
+        "cpu_speedup": 4.972991581566234
+      }
+    }
+  ],
+  "sdot_in_disassembly": true
+}

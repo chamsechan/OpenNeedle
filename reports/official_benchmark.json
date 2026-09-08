@@ -1,0 +1,660 @@
+{
+  "schema_version": 1,
+  "created_utc": "2026-09-08T01:19:26.805620+00:00",
+  "implementation": "official_c_api",
+  "engine_version_expected": "2.0.4",
+  "hf_revision_expected": "32e9e3a93b205f786929697446ae669cf0a84579",
+  "hardware": {
+    "platform": "Linux-6.17.0-1020-oracle-aarch64-with-glibc2.39",
+    "machine": "aarch64",
+    "python": "3.12.3",
+    "logical_cpus": 4,
+    "affinity": [
+      0,
+      1,
+      2,
+      3
+    ],
+    "lscpu": [
+      {
+        "field": "Architecture:",
+        "data": "aarch64"
+      },
+      {
+        "field": "CPU op-mode(s):",
+        "data": "32-bit, 64-bit"
+      },
+      {
+        "field": "Byte Order:",
+        "data": "Little Endian"
+      },
+      {
+        "field": "CPU(s):",
+        "data": "4"
+      },
+      {
+        "field": "On-line CPU(s) list:",
+        "data": "0-3"
+      },
+      {
+        "field": "Vendor ID:",
+        "data": "ARM"
+      },
+      {
+        "field": "Model name:",
+        "data": "Neoverse-N1"
+      },
+      {
+        "field": "Model:",
+        "data": "1"
+      },
+      {
+        "field": "Thread(s) per core:",
+        "data": "1"
+      },
+      {
+        "field": "Core(s) per socket:",
+        "data": "4"
+      },
+      {
+        "field": "Socket(s):",
+        "data": "1"
+      },
+      {
+        "field": "Stepping:",
+        "data": "r3p1"
+      },
+      {
+        "field": "BogoMIPS:",
+        "data": "50.00"
+      },
+      {
+        "field": "Flags:",
+        "data": "fp asimd evtstrm aes pmull sha1 sha2 crc32 atomics fphp asimdhp cpuid asimdrdm lrcpc dcpop asimddp"
+      },
+      {
+        "field": "NUMA node(s):",
+        "data": "1"
+      },
+      {
+        "field": "NUMA node0 CPU(s):",
+        "data": "0-3"
+      },
+      {
+        "field": "Vulnerability Gather data sampling:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Ghostwrite:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Indirect target selection:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Itlb multihit:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability L1tf:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Mds:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Meltdown:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Mmio stale data:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Old microcode:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Reg file data sampling:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Retbleed:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Spec rstack overflow:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Spec store bypass:",
+        "data": "Mitigation; Speculative Store Bypass disabled via prctl"
+      },
+      {
+        "field": "Vulnerability Spectre v1:",
+        "data": "Mitigation; __user pointer sanitization"
+      },
+      {
+        "field": "Vulnerability Spectre v2:",
+        "data": "Mitigation; CSV2, BHB"
+      },
+      {
+        "field": "Vulnerability Srbds:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Tsa:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Tsx async abort:",
+        "data": "Not affected"
+      },
+      {
+        "field": "Vulnerability Vmscape:",
+        "data": "Not affected"
+      }
+    ]
+  },
+  "weights": {
+    "path": "/home/ubuntu/project/needle2/artifacts/official/needle2.cact",
+    "sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba"
+  },
+  "library": {
+    "path": "/home/ubuntu/project/needle2/artifacts/official/python/libneedle.so",
+    "sha256": "9e0effc7f6124eaa07e73ba91966b28cc2351332648a60875efd4e59bdbdd9bd",
+    "download_metadata": {
+      "repository": "Cactus-Compute/needle2",
+      "revision": "32e9e3a93b205f786929697446ae669cf0a84579",
+      "engine_version": "2.0.4",
+      "platform_tag": "manylinux2014_aarch64",
+      "url": "https://huggingface.co/Cactus-Compute/needle2/resolve/32e9e3a93b205f786929697446ae669cf0a84579/python/cactus_needle-2.0.4-py3-none-manylinux2014_aarch64.whl",
+      "wheel_sha256": "e655a13f9d3239e601936ff2d0f6acafd8f6020aaf7b1862ce4fceefacfd6556",
+      "library_sha256": "9e0effc7f6124eaa07e73ba91966b28cc2351332648a60875efd4e59bdbdd9bd"
+    }
+  },
+  "settings": {
+    "repeat": 3,
+    "warmup": 1,
+    "max_new_tokens": 256,
+    "system": "",
+    "reset_before_every_run": true,
+    "tools": [
+      {
+        "name": "set_light",
+        "description": "Turn the light in a named room on or off.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "room": {
+              "type": "string",
+              "description": "The room name spoken by the user."
+            },
+            "on": {
+              "type": "boolean",
+              "description": "True to turn on, false to turn off."
+            }
+          },
+          "required": [
+            "room",
+            "on"
+          ]
+        }
+      },
+      {
+        "name": "set_timer",
+        "description": "Start a countdown timer for the requested number of minutes.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "minutes": {
+              "type": "integer",
+              "description": "Timer duration in minutes."
+            }
+          },
+          "required": [
+            "minutes"
+          ]
+        }
+      },
+      {
+        "name": "set_volume",
+        "description": "Set the speaker volume to a percentage from 0 to 100.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "percent": {
+              "type": "integer",
+              "description": "Volume percentage from 0 to 100."
+            }
+          },
+          "required": [
+            "percent"
+          ]
+        }
+      }
+    ],
+    "telemetry": false,
+    "execute_function_calls": false,
+    "grammar": "official default",
+    "retrieval": "official default",
+    "thread_count": "official automatic selection"
+  },
+  "notes": [
+    "Small deterministic smoke cases; not an accuracy benchmark.",
+    "Throughput fields are reported by the official engine; wall_ms uses perf_counter.",
+    "No logits or token-step C ABI is provided by the official header.",
+    "Expected revision/version are provenance targets; verify library hash/metadata.",
+    "Process RSS includes Python and the loaded library, not only model state.",
+    "Concurrent host compiler/test CPU workload observed immediately after this run (1-minute load average approximately 6.6 on 4 logical CPUs); this is a contended measurement, not peak official performance."
+  ],
+  "cases": [
+    {
+      "id": "light_on",
+      "query": "Turn on the kitchen light.",
+      "expected_calls": [
+        {
+          "name": "set_light",
+          "arguments": {
+            "room": "kitchen",
+            "on": true
+          }
+        }
+      ],
+      "runs": [
+        {
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_light",
+                "arguments": {
+                  "room": "kitchen",
+                  "on": true
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 48.9,
+            "decode_tps": 26.4,
+            "peak_ram_mb": 115.5,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 1101.1669279999978,
+          "return_code": 21,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_light",
+                "arguments": {
+                  "room": "kitchen",
+                  "on": true
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 72.7,
+            "decode_tps": 24.0,
+            "peak_ram_mb": 115.5,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 1081.5838449999546,
+          "return_code": 21,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_light",
+                "arguments": {
+                  "room": "kitchen",
+                  "on": true
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 60.3,
+            "decode_tps": 21.0,
+            "peak_ram_mb": 115.5,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 1248.786881000001,
+          "return_code": 21,
+          "exact_call_match": true
+        }
+      ],
+      "wall_ms": {
+        "min": 1081.5838449999546,
+        "median": 1101.1669279999978,
+        "mean": 1143.845884666651,
+        "max": 1248.786881000001
+      },
+      "prefill_tps": {
+        "min": 48.9,
+        "median": 60.3,
+        "mean": 60.63333333333333,
+        "max": 72.7
+      },
+      "decode_tps": {
+        "min": 21.0,
+        "median": 24.0,
+        "mean": 23.8,
+        "max": 26.4
+      },
+      "peak_ram_mb": {
+        "min": 115.5,
+        "median": 115.5,
+        "mean": 115.5,
+        "max": 115.5
+      },
+      "deterministic_calls": true
+    },
+    {
+      "id": "timer_5",
+      "query": "Set a timer for 5 minutes.",
+      "expected_calls": [
+        {
+          "name": "set_timer",
+          "arguments": {
+            "minutes": 5
+          }
+        }
+      ],
+      "runs": [
+        {
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_timer",
+                "arguments": {
+                  "minutes": 5
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 53.5,
+            "decode_tps": 30.1,
+            "peak_ram_mb": 115.5,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 744.7118140000839,
+          "return_code": 15,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_timer",
+                "arguments": {
+                  "minutes": 5
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 77.7,
+            "decode_tps": 23.8,
+            "peak_ram_mb": 115.5,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 797.9604910000262,
+          "return_code": 15,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_timer",
+                "arguments": {
+                  "minutes": 5
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 79.8,
+            "decode_tps": 33.5,
+            "peak_ram_mb": 115.5,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 610.4879679999158,
+          "return_code": 15,
+          "exact_call_match": true
+        }
+      ],
+      "wall_ms": {
+        "min": 610.4879679999158,
+        "median": 744.7118140000839,
+        "mean": 717.7200910000087,
+        "max": 797.9604910000262
+      },
+      "prefill_tps": {
+        "min": 53.5,
+        "median": 77.7,
+        "mean": 70.33333333333333,
+        "max": 79.8
+      },
+      "decode_tps": {
+        "min": 23.8,
+        "median": 30.1,
+        "mean": 29.133333333333333,
+        "max": 33.5
+      },
+      "peak_ram_mb": {
+        "min": 115.5,
+        "median": 115.5,
+        "mean": 115.5,
+        "max": 115.5
+      },
+      "deterministic_calls": true
+    },
+    {
+      "id": "volume_30",
+      "query": "Set the volume to 30 percent.",
+      "expected_calls": [
+        {
+          "name": "set_volume",
+          "arguments": {
+            "percent": 30
+          }
+        }
+      ],
+      "runs": [
+        {
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_volume",
+                "arguments": {
+                  "percent": 30
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 66.0,
+            "decode_tps": 15.5,
+            "peak_ram_mb": 115.5,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 1230.8744239999214,
+          "return_code": 16,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_volume",
+                "arguments": {
+                  "percent": 30
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 41.1,
+            "decode_tps": 19.8,
+            "peak_ram_mb": 115.5,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 1125.6506700000273,
+          "return_code": 16,
+          "exact_call_match": true
+        },
+        {
+          "response": {
+            "type": "call",
+            "success": true,
+            "error": null,
+            "error_code": null,
+            "reason": null,
+            "function_calls": [
+              {
+                "name": "set_volume",
+                "arguments": {
+                  "percent": 30
+                }
+              }
+            ],
+            "reasoning": null,
+            "confidence": 1.0,
+            "prefill_tps": 68.3,
+            "decode_tps": 20.9,
+            "peak_ram_mb": 115.5,
+            "validation": {
+              "ungrounded": [],
+              "negation": false
+            }
+          },
+          "wall_ms": 954.6018869999671,
+          "return_code": 16,
+          "exact_call_match": true
+        }
+      ],
+      "wall_ms": {
+        "min": 954.6018869999671,
+        "median": 1125.6506700000273,
+        "mean": 1103.7089936666387,
+        "max": 1230.8744239999214
+      },
+      "prefill_tps": {
+        "min": 41.1,
+        "median": 66.0,
+        "mean": 58.46666666666667,
+        "max": 68.3
+      },
+      "decode_tps": {
+        "min": 15.5,
+        "median": 19.8,
+        "mean": 18.733333333333334,
+        "max": 20.9
+      },
+      "peak_ram_mb": {
+        "min": 115.5,
+        "median": 115.5,
+        "mean": 115.5,
+        "max": 115.5
+      },
+      "deterministic_calls": true
+    }
+  ],
+  "initialization": {
+    "load_ms": 16.4327789999561,
+    "init_ms": 1570.2717599999687,
+    "prefix_tokens": 177
+  },
+  "process_peak_rss_bytes": 121069568,
+  "summary": {
+    "measured_runs": 9,
+    "exact_call_matches": 9,
+    "scored_runs": 9,
+    "wall_ms": {
+      "min": 610.4879679999158,
+      "median": 1081.5838449999546,
+      "mean": 988.4249897777661,
+      "max": 1248.786881000001
+    },
+    "decode_tps": {
+      "min": 15.5,
+      "median": 23.8,
+      "mean": 23.88888888888889,
+      "max": 33.5
+    }
+  }
+}

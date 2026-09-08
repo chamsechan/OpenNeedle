@@ -1,0 +1,36 @@
+[
+  {
+    "name": "set_light",
+    "description": "Turn a room light on or off; optionally set its brightness when the user specifies it.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "room": {"type": "string", "enum": ["kitchen", "bedroom", "living room"], "description": "Which room's light to control."},
+        "on": {"type": "boolean", "description": "True to turn on, false to turn off."},
+        "brightness": {"type": "integer", "enum": [25, 50, 75, 100], "description": "Optional brightness percentage, only when explicitly requested."}
+      },
+      "required": ["room", "on"]
+    }
+  },
+  {
+    "name": "set_timer",
+    "description": "Start a countdown timer for a duration in minutes; optionally label it.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "minutes": {"type": "integer", "description": "Requested timer duration in minutes."},
+        "label": {"type": "string", "enum": ["tea", "pasta", "break"], "description": "Optional label, include only when the user names a label."}
+      },
+      "required": ["minutes"]
+    }
+  },
+  {
+    "name": "set_volume",
+    "description": "Set the speaker volume to a percentage from 0 to 100.",
+    "parameters": {
+      "type": "object",
+      "properties": {"percent": {"type": "integer", "description": "Requested volume percentage."}},
+      "required": ["percent"]
+    }
+  }
+]

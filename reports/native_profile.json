@@ -1,0 +1,14 @@
+{
+  "threads": 2,
+  "tokens": 64,
+  "per_token_ms": {
+    "other_projections": 2.3204604843750043,
+    "embedding_rows": 0.013404515624999988,
+    "engram_including_projections": 0.17062437500000002,
+    "whole_step": 8.8220988125,
+    "sinkhorn": 0.1399216406249993,
+    "fused_qkvg": 2.436737906249999,
+    "unused": 0.0
+  },
+  "note": "Nested wall-clock durations overlap; profiling-only build."
+}

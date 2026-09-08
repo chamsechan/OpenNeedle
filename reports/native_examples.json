@@ -1,0 +1,152 @@
+[
+  {
+    "query": "Turn on the kitchen light.",
+    "response": {
+      "function_calls": [
+        {
+          "name": "set_light_scene",
+          "arguments": {
+            "scene_name": "kitchen"
+          }
+        }
+      ],
+      "reasoning": "",
+      "parse_error": null,
+      "text": "<tool_call>[{\"name\":\"set_light_scene\",\"arguments\":{\"scene_name\":\"kitchen\"}}]</tool_call><|im_end|>",
+      "backend": "native",
+      "arithmetic": "fp32_reference",
+      "token_ids": [
+        10,
+        1075,
+        598,
+        359,
+        1643,
+        8097,
+        2549,
+        8097,
+        1839,
+        955,
+        362,
+        1376,
+        433,
+        1839,
+        955,
+        8097,
+        598,
+        359,
+        8069,
+        292,
+        2119,
+        2389,
+        11,
+        5
+      ],
+      "prompt_tokens": 192,
+      "generated_tokens": 24,
+      "prefill_seconds": 2.0696299490000456,
+      "decode_seconds": 0.29088824499967814,
+      "prefill_tokens_per_second": 92.77020758844641,
+      "decode_forward_steps": 23,
+      "decode_tokens_per_second": 79.06816585189081,
+      "model_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+      "grammar_constrained": false,
+      "retrieval_enabled": false
+    }
+  },
+  {
+    "query": "Set a timer for 5 minutes.",
+    "response": {
+      "function_calls": [
+        {
+          "name": "set_timer",
+          "arguments": {
+            "time_human": "5 minutes"
+          }
+        }
+      ],
+      "reasoning": "",
+      "parse_error": null,
+      "text": "<tool_call>[{\"name\":\"set_timer\",\"arguments\":{\"time_human\":\"5 minutes\"}}]</tool_call><|im_end|>",
+      "backend": "native",
+      "arithmetic": "fp32_reference",
+      "token_ids": [
+        10,
+        1075,
+        598,
+        359,
+        1643,
+        8097,
+        5475,
+        362,
+        1376,
+        433,
+        1385,
+        8097,
+        2085,
+        359,
+        8104,
+        2599,
+        2389,
+        11,
+        5
+      ],
+      "prompt_tokens": 190,
+      "generated_tokens": 19,
+      "prefill_seconds": 2.1344237079999857,
+      "decode_seconds": 0.2371476910002457,
+      "prefill_tokens_per_second": 89.01700224180665,
+      "decode_forward_steps": 18,
+      "decode_tokens_per_second": 75.90206729013167,
+      "model_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+      "grammar_constrained": false,
+      "retrieval_enabled": false
+    }
+  },
+  {
+    "query": "Set the volume to 30 percent.",
+    "response": {
+      "function_calls": [
+        {
+          "name": "set_volume",
+          "arguments": {
+            "percent": 30
+          }
+        }
+      ],
+      "reasoning": "",
+      "parse_error": null,
+      "text": "<tool_call>[{\"name\":\"set_volume\",\"arguments\":{\"percent\":30}}]</tool_call><|im_end|>",
+      "backend": "native",
+      "arithmetic": "fp32_reference",
+      "token_ids": [
+        10,
+        1075,
+        598,
+        359,
+        1643,
+        8097,
+        7791,
+        362,
+        1376,
+        433,
+        435,
+        1837,
+        314,
+        1885,
+        1270,
+        11,
+        5
+      ],
+      "prompt_tokens": 190,
+      "generated_tokens": 17,
+      "prefill_seconds": 2.054608271999996,
+      "decode_seconds": 0.2055947850000166,
+      "prefill_tokens_per_second": 92.47504869385651,
+      "decode_forward_steps": 16,
+      "decode_tokens_per_second": 77.82298563652141,
+      "model_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+      "grammar_constrained": false,
+      "retrieval_enabled": false
+    }
+  }
+]

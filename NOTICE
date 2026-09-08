@@ -1,0 +1,12 @@
+OpenNeedle (2026)
+
+This project implements the public Needle 2 architecture and CACT format.
+Architecture, quantization and archive conventions are derived from:
+  Cactus Compute, Inc., cactus-compute/needle
+  Commit 53df049c4a1a82fca1027b81f9ff21336dfb0861
+  https://github.com/cactus-compute/needle
+  Apache License, Version 2.0
+
+needle2/tokenizer.py adapts the reference tokenizer in needle/model/export.py.
+Official model weights and benchmark engine binaries retain their upstream
+licenses; downloaded artifacts are not part of the Python source distribution.

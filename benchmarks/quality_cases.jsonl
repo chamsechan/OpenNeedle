@@ -1,0 +1,15 @@
+{"id":"light_on","category":"simple","query":"Turn on the kitchen light.","expected_calls":[{"name":"set_light","arguments":{"room":"kitchen","on":true}}]}
+{"id":"timer_5","category":"simple","query":"Set a timer for 5 minutes.","expected_calls":[{"name":"set_timer","arguments":{"minutes":5}}]}
+{"id":"volume_30","category":"simple","query":"Set the volume to 30 percent.","expected_calls":[{"name":"set_volume","arguments":{"percent":30}}]}
+{"id":"light_off","category":"boolean","query":"Turn off the bedroom light.","expected_calls":[{"name":"set_light","arguments":{"room":"bedroom","on":false}}]}
+{"id":"negation_no_action","category":"negation","query":"Do not turn on any lights.","expected_calls":[]}
+{"id":"off_topic","category":"irrelevance","query":"Who wrote Pride and Prejudice?","expected_calls":[]}
+{"id":"timer_words","category":"number_paraphrase","query":"Start a ten-minute timer.","expected_calls":[{"name":"set_timer","arguments":{"minutes":10}}]}
+{"id":"volume_zero","category":"zero_value","query":"Mute the speaker by setting its volume to 0 percent.","expected_calls":[{"name":"set_volume","arguments":{"percent":0}}]}
+{"id":"optional_brightness","category":"optional_enum","query":"Turn on the living room light at 50 percent brightness.","expected_calls":[{"name":"set_light","arguments":{"room":"living room","on":true,"brightness":50}}]}
+{"id":"optional_omitted","category":"optional_omission","query":"Switch off the kitchen light.","expected_calls":[{"name":"set_light","arguments":{"room":"kitchen","on":false}}]}
+{"id":"timer_label","category":"optional_enum","query":"Set a 3-minute timer labeled tea.","expected_calls":[{"name":"set_timer","arguments":{"minutes":3,"label":"tea"}}]}
+{"id":"two_tools_ordered","category":"multiple_calls","query":"Turn off the bedroom light, then set the volume to 20 percent.","expected_calls":[{"name":"set_light","arguments":{"room":"bedroom","on":false}},{"name":"set_volume","arguments":{"percent":20}}]}
+{"id":"two_timers","category":"repeated_tool","query":"Set a timer for 2 minutes, then set another timer for 4 minutes.","expected_calls":[{"name":"set_timer","arguments":{"minutes":2}},{"name":"set_timer","arguments":{"minutes":4}}]}
+{"id":"enum_brightness","category":"enum","query":"Turn on the kitchen light at 75 percent brightness.","expected_calls":[{"name":"set_light","arguments":{"room":"kitchen","on":true,"brightness":75}}]}
+{"id":"self_correction","category":"correction","query":"Set the volume to 60 percent. Actually, make that 40 percent.","expected_calls":[{"name":"set_volume","arguments":{"percent":40}}]}
