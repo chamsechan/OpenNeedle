@@ -2,6 +2,21 @@
 
 本文介绍 Python 模型、训练、前缀复用、批量 prefill、probe heads 与可选参考验证。安装、双向转换和最小推理示例见[项目首页](../README.md)。所有命令均从项目根目录运行；Python 包和命令行模块仍名为 `needle2`。
 
+## FP16 master 转换与量化导出
+
+微调可从官方 FP16 master 开始，使用匹配的部署文件提供模型结构与量化元数据：
+
+```bash
+python -m needle2 to-torch artifacts/official/checkpoints/needle2.pkl \
+  artifacts/pytorch_master --template artifacts/official/needle2.cact
+python -m needle2 quantize artifacts/pytorch_master artifacts/from_master.cact
+```
+
+转换目录中的 `weights.safetensors`、`config.json` 和 `source.cact` 应一并保留。
+部署 `.cact` 反量化后的数值保留原有量化误差；FP16 master 入口用于保留发布的
+浮点权重精度。也可使用独立脚本 [convert_to_pytorch.py](../scripts/convert_to_pytorch.py)
+与 [quantize_to_cact.py](../scripts/quantize_to_cact.py)。
+
 ## 加载、增量推理与保存 PyTorch 模型
 
 `load_torch_model()` 接收转换后的 checkpoint 目录，也可直接读取 `.cact` 并反量化为可训练的 `NeedleModel`。部署权重的反量化值与量化前的 master 参数不同；继续训练通常应从 `artifacts/pytorch_master` 开始。

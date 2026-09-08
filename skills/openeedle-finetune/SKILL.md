@@ -14,7 +14,7 @@ description: 使用 OpenNeedle 对 Needle 2 做监督微调或 CQ 量化感知�
 
 优先从官方 FP16 master 转换的 canonical checkpoint 开始。目录需要
 `weights.safetensors`、`config.json`、`source.cact` 三个文件。
-具体转换入口见项目 `README.md` 的“模型转换”。
+具体转换入口见项目 `docs/usage.md` 的“FP16 master 转换与量化导出”。
 
 训练数据为 JSONL，每行包含：
 
