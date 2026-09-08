@@ -1,5 +1,12 @@
 # OpenNeedle
 
+<picture>
+  <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-static-dark.svg">
+  <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/openeedle-hero-static.svg">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-dark.svg">
+  <img src="docs/assets/openeedle-hero-light.svg" width="1200" alt="OpenNeedle 压缩推理流程与 CPU 速度对比：官方 407.80、OpenNeedle SDOT 168.21、原生 FP32 133.24、PyTorch 9.35 token/s。SDOT 为近似模式；完整条件见下方性能说明。">
+</picture>
+
 **Needle 2 的开放复现：PyTorch 双向转换、量化训练与独立 CPU 推理。**
 
 OpenNeedle 基于公开论文、官方源码和发布权重，实现 Needle 2 的 CQ2/CQ4 混合量化格式与模型前向。你可以将官方模型转为可训练的 PyTorch 模型，重新量化为官方兼容的 `.cact`，或直接使用独立 C++ 引擎运行压缩权重。

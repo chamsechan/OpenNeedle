@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500" role="img" aria-labelledby="title desc">
+<title id="title">OpenNeedle — packed CPU inference and measured decode throughput</title>
+<desc id="desc">Conceptual packed GEMV data flow. On a 4-core ARM Neoverse-N1 CPU: official 407.80, OpenNeedle SDOT 168.21, OpenNeedle FP32 133.24, and PyTorch 9.35 tokens per second. Medians of three queries repeated five times. Application timing definitions differ; SDOT adds quantization error. Motion is illustrative.</desc>
+<metadata>{&quot;source&quot;: &quot;reports/backend_comparison.json&quot;, &quot;sha256&quot;: &quot;e4153c2671f4f094c6f5f64cab20348ceda26b98ee248ccec50ef0add8ce339a&quot;, &quot;theme&quot;: &quot;dark&quot;, &quot;static&quot;: false}</metadata>
+<style>text{font-family:Inter,"Segoe UI",Arial,sans-serif}.mono{font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace}.overline{letter-spacing:2.2px}.flow{stroke-dasharray:5 18;stroke-linecap:round;animation:travel 2.6s linear infinite}.phase2{animation-delay:-1.3s}.phase3{animation-duration:1.8s}.spark{animation:shimmer 3.4s ease-in-out infinite}.spark2{animation-delay:-1.7s}@keyframes travel{to{stroke-dashoffset:-92}}@keyframes shimmer{0%,100%{opacity:.38}50%{opacity:1}}@media(prefers-reduced-motion:reduce){.flow,.spark{animation:none!important}.flow{stroke-dasharray:5 18;opacity:.7}}</style>
+<defs><pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".7" fill="#294e3c"/></pattern></defs>
+<rect x="0.5" y="0.5" width="1199" height="499" rx="20" fill="#0c1815" stroke="#294437" />
+<rect x="18" y="18" width="676" height="464" rx="14" fill="url(#grid)" opacity=".42"/>
+<rect x="715" y="18" width="467" height="464" rx="14" fill="#11231d" />
+<path d="M700 36V464" fill="none" stroke="#294437" stroke-width="1" />
+<path d="M55 46V28L69 46V28M80 28V46M76 37H84" fill="none" stroke="#7cebb7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="99" y="41" fill="#a3b8ac" font-size="11" font-weight="600" class="overline">OPEN COMPUTE / CQ2.2</text>
+<text x="50" y="104" fill="#edf6ef" font-size="53" font-weight="650" letter-spacing="-2">OpenNeedle</text>
+<text x="53" y="134" fill="#a3b8ac" font-size="16" font-weight="400" >PyTorch conversion + packed CPU inference</text>
+<text x="53" y="187" fill="#a3b8ac" font-size="11" font-weight="600" class="overline">COMPRESSED WEIGHTS</text>
+<rect x="267" y="164" width="148" height="36" rx="18" fill="#203e30" />
+<text x="341" y="187" fill="#7cebb7" font-size="13" font-weight="550" text-anchor="middle" class="mono">activation x</text>
+<path d="M341 200V226" fill="none" stroke="#294437" stroke-width="2" />
+<path d="M341 200V226" fill="none" stroke="#7cebb7" stroke-width="2" class="flow phase3"/>
+<rect x="52" y="217" width="123" height="107" rx="12" fill="#11231d" stroke="#294437" />
+<rect x="64" y="230" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.23"/>
+<rect x="78" y="230" width="9" height="10" rx="2" fill="#7cebb7" opacity="1"/>
+<rect x="92" y="230" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.68"/>
+<rect x="106" y="230" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.43"/>
+<rect x="120" y="230" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.23"/>
+<rect x="134" y="230" width="9" height="10" rx="2" fill="#7cebb7" opacity="1"/>
+<rect x="148" y="230" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.68"/>
+<rect x="64" y="246" width="9" height="10" rx="2" fill="#7cebb7" opacity="1"/>
+<rect x="78" y="246" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.68"/>
+<rect x="92" y="246" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.43"/>
+<rect x="106" y="246" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.23"/>
+<rect x="120" y="246" width="9" height="10" rx="2" fill="#7cebb7" opacity="1"/>
+<rect x="134" y="246" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.68"/>
+<rect x="148" y="246" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.43"/>
+<rect x="64" y="262" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.68"/>
+<rect x="78" y="262" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.43"/>
+<rect x="92" y="262" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.23"/>
+<rect x="106" y="262" width="9" height="10" rx="2" fill="#7cebb7" opacity="1"/>
+<rect x="120" y="262" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.68" class="spark"/>
+<rect x="134" y="262" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.43"/>
+<rect x="148" y="262" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.23"/>
+<rect x="64" y="278" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.43"/>
+<rect x="78" y="278" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.23" class="spark spark2"/>
+<rect x="92" y="278" width="9" height="10" rx="2" fill="#7cebb7" opacity="1"/>
+<rect x="106" y="278" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.68"/>
+<rect x="120" y="278" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.43"/>
+<rect x="134" y="278" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.23"/>
+<rect x="148" y="278" width="9" height="10" rx="2" fill="#7cebb7" opacity="1"/>
+<rect x="64" y="294" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.23"/>
+<rect x="78" y="294" width="9" height="10" rx="2" fill="#7cebb7" opacity="1"/>
+<rect x="92" y="294" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.68"/>
+<rect x="106" y="294" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.43"/>
+<rect x="120" y="294" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.23"/>
+<rect x="134" y="294" width="9" height="10" rx="2" fill="#7cebb7" opacity="1"/>
+<rect x="148" y="294" width="9" height="10" rx="2" fill="#7cebb7" opacity="0.68"/>
+<text x="52" y="349" fill="#edf6ef" font-size="15" font-weight="600" >CQ2 / CQ4</text>
+<text x="52" y="369" fill="#a3b8ac" font-size="12" font-weight="400" >codes + FP16 norms</text>
+<path d="M175 272H268" fill="none" stroke="#294437" stroke-width="2" />
+<path d="M175 272H268" fill="none" stroke="#7cebb7" stroke-width="2.5" class="flow"/>
+<path d="M258 241H268M416 241H426" fill="none" stroke="#508668" stroke-width="2" />
+<path d="M258 253H268M416 253H426" fill="none" stroke="#508668" stroke-width="2" />
+<path d="M258 265H268M416 265H426" fill="none" stroke="#508668" stroke-width="2" />
+<path d="M258 277H268M416 277H426" fill="none" stroke="#508668" stroke-width="2" />
+<path d="M258 289H268M416 289H426" fill="none" stroke="#508668" stroke-width="2" />
+<path d="M258 301H268M416 301H426" fill="none" stroke="#508668" stroke-width="2" />
+<path d="M258 313H268M416 313H426" fill="none" stroke="#508668" stroke-width="2" />
+<path d="M287 216V226M287 324V334" fill="none" stroke="#508668" stroke-width="2" />
+<path d="M300 216V226M300 324V334" fill="none" stroke="#508668" stroke-width="2" />
+<path d="M313 216V226M313 324V334" fill="none" stroke="#508668" stroke-width="2" />
+<path d="M326 216V226M326 324V334" fill="none" stroke="#508668" stroke-width="2" />
+<path d="M339 216V226M339 324V334" fill="none" stroke="#508668" stroke-width="2" />
+<path d="M352 216V226M352 324V334" fill="none" stroke="#508668" stroke-width="2" />
+<path d="M365 216V226M365 324V334" fill="none" stroke="#508668" stroke-width="2" />
+<path d="M378 216V226M378 324V334" fill="none" stroke="#508668" stroke-width="2" />
+<path d="M391 216V226M391 324V334" fill="none" stroke="#508668" stroke-width="2" />
+<path d="M404 216V226M404 324V334" fill="none" stroke="#508668" stroke-width="2" />
+<rect x="268" y="226" width="148" height="98" rx="12" fill="#17382b" stroke="#508668" />
+<rect x="278" y="236" width="128" height="78" rx="7" fill="none" stroke="#508668" />
+<text x="342" y="254" fill="#eafff2" font-size="10" font-weight="500" text-anchor="middle" letter-spacing="2.5">PACKED</text>
+<text x="342" y="283" fill="#eafff2" font-size="28" font-weight="600" text-anchor="middle" class="mono">GEMV</text>
+<text x="342" y="304" fill="#eafff2" font-size="11" font-weight="400" text-anchor="middle" class="mono">Hx + CQ lookup</text>
+<text x="342" y="350" fill="#edf6ef" font-size="15" font-weight="600" text-anchor="middle">NEON / SDOT</text>
+<text x="342" y="369" fill="#a3b8ac" font-size="12" font-weight="400" text-anchor="middle">shared input transform</text>
+<path d="M416 272H520" fill="none" stroke="#294437" stroke-width="2" />
+<path d="M416 272H520" fill="none" stroke="#7cebb7" stroke-width="2.5" class="flow phase2"/>
+<rect x="520" y="229" width="125" height="95" rx="12" fill="#11231d" stroke="#294437" />
+<text x="536" y="253" fill="#a3b8ac" font-size="10" font-weight="500" class="overline">OUTPUT</text>
+<rect x="536" y="265" width="93" height="5" rx="2" fill="#20382c" />
+<rect x="536" y="265" width="81" height="5" rx="2" fill="#3ab28e" />
+<rect x="536" y="278" width="93" height="5" rx="2" fill="#20382c" />
+<rect x="536" y="278" width="48" height="5" rx="2" fill="#7cebb7" />
+<rect x="536" y="291" width="93" height="5" rx="2" fill="#20382c" />
+<rect x="536" y="291" width="65" height="5" rx="2" fill="#3ab28e" />
+<text x="520" y="349" fill="#edf6ef" font-size="15" font-weight="600" >token logits</text>
+<text x="520" y="369" fill="#a3b8ac" font-size="12" font-weight="400" >grammar → token</text>
+<path d="M52 391H652" fill="none" stroke="#294437" stroke-width="1" />
+<text x="52" y="430" fill="#edf6ef" font-size="26" font-weight="550" letter-spacing="-.5">13.74 MB</text>
+<text x="52" y="451" fill="#a3b8ac" font-size="10" font-weight="500" letter-spacing="1.3">DEPLOYMENT FILE</text>
+<text x="265" y="430" fill="#edf6ef" font-size="26" font-weight="550" letter-spacing="-.5">43.6M</text>
+<text x="265" y="451" fill="#a3b8ac" font-size="10" font-weight="500" letter-spacing="1.3">DEPLOYED PARAMETERS</text>
+<text x="510" y="430" fill="#edf6ef" font-size="26" font-weight="550" letter-spacing="-.5">FP32 KV</text>
+<text x="510" y="451" fill="#a3b8ac" font-size="10" font-weight="500" letter-spacing="1.3">CURRENT CACHE</text>
+<text x="52" y="477" fill="#a3b8ac" font-size="11" font-weight="400" >One projection, illustrated. Packet motion is not a timing measurement.</text>
+<text x="751" y="48" fill="#a3b8ac" font-size="11" font-weight="600" class="overline">MEASURED ON CPU</text>
+<text x="751" y="80" fill="#edf6ef" font-size="23" font-weight="600" letter-spacing="-.4">Decode throughput</text>
+<text x="751" y="103" fill="#a3b8ac" font-size="12" font-weight="400" >4-core ARM Neoverse-N1 · median token/s</text>
+<text x="751" y="145" fill="#edf6ef" font-size="14" font-weight="550" >Official engine</text>
+<text x="1145" y="147" fill="#a8b9ae" font-size="25" font-weight="600" text-anchor="end" class="mono" letter-spacing="-.8">407.80</text>
+<rect x="751" y="160" width="394" height="5" rx="2" fill="#20382c" />
+<rect x="751" y="160" width="394.0" height="5" rx="2" fill="#a8b9ae" data-backend="official" data-value="407.8"/>
+<text x="751" y="214" fill="#edf6ef" font-size="14" font-weight="550" >OpenNeedle / SDOT*</text>
+<text x="1145" y="216" fill="#7cebb7" font-size="25" font-weight="600" text-anchor="end" class="mono" letter-spacing="-.8">168.21</text>
+<rect x="751" y="229" width="394" height="5" rx="2" fill="#20382c" />
+<rect x="751" y="229" width="162.52" height="5" rx="2" fill="#7cebb7" data-backend="native_sdot" data-value="168.212476244"/>
+<text x="751" y="283" fill="#edf6ef" font-size="14" font-weight="550" >OpenNeedle / FP32</text>
+<text x="1145" y="285" fill="#3ab28e" font-size="25" font-weight="600" text-anchor="end" class="mono" letter-spacing="-.8">133.24</text>
+<rect x="751" y="298" width="394" height="5" rx="2" fill="#20382c" />
+<rect x="751" y="298" width="128.733" height="5" rx="2" fill="#3ab28e" data-backend="native_fp32" data-value="133.241683191"/>
+<text x="751" y="352" fill="#edf6ef" font-size="14" font-weight="550" >PyTorch / FP32</text>
+<text x="1145" y="354" fill="#667e70" font-size="25" font-weight="600" text-anchor="end" class="mono" letter-spacing="-.8">9.35</text>
+<rect x="751" y="367" width="394" height="5" rx="2" fill="#20382c" />
+<rect x="751" y="367" width="9.037" height="5" rx="2" fill="#667e70" data-backend="pytorch_t2" data-value="9.35340760426"/>
+<path d="M751 391H1145" fill="none" stroke="#294437" stroke-width="1" />
+<text x="751" y="434" fill="#7cebb7" font-size="36" font-weight="600" letter-spacing="-1.5">18.0×</text>
+<text x="890" y="420" fill="#edf6ef" font-size="14" font-weight="500" >SDOT / PyTorch FP32</text>
+<text x="890" y="442" fill="#a3b8ac" font-size="10.5" font-weight="400" >Same model · application comparison</text>
+<text x="751" y="467" fill="#a3b8ac" font-size="11" font-weight="400" >* SDOT adds INT8 rounding. Timing definitions differ.</text>
+<text x="751" y="484" fill="#a3b8ac" font-size="10" font-weight="400" >Source: recorded benchmark · 3 queries × 5 repetitions</text>
+</svg>
