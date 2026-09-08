@@ -260,3 +260,33 @@ def test_explicit_prefix_snapshot_restores_two_requests_exactly():
         reused.reset(prefix_len=len(prefix))
         with pytest.raises(RuntimeError, match="no cached prefix"):
             reused.reset_to_prefix()
+
+
+def test_bounded_history_ring_long_sequence():
+    """Verify that generating tokens past history_cap (256) works smoothly with windowed KV."""
+    from test_model import tiny_model
+    from needle2.archive import FP32, TensorRecord
+    from types import SimpleNamespace
+    from needle2.native import NativeEngine
+
+    model = tiny_model(window=16)
+    records = {}
+    for name, tensor in model.canonical_state_dict().items():
+        a = tensor.numpy()
+        records[name] = TensorRecord(name, FP32, a.shape, a.tobytes())
+    meta = model.config.to_dict()
+    meta["hada_n"] = 16
+    meta["max_seq_len"] = 600
+    archive = SimpleNamespace(metadata=meta, tensors=records)
+    engine = NativeEngine(archive, threads=1)
+    engine.reset()
+    rng = np.random.default_rng(999)
+    # Generate 300 tokens (well beyond history_cap=256)
+    tokens = rng.integers(1, 31, 300)
+    for t in tokens:
+        logits = engine.step(int(t))
+        assert logits.shape == (31,)
+        assert np.isfinite(logits).all()
+    assert engine.position == 300
+
+

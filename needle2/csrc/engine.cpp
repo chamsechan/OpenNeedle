@@ -138,7 +138,7 @@ static void activation_quant(float*x,int n,int bits) {
 }
 struct PrefixSnapshot {
     int position;
-    std::vector<int> history;
+    std::vector<int> history_ring;
     std::vector<float> keys,values,engvalues;
 };
 struct Engine {
@@ -150,7 +150,11 @@ struct Engine {
     Prepared sdot_input;
     std::vector<TensorDesc> t;
     int threads,abits,position=0,capacity,engring,prefix=0,projection_lookup=-1;
-    std::vector<int> history;
+    static constexpr int history_cap = 256;
+    std::vector<int> history_ring;
+    int history_token(int p) const {
+        return history_ring[((p % history_cap) + history_cap) % history_cap];
+    }
     std::vector<float> keys,values,engvalues;
     std::vector<float> x,nx,u,bx,z,q,k,v,gate,att,proj,mlp,newx,hpre,hpost,hres;
     std::vector<float> ek,ev,e,rawv,logits,hidden,scores,rot,rope_cos,rope_sin,rope_divisor;
@@ -169,6 +173,7 @@ struct Engine {
         rot.resize(rotation_size);
         rope_cos.resize(c.head_dim/2);rope_sin.resize(c.head_dim/2);rope_divisor.resize(c.head_dim/2);
         for(int j=0;j<c.head_dim/2;++j)rope_divisor[j]=std::pow(c.rope_theta,float(2*j)/c.head_dim);
+        history_ring.resize(history_cap, 0);
     }
     bool configure_sdot() {
         if(!runtime_dotprod())return false;
@@ -181,14 +186,14 @@ struct Engine {
     }
     void reset(int prefix_len){
         prefix_snapshot.reset();
-        position=0;history.clear();prefix=prefix_len;
+        position=0;std::fill(history_ring.begin(),history_ring.end(),0);prefix=prefix_len;
         capacity=c.window?c.window+prefix:c.max_seq;
         keys.resize(size_t(c.layers)*capacity*c.kvheads*c.head_dim);values.resize(keys.size());scores.resize(2*capacity);
     }
     void cache_prefix() {
         if(position<=0||position!=prefix)throw std::runtime_error("prefix snapshot requires position == prefix_len > 0");
         auto snapshot=std::make_unique<PrefixSnapshot>();snapshot->position=position;
-        snapshot->history=history;snapshot->engvalues=engvalues;
+        snapshot->history_ring=history_ring;snapshot->engvalues=engvalues;
         size_t K=size_t(c.kvheads)*c.head_dim;
         snapshot->keys.resize(size_t(c.layers)*prefix*K);snapshot->values.resize(snapshot->keys.size());
         for(int l=0;l<c.layers;++l) {
@@ -202,7 +207,7 @@ struct Engine {
         if(!prefix_snapshot)throw std::runtime_error("no cached prefix; call cache_prefix() after consuming the complete prefix");
         int cached=prefix_snapshot->position;
         if(prefix!=cached||capacity!=(c.window?c.window+cached:c.max_seq))throw std::runtime_error("cached prefix geometry no longer matches the current state");
-        history=prefix_snapshot->history;engvalues=prefix_snapshot->engvalues;
+        history_ring=prefix_snapshot->history_ring;engvalues=prefix_snapshot->engvalues;
         size_t K=size_t(c.kvheads)*c.head_dim;
         for(int l=0;l<c.layers;++l) {
             const auto *ks=prefix_snapshot->keys.data()+size_t(l)*cached*K,*vs=prefix_snapshot->values.data()+size_t(l)*cached*K;
@@ -290,7 +295,7 @@ struct Engine {
                 float *dst=e.data()+table*c.subdim;
                 if(position+1<order || (c.window && order-1>=c.window && position-order+1>=prefix)){std::fill(dst,dst+c.subdim,0);continue;}
                 uint32_t acc=uint32_t(0x9e3779b9)*uint32_t(table+1);
-                for(int j=0;j<order;++j)acc=(acc^uint32_t(history[position-j]))*uint32_t(0x01000193);
+                for(int j=0;j<order;++j)acc=(acc^uint32_t(history_token(position-j)))*uint32_t(0x01000193);
                 acc^=acc>>15;
                 row(ti,table*c.slots+acc%c.slots,dst);
             }
@@ -310,7 +315,8 @@ struct Engine {
         }
     }
     void import_state(int pos,int pinned,const int*ids,const int*positions,int count,const float*k,const float*v) {
-        reset(pinned);position=pos;history.assign(ids,ids+pos);
+        reset(pinned);position=pos;
+        for(int i=std::max(0,pos-history_cap);i<pos;++i)history_ring[i%history_cap]=ids[i];
         int K=c.kvheads*c.head_dim;
         for(int l=0;l<c.layers;++l)for(int t=0;t<count;++t) {
             int slot=cache_slot(positions[t]);
@@ -326,7 +332,7 @@ struct Engine {
         int D=c.dim,N=c.lanes,H=c.heads,KV=c.kvheads,HD=c.head_dim,A=H*HD,K=KV*HD;
         if(token<0||token>=c.vocab)throw std::runtime_error("token outside vocabulary");
         if(!c.window&&position>=capacity)throw std::runtime_error("maximum context reached");
-        history.push_back(token);
+        history_ring[position%history_cap]=token;
         row(0,token,z.data());
         for(int n=0;n<N;++n)for(int d=0;d<D;++d)x[n*D+d]=z[d]*std::sqrt(float(D));
         engrams();
