@@ -6,7 +6,7 @@
   <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-static-dark.svg">
   <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/openeedle-hero-static.svg">
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-dark.svg">
-  <img src="docs/assets/openeedle-hero-light.svg" width="1200" alt="OpenNeedle 压缩推理流程与 CPU 速度对比：官方 504.70、OpenNeedle SDOT 152.30、原生 FP32 124.40、PyTorch 9.43 token/s。SDOT 为近似模式；完整条件见下方性能说明。">
+  <img src="docs/assets/openeedle-hero-light.svg" width="1200" alt="OpenNeedle 压缩推理流程与 CPU 速度对比：官方 488.90、OpenNeedle SDOT 150.59、原生 FP32 120.77、PyTorch 9.23 token/s。SDOT 为近似模式；完整条件见下方性能说明。">
 </picture>
 
 **面向 Needle 2 的开源 CPU 推理引擎与 PyTorch 工具链。**
@@ -21,12 +21,14 @@
 
 | 后端 | 线程 | 解码速度 ↑ | 热请求计算耗时 ↓ |
 |---|---:|---:|---:|
-| 官方闭源引擎 | 自动 | 504.70 token/s | 51.7 ms |
-| OpenNeedle FP32 | 4 | **124.40 token/s** | **210.1 ms** |
-| OpenNeedle SDOT | 4 | **152.30 token/s** | **168.4 ms** |
-| PyTorch FP32 | 1 | 9.43 token/s | 1792.7 ms |
+| 官方闭源引擎 | 自动 | 488.90 token/s | 47.9 ms |
+| OpenNeedle FP32 | 4 | **120.77 token/s** | **244.0 ms** |
+| OpenNeedle SDOT | 4 | **150.59 token/s** | **167.7 ms** |
+| PyTorch FP32 | 1 | 9.23 token/s | 1825.1 ms |
 
-FP32 / SDOT 解码吞吐分别为表中 PyTorch 的 **13.2× / 16.2×**；SDOT 为官方的 **30.2%**。PyTorch 使用 CPU eager，未启用 `torch.compile`；1/2/4 线程完整结果见 [测速方法与复现](docs/backend-comparison.md)。测试显式设置 `OMP_WAIT_POLICY=PASSIVE`；库不修改全局等待策略。独立引擎与官方接口的计时工作量存在差异，以上为应用层比较。
+FP32 / SDOT 解码吞吐分别为表中 PyTorch 的 **13.1× / 16.3×**；SDOT 为官方的 **30.8%**。PyTorch 使用 CPU eager，未启用 `torch.compile`；1/2/4 线程完整结果见 [测速方法与复现](docs/backend-comparison.md)。测试显式设置 `OMP_WAIT_POLICY=PASSIVE`；库不修改全局等待策略。独立引擎与官方接口的计时工作量存在差异，以上为应用层比较。
+
+版本速度对比：[16f2bd3f → a65a9a11](docs/backend-comparison.md#revision-comparison)。
 
 **默认 FP32；SDOT 为可选近似模式，会增加量化误差。** 15 项工具调用质量回归中，官方与两种原生模式均通过 13 项；完整 BFCL 尚未评估。四行 SDOT 与单行算术的逐元素一致测试覆盖 24 种参数组合。结果和支持范围见 [验证报告](docs/results.md) 与 [grammar 文档](docs/grammar.md)。
 

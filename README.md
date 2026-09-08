@@ -6,7 +6,7 @@
   <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-static-dark.svg">
   <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/openeedle-hero-static.svg">
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-dark.svg">
-  <img src="docs/assets/openeedle-hero-light.svg" width="1200" alt="OpenNeedle compressed inference pipeline and CPU speed comparison: Official 504.70, OpenNeedle SDOT 152.30, Native FP32 124.40, PyTorch 9.43 token/s. SDOT is approximate; see the performance notes for full conditions.">
+  <img src="docs/assets/openeedle-hero-light.svg" width="1200" alt="OpenNeedle compressed inference pipeline and CPU speed comparison: Official 488.90, OpenNeedle SDOT 150.59, Native FP32 120.77, PyTorch 9.23 token/s. SDOT is approximate; see the performance notes for full conditions.">
 </picture>
 
 **Open-source CPU inference engine and PyTorch toolchain for Needle 2.**
@@ -21,12 +21,14 @@ Measured on a 4-core ARM Neoverse-N1 with the same release model. Three tool req
 
 | Backend | Threads | Decode Speed ↑ | Warm Request Compute Time ↓ |
 |---|---:|---:|---:|
-| Official Closed-Source Engine | Auto | 504.70 token/s | 51.7 ms |
-| OpenNeedle FP32 | 4 | **124.40 token/s** | **210.1 ms** |
-| OpenNeedle SDOT | 4 | **152.30 token/s** | **168.4 ms** |
-| PyTorch FP32 | 1 | 9.43 token/s | 1792.7 ms |
+| Official Closed-Source Engine | Auto | 488.90 token/s | 47.9 ms |
+| OpenNeedle FP32 | 4 | **120.77 token/s** | **244.0 ms** |
+| OpenNeedle SDOT | 4 | **150.59 token/s** | **167.7 ms** |
+| PyTorch FP32 | 1 | 9.23 token/s | 1825.1 ms |
 
-FP32 / SDOT decode throughputs are **13.2× / 16.2×** the displayed PyTorch result; SDOT reaches **30.2%** of the official engine. PyTorch uses CPU eager without `torch.compile`; all 1/2/4-thread results are in [Benchmark Methodology & Reproduction](docs/backend-comparison.md). Measurements explicitly set `OMP_WAIT_POLICY=PASSIVE`; the library does not change the global wait policy. Timing workloads differ across the independent and official interfaces, so this is an application-level comparison.
+FP32 / SDOT decode throughputs are **13.1× / 16.3×** the displayed PyTorch result; SDOT reaches **30.8%** of the official engine. PyTorch uses CPU eager without `torch.compile`; all 1/2/4-thread results are in [Benchmark Methodology & Reproduction](docs/backend-comparison.md). Measurements explicitly set `OMP_WAIT_POLICY=PASSIVE`; the library does not change the global wait policy. Timing workloads differ across the independent and official interfaces, so this is an application-level comparison.
+
+Revision comparison: [16f2bd3f → a65a9a11](docs/backend-comparison.md#revision-comparison).
 
 **FP32 is the default; SDOT is an optional approximate mode that adds quantization error.** The official engine and both native modes pass 13 of 15 tool-call quality cases; full BFCL has not been evaluated. Four-row SDOT is tested for exact equality with single-row arithmetic across 24 parameter combinations. See the [Validation Report](docs/results.md) and [Grammar Documentation](docs/grammar.md).
 

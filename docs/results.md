@@ -55,7 +55,7 @@ FP32 与 SDOT 的 15/15 完整生成 token 序列一致。双方未答对的两�
 
 ## 性能
 
-4 核 ARM Neoverse-N1、原生 4 线程、固定工具前缀复用：FP32 为 **124.40 token/s、210.1 ms/请求**，SDOT 为 **152.30 token/s、168.4 ms/请求**。3 组请求各预热后重复 5 次，均为中位数；各后端 15/15 次调用正确。
+4 核 ARM Neoverse-N1、原生 4 线程、固定工具前缀复用：FP32 为 **120.77 token/s、244.0 ms/请求**，SDOT 为 **150.59 token/s、167.7 ms/请求**。3 组请求各预热后重复 5 次，均为中位数；各后端 15/15 次调用正确。
 
 官方及 PyTorch 1/2/4 线程完整数据、等待策略、计时边界和首次前缀成本见 [CPU 性能与测量方法](backend-comparison.md)。原始数据为 [backend_comparison.json](../reports/backend_comparison.json)。
 

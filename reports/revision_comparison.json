@@ -1,0 +1,159 @@
+{
+  "baseline_commit": "16f2bd3f99c16403033efc6ba15465445436c7b1",
+  "updated_commit": "a65a9a1128d907f37ca6527369da9f8c468c5c97",
+  "baseline_report": "backend_comparison_16f2bd3f.json",
+  "updated_report": "backend_comparison.json",
+  "cross_revision_token_agreement": true,
+  "summary": {
+    "official": {
+      "baseline": {
+        "decode_tps_median": 500.9,
+        "wall_ms_median": 58.997832999011735,
+        "wall_ms_min": 42.65768000186654,
+        "wall_ms_max": 104.92990300190286,
+        "process_cpu_ms_median": 206.64192000000003,
+        "prefill_tps_median": 892.7,
+        "exact_call_matches": 15,
+        "runs": 15
+      },
+      "updated": {
+        "decode_tps_median": 488.9,
+        "wall_ms_median": 47.86732899810886,
+        "wall_ms_min": 43.07204399810871,
+        "wall_ms_max": 100.93034700184944,
+        "process_cpu_ms_median": 177.26075999999935,
+        "prefill_tps_median": 891.1,
+        "exact_call_matches": 15,
+        "runs": 15
+      },
+      "decode_tps_change_pct": -2.3956877620283534,
+      "wall_ms_reduction_pct": 18.865953942900447
+    },
+    "native_fp32": {
+      "baseline": {
+        "decode_tps_median": 116.51162270750956,
+        "wall_ms_median": 225.8029170006921,
+        "wall_ms_min": 207.4904239998432,
+        "wall_ms_max": 308.93041499803076,
+        "process_cpu_ms_median": 408.1975999999994,
+        "prefill_tps_median": 138.97416369279415,
+        "exact_call_matches": 15,
+        "runs": 15
+      },
+      "updated": {
+        "decode_tps_median": 120.77499405610038,
+        "wall_ms_median": 243.95100899710087,
+        "wall_ms_min": 201.0126860004675,
+        "wall_ms_max": 289.351153998723,
+        "process_cpu_ms_median": 386.63275999999945,
+        "prefill_tps_median": 143.89105214070003,
+        "exact_call_matches": 15,
+        "runs": 15
+      },
+      "decode_tps_change_pct": 3.6591811610877434,
+      "wall_ms_reduction_pct": -8.03713797743062
+    },
+    "native_sdot": {
+      "baseline": {
+        "decode_tps_median": 149.74883483835202,
+        "wall_ms_median": 175.0635210009932,
+        "wall_ms_min": 161.11590999935288,
+        "wall_ms_max": 232.56897800092702,
+        "process_cpu_ms_median": 237.76888000000085,
+        "prefill_tps_median": 183.77973758027576,
+        "exact_call_matches": 15,
+        "runs": 15
+      },
+      "updated": {
+        "decode_tps_median": 150.58635314379578,
+        "wall_ms_median": 167.72309400039376,
+        "wall_ms_min": 154.41056800045772,
+        "wall_ms_max": 245.39446100243367,
+        "process_cpu_ms_median": 232.88912000000028,
+        "prefill_tps_median": 186.45666558371062,
+        "exact_call_matches": 15,
+        "runs": 15
+      },
+      "decode_tps_change_pct": 0.559282018018914,
+      "wall_ms_reduction_pct": 4.193007748631883
+    },
+    "pytorch_t1": {
+      "baseline": {
+        "decode_tps_median": 9.393337409113308,
+        "wall_ms_median": 1817.1335529987118,
+        "wall_ms_min": 1667.2879840007226,
+        "wall_ms_max": 2346.921182997903,
+        "process_cpu_ms_median": 1816.919040000002,
+        "prefill_tps_median": 69.14558113799596,
+        "exact_call_matches": 15,
+        "runs": 15
+      },
+      "updated": {
+        "decode_tps_median": 9.234351124767636,
+        "wall_ms_median": 1825.1026039979479,
+        "wall_ms_min": 1688.6728389981727,
+        "wall_ms_max": 2390.4679410006793,
+        "process_cpu_ms_median": 1824.944760000001,
+        "prefill_tps_median": 67.99907435570431,
+        "exact_call_matches": 15,
+        "runs": 15
+      },
+      "decode_tps_change_pct": -1.6925431017885573,
+      "wall_ms_reduction_pct": -0.4385506495152791
+    },
+    "pytorch_t2": {
+      "baseline": {
+        "decode_tps_median": 8.41573621789961,
+        "wall_ms_median": 2044.1371980014083,
+        "wall_ms_min": 1831.4169600016612,
+        "wall_ms_max": 2599.370946001727,
+        "process_cpu_ms_median": 2164.8522799999982,
+        "prefill_tps_median": 62.71368996410519,
+        "exact_call_matches": 15,
+        "runs": 15
+      },
+      "updated": {
+        "decode_tps_median": 8.566449124632117,
+        "wall_ms_median": 1950.8227019978222,
+        "wall_ms_min": 1835.4528159979964,
+        "wall_ms_max": 2604.0981789992657,
+        "process_cpu_ms_median": 2110.73408,
+        "prefill_tps_median": 63.70936485663268,
+        "exact_call_matches": 15,
+        "runs": 15
+      },
+      "decode_tps_change_pct": 1.7908463719662704,
+      "wall_ms_reduction_pct": 4.564982042047938
+    },
+    "pytorch_t4": {
+      "baseline": {
+        "decode_tps_median": 8.578712000849745,
+        "wall_ms_median": 1958.649718999368,
+        "wall_ms_min": 1803.8907450027182,
+        "wall_ms_max": 2663.7717129997327,
+        "process_cpu_ms_median": 2363.8241999999964,
+        "prefill_tps_median": 63.569546619242,
+        "exact_call_matches": 15,
+        "runs": 15
+      },
+      "updated": {
+        "decode_tps_median": 8.357869537893613,
+        "wall_ms_median": 1993.6287860000448,
+        "wall_ms_min": 1858.7191159967915,
+        "wall_ms_max": 2760.5260489981447,
+        "process_cpu_ms_median": 2390.3026400000017,
+        "prefill_tps_median": 61.76044979067764,
+        "exact_call_matches": 15,
+        "runs": 15
+      },
+      "decode_tps_change_pct": -2.5743079256449697,
+      "wall_ms_reduction_pct": -1.7858765996477954
+    }
+  },
+  "notes": [
+    "Same host, affinity 0,1,2,3, model, tools, cases, benchmark script and thread settings.",
+    "Each revision: three cases, one warmup per case/backend, five timed repetitions; separate persistent backend processes with serial interleaved requests.",
+    "Revisions measured sequentially: 16f2bd3f then a65a9a11. Changes include host scheduling noise; no statistical significance claimed.",
+    "FP32 implementation is unchanged. Official and PyTorch measurements serve as controls."
+  ]
+}
