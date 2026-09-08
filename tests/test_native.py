@@ -433,6 +433,41 @@ def test_native_batched_prefill_matches_step_and_torch():
             assert engine_last.position == len(tokens)
 
 
+def test_persistent_thread_pool_consistency():
+    import torch
+    from types import SimpleNamespace
+    from needle2.archive import TensorRecord, FP32, CQ
+    from needle2.native import NativeEngine
+    from needle2.quantize import quantize_matrix, codebook
+    from test_model import tiny_model
+
+    torch.set_num_threads(1)
+    model = tiny_model(window=5)
+    records = {}
+    for name, tensor in model.canonical_state_dict().items():
+        a = tensor.numpy()
+        if a.ndim == 2 and (name == "embedding" or name.endswith(("_proj", ".tables"))):
+            bits = 4 if name == "embedding" else 2
+            packed, norms = quantize_matrix(a, bits, 128)
+            records[name] = TensorRecord(name, CQ, a.shape, packed.tobytes() + norms.tobytes(), 128, bits, codebook(bits, 128))
+        else:
+            records[name] = TensorRecord(name, FP32, a.shape, a.tobytes())
+    meta = model.config.to_dict()
+    meta["hada_n"] = 16
+    archive = SimpleNamespace(metadata=meta, tensors=records)
+
+    tokens = [2, 5, 8, 12, 19, 7, 3, 1]
+    e1 = NativeEngine(archive, threads=1)
+    out1 = [e1.step(t) for t in tokens]
+
+    for th in (2, 4):
+        eth = NativeEngine(archive, threads=th)
+        out_th = [eth.step(t) for t in tokens]
+        for s1, sth in zip(out1, out_th):
+            np.testing.assert_allclose(sth, s1, atol=1e-6, rtol=1e-5)
+
+
+
 
 
 

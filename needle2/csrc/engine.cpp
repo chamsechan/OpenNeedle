@@ -1,6 +1,11 @@
 // Included by cq.cpp: single-stream Needle 2 forward, using the public architecture.
 #include <memory>
 #include <stdexcept>
+#include <thread>
+#include <atomic>
+#include <mutex>
+#include <condition_variable>
+#include <chrono>
 
 struct TensorDesc {void *cq; const float *data; int rows; int cols;};
 struct EngineConfig {
@@ -188,8 +193,132 @@ struct PrefixSnapshot {
     std::vector<int8_t> keys_i8, values_i8;
     std::vector<float> k_scales, v_scales;
 };
+
+class PersistentThreadPool {
+    struct alignas(64) WorkerState {
+        int start{0};
+        int end{0};
+        std::atomic<uint64_t> done{0};
+    };
+    int num_threads{1};
+    std::vector<std::thread> workers;
+    std::vector<WorkerState> states;
+    std::atomic<bool> stop{false};
+    std::atomic<uint64_t> current_task{0};
+    std::atomic<int> sleeping_workers{0};
+    std::mutex cv_mutex;
+    std::condition_variable cv;
+
+    void (*task_fn)(void*, int, int, int){nullptr};
+    void* task_ctx{nullptr};
+
+    void worker_loop(int tid) {
+        uint64_t my_task = 1;
+        int spin_count = 0;
+        const int max_spins = 50000;
+        while (!stop.load(std::memory_order_relaxed)) {
+            if (current_task.load(std::memory_order_acquire) >= my_task) {
+                task_fn(task_ctx, tid, states[tid].start, states[tid].end);
+                states[tid].done.store(my_task, std::memory_order_release);
+                my_task++;
+                spin_count = 0;
+            } else {
+                if (spin_count < max_spins) {
+                    spin_count++;
+#if defined(__aarch64__)
+                    asm volatile("yield" ::: "memory");
+#elif defined(__x86_64__) || defined(_M_X64)
+                    _mm_pause();
+#else
+                    std::this_thread::yield();
+#endif
+                } else {
+                    std::unique_lock<std::mutex> lock(cv_mutex);
+                    sleeping_workers.fetch_add(1, std::memory_order_relaxed);
+                    cv.wait(lock, [&] {
+                        return stop.load(std::memory_order_relaxed) ||
+                               current_task.load(std::memory_order_relaxed) >= my_task;
+                    });
+                    sleeping_workers.fetch_sub(1, std::memory_order_relaxed);
+                    spin_count = 0;
+                }
+            }
+        }
+    }
+
+public:
+    explicit PersistentThreadPool(int th) : num_threads(th), states(th) {
+        for (int i = 1; i < th; ++i) {
+            workers.emplace_back(&PersistentThreadPool::worker_loop, this, i);
+        }
+    }
+
+    ~PersistentThreadPool() {
+        stop.store(true, std::memory_order_release);
+        cv.notify_all();
+        for (auto& w : workers) {
+            if (w.joinable()) w.join();
+        }
+    }
+
+    int size() const { return num_threads; }
+
+    template <typename F>
+    void parallel_for(int total, const F& f) {
+        if (num_threads <= 1 || total <= 1) {
+            f(0, 0, total);
+            return;
+        }
+        for (int i = 0; i < num_threads; ++i) {
+            states[i].start = i * total / num_threads;
+            states[i].end = (i + 1) * total / num_threads;
+        }
+        auto wrapper = [](void* ctx, int tid, int start, int end) {
+            (*static_cast<const F*>(ctx))(tid, start, end);
+        };
+        task_fn = wrapper;
+        task_ctx = const_cast<void*>(static_cast<const void*>(&f));
+
+        uint64_t target = current_task.load(std::memory_order_relaxed) + 1;
+        current_task.store(target, std::memory_order_release);
+        if (sleeping_workers.load(std::memory_order_relaxed) > 0) {
+            cv.notify_all();
+        }
+
+        // Master executes slice 0
+        f(0, states[0].start, states[0].end);
+
+        // Wait for workers
+        for (int i = 1; i < num_threads; ++i) {
+            int spins = 0;
+            while (states[i].done.load(std::memory_order_acquire) < target) {
+                if (++spins < 100000) {
+#if defined(__aarch64__)
+                    asm volatile("yield" ::: "memory");
+#elif defined(__x86_64__) || defined(_M_X64)
+                    _mm_pause();
+#else
+                    std::this_thread::yield();
+#endif
+                } else {
+                    std::this_thread::yield();
+                }
+            }
+        }
+    }
+};
+
 struct Engine {
     EngineConfig c;
+    std::unique_ptr<PersistentThreadPool> pool;
+    template <typename F>
+    void parallel_for(int total, const F& f) {
+        if (pool && total > 1) {
+            pool->parallel_for(total, f);
+        } else {
+            f(0, 0, total);
+        }
+    }
     std::vector<float> activation_lut;
     bool sdot_enabled=false;
     std::unique_ptr<PrefixSnapshot> prefix_snapshot;
@@ -210,6 +339,7 @@ struct Engine {
     std::vector<float> x,nx,u,bx,z,q,k,v,gate,att,proj,mlp,newx,hpre,hpost,hres;
     std::vector<float> ek,ev,e,rawv,logits,hidden,rot,rope_cos,rope_sin,rope_divisor;
     Engine(const EngineConfig& cfg,const TensorDesc *td,int count,int th,int ab):c(cfg),t(td,td+count),threads(th),abits(ab) {
+        if(threads > 1) pool = std::make_unique<PersistentThreadPool>(threads);
         int D=c.dim,N=c.lanes,A=c.heads*c.head_dim,K=c.kvheads*c.head_dim;
         sdot.resize(t.size());
         capacity=c.window?c.window:c.max_seq;engring=(c.taps-1)*c.dilation+1;
@@ -306,18 +436,24 @@ struct Engine {
         if(sdot_enabled&&sdot[ti]) {
             auto*q=sdot[ti].get();q->prepare(in,sdot_input);
             int n4=rows/4;
-#ifdef _OPENMP
-#pragma omp parallel for num_threads(threads) if(threads>1&&rows>=128) schedule(static)
-#endif
-            for(int b=0;b<n4;++b)q->row4(first+b*4,sdot_input,out+b*4);
+            if (rows >= 128) {
+                parallel_for(n4, [&](int tid, int start, int end) {
+                    for(int b=start;b<end;++b)q->row4(first+b*4,sdot_input,out+b*4);
+                });
+            } else {
+                for(int b=0;b<n4;++b)q->row4(first+b*4,sdot_input,out+b*4);
+            }
             for(int r=n4*4;r<rows;++r)out[r]=q->row(first+r,sdot_input);
         } else if(w.cq) {
             auto *cq=static_cast<CQ*>(w.cq);
             cq->transform(in,rot.data());
-#ifdef _OPENMP
-#pragma omp parallel for num_threads(threads) if(threads > 1 && rows>=128) schedule(static)
-#endif
-            for(int r=0;r<rows;++r)out[r]=cq->dot_row(first+r,rot.data());
+            if (rows >= 128) {
+                parallel_for(rows, [&](int tid, int start, int end) {
+                    for(int r=start;r<end;++r)out[r]=cq->dot_row(first+r,rot.data());
+                });
+            } else {
+                for(int r=0;r<rows;++r)out[r]=cq->dot_row(first+r,rot.data());
+            }
         } else {
             for(int r=0;r<rows;++r)out[r]=dot_f32(w.data+size_t(first+r)*w.cols,in,w.cols);
         }
@@ -331,23 +467,15 @@ struct Engine {
             if(!compatible){linear(ti+1,input,q.data());linear(ti+2,input,k.data());linear(ti+3,input,v.data());linear(ti+6,input,gate.data());return;}
             matrices[0]->prepare(input,sdot_input);int total=0;for(auto*m:matrices)total+=m->rows;
             int total4=total/4;
-#ifdef _OPENMP
-#pragma omp parallel num_threads(threads) if(threads>1)
-#endif
-            {
-#ifdef _OPENMP
-                int tid=omp_get_thread_num(),nt=omp_get_num_threads();
-#else
-                int tid=0,nt=1;
-#endif
-                int begin=total4*tid/nt*4,end=total4*(tid+1)/nt*4,offset=0;
+            parallel_for(total4, [&](int tid, int start4, int end4) {
+                int begin=start4*4,end=end4*4,offset=0;
                 for(int m=0;m<4;++m){
                     int b=std::max(0,begin-offset),e=std::min(matrices[m]->rows,end-offset);
                     offset+=matrices[m]->rows;
                     for(int r=b;r<e-3;r+=4)matrices[m]->row4(r,sdot_input,outputs[m]+r);
                     for(int r=std::max(b,(e/4)*4);r<e;++r)outputs[m][r]=matrices[m]->row(r,sdot_input);
                 }
-            }
+            });
             return;
         }
         CQ*matrices[4]={static_cast<CQ*>(t[ti+1].cq),static_cast<CQ*>(t[ti+2].cq),static_cast<CQ*>(t[ti+3].cq),static_cast<CQ*>(t[ti+6].cq)};
@@ -361,72 +489,83 @@ struct Engine {
             lookup=threads<=2&&matrices[0]->bits==2&&matrices[0]->group==128&&rows>=1024?4:0;
         }
         if(lookup&&lookup!=4)activation_lut.resize(size_t(matrices[0]->activation_table_count(lookup))*matrices[0]->activation_table_stride(lookup));
-        cq_linear_many(matrices,4,input,outputs,threads,lookup,rot.data(),activation_lut.data());
+        if (lookup == 0 && pool) {
+            matrices[0]->transform(input, rot.data());
+            int total = 0;
+            for (auto* m : matrices) total += m->out;
+            parallel_for(total, [&](int tid, int begin, int end) {
+                int offset = 0;
+                for (int m = 0; m < 4; ++m) {
+                    int b = std::max(0, begin - offset), e = std::min(matrices[m]->out, end - offset);
+                    offset += matrices[m]->out;
+                    for (int r = b; r < e; ++r) outputs[m][r] = matrices[m]->dot_row(r, rot.data());
+                }
+            });
+        } else {
+            cq_linear_many(matrices,4,input,outputs,threads,lookup,rot.data(),activation_lut.data());
+        }
     }
     void linear_batch(int ti, const float* in, float* out, int batch, int first = 0, int rows = -1) {
         const auto &w = t[ti];
         if (rows < 0) rows = w.rows;
         if (!w.cq) {
             int in_dim = w.cols;
-#ifdef _OPENMP
-#pragma omp parallel for num_threads(threads) if(threads > 1 && rows >= 128) schedule(static)
-#endif
-            for (int r = 0; r < rows; ++r) {
-                const float* wt = w.data + size_t(first + r) * in_dim;
-                for (int b = 0; b < batch; ++b) {
-                    out[size_t(b) * rows + r] = dot_f32(wt, in + size_t(b) * in_dim, in_dim);
+            parallel_for(rows, [&](int tid, int start, int end) {
+                for (int r = start; r < end; ++r) {
+                    const float* wt = w.data + size_t(first + r) * in_dim;
+                    for (int b = 0; b < batch; ++b) {
+                        out[size_t(b) * rows + r] = dot_f32(wt, in + size_t(b) * in_dim, in_dim);
+                    }
                 }
-            }
+            });
             return;
         }
         if (sdot_enabled && sdot[ti]) {
             auto* q = sdot[ti].get();
             std::vector<Prepared> prep(batch);
             for (int b = 0; b < batch; ++b) q->prepare(in + size_t(b) * q->columns, prep[b]);
-#ifdef _OPENMP
-#pragma omp parallel for num_threads(threads) if(threads > 1 && rows >= 128) schedule(static)
-#endif
-            for (int r = 0; r < rows; ++r) {
-                for (int b = 0; b < batch; ++b) {
-                    out[size_t(b) * rows + r] = q->row(first + r, prep[b]);
+            parallel_for(rows, [&](int tid, int start, int end) {
+                for (int r = start; r < end; ++r) {
+                    for (int b = 0; b < batch; ++b) {
+                        out[size_t(b) * rows + r] = q->row(first + r, prep[b]);
+                    }
                 }
-            }
+            });
             return;
         }
         auto* q = static_cast<CQ*>(w.cq);
         std::vector<float> rot_batch(size_t(batch) * q->padded);
         for (int b = 0; b < batch; ++b) q->transform(in + size_t(b) * q->in, rot_batch.data() + size_t(b) * q->padded);
-#ifdef _OPENMP
-#pragma omp parallel for num_threads(threads) if(threads > 1 && rows >= 128) schedule(static)
-#endif
-        for (int r = 0; r < rows; ++r) {
-            int row_idx = first + r;
-            const auto* p = q->packed + size_t(row_idx) * q->rowbytes;
-            const auto* s = q->norms + size_t(row_idx) * q->groups;
-            int b = 0;
-            for (; b + 2 <= batch; b += 2) {
-                const float* rot0 = rot_batch.data() + size_t(b) * q->padded;
-                const float* rot1 = rot_batch.data() + size_t(b + 1) * q->padded;
-                float sum0 = 0, sum1 = 0;
-                for (int g = 0; g < q->groups; ++g) {
-                    float norm = half_float(s[g]);
-                    float g0 = 0, g1 = 0;
-                    q->group_dot_pair(p + g * q->group * q->storage_bits / 8, rot0 + g * q->group, rot1 + g * q->group, g0, g1);
-                    sum0 += g0 * norm;
-                    sum1 += g1 * norm;
+        parallel_for(rows, [&](int tid, int start, int end) {
+            for (int r = start; r < end; ++r) {
+                int row_idx = first + r;
+                const auto* p = q->packed + size_t(row_idx) * q->rowbytes;
+                const auto* s = q->norms + size_t(row_idx) * q->groups;
+                int b = 0;
+                for (; b + 2 <= batch; b += 2) {
+                    const float* rot0 = rot_batch.data() + size_t(b) * q->padded;
+                    const float* rot1 = rot_batch.data() + size_t(b + 1) * q->padded;
+                    float sum0 = 0, sum1 = 0;
+                    for (int g = 0; g < q->groups; ++g) {
+                        float norm = half_float(s[g]);
+                        float g0 = 0, g1 = 0;
+                        q->group_dot_pair(p + g * q->group * q->storage_bits / 8, rot0 + g * q->group, rot1 + g * q->group, g0, g1);
+                        sum0 += g0 * norm;
+                        sum1 += g1 * norm;
+                    }
+                    out[size_t(b) * rows + r] = sum0;
+                    out[size_t(b + 1) * rows + r] = sum1;
                 }
-                out[size_t(b) * rows + r] = sum0;
-                out[size_t(b + 1) * rows + r] = sum1;
-            }
-            for (; b < batch; ++b) {
-                const float* rot_b = rot_batch.data() + size_t(b) * q->padded;
-                float sum = 0;
-                for (int g = 0; g < q->groups; ++g) {
-                    sum += q->group_dot(p + g * q->group * q->storage_bits / 8, rot_b + g * q->group) * half_float(s[g]);
+                for (; b < batch; ++b) {
+                    const float* rot_b = rot_batch.data() + size_t(b) * q->padded;
+                    float sum = 0;
+                    for (int g = 0; g < q->groups; ++g) {
+                        sum += q->group_dot(p + g * q->group * q->storage_bits / 8, rot_b + g * q->group) * half_float(s[g]);
+                    }
+                    out[size_t(b) * rows + r] = sum;
                 }
-                out[size_t(b) * rows + r] = sum;
             }
-        }
+        });
     }
     void attention_projections_batch(int ti, const float* in, float* q_out, float* k_out, float* v_out, float* gate_out, int batch) {
         if (sdot_enabled) {
@@ -447,16 +586,15 @@ struct Engine {
             int total = 0;
             for (auto* m : matrices) total += m->rows;
             float* outputs[4] = {q_out, k_out, v_out, gate_out};
-#ifdef _OPENMP
-#pragma omp parallel for num_threads(threads) if(threads > 1) schedule(static)
-#endif
-            for (int i = 0; i < total; ++i) {
-                int m = 0, r = i;
-                while (m < 4 && r >= matrices[m]->rows) { r -= matrices[m]->rows; m++; }
-                for (int b = 0; b < batch; ++b) {
-                    outputs[m][size_t(b) * matrices[m]->rows + r] = matrices[m]->row(r, prep[b]);
+            parallel_for(total, [&](int tid, int start, int end) {
+                for (int i = start; i < end; ++i) {
+                    int m = 0, r = i;
+                    while (m < 4 && r >= matrices[m]->rows) { r -= matrices[m]->rows; m++; }
+                    for (int b = 0; b < batch; ++b) {
+                        outputs[m][size_t(b) * matrices[m]->rows + r] = matrices[m]->row(r, prep[b]);
+                    }
                 }
-            }
+            });
             return;
         }
         CQ* matrices[4] = {static_cast<CQ*>(t[ti+1].cq), static_cast<CQ*>(t[ti+2].cq), static_cast<CQ*>(t[ti+3].cq), static_cast<CQ*>(t[ti+6].cq)};
@@ -474,39 +612,38 @@ struct Engine {
         for (int b = 0; b < batch; ++b) {
             matrices[0]->transform(in + size_t(b) * matrices[0]->in, rot_batch.data() + size_t(b) * matrices[0]->padded);
         }
-#ifdef _OPENMP
-#pragma omp parallel for num_threads(threads) if(threads > 1) schedule(static)
-#endif
-        for (int i = 0; i < total; ++i) {
-            int m = 0, r = i;
-            while (m < 4 && r >= matrices[m]->out) { r -= matrices[m]->out; m++; }
-            CQ* q = matrices[m];
-            const auto* p = q->packed + size_t(r) * q->rowbytes;
-            const auto* s = q->norms + size_t(r) * q->groups;
-            int b = 0;
-            for (; b + 2 <= batch; b += 2) {
-                const float* rot0 = rot_batch.data() + size_t(b) * q->padded;
-                const float* rot1 = rot_batch.data() + size_t(b + 1) * q->padded;
-                float sum0 = 0, sum1 = 0;
-                for (int g = 0; g < q->groups; ++g) {
-                    float norm = half_float(s[g]);
-                    float g0 = 0, g1 = 0;
-                    q->group_dot_pair(p + g * q->group * q->storage_bits / 8, rot0 + g * q->group, rot1 + g * q->group, g0, g1);
-                    sum0 += g0 * norm;
-                    sum1 += g1 * norm;
+        parallel_for(total, [&](int tid, int start, int end) {
+            for (int i = start; i < end; ++i) {
+                int m = 0, r = i;
+                while (m < 4 && r >= matrices[m]->out) { r -= matrices[m]->out; m++; }
+                CQ* q = matrices[m];
+                const auto* p = q->packed + size_t(r) * q->rowbytes;
+                const auto* s = q->norms + size_t(r) * q->groups;
+                int b = 0;
+                for (; b + 2 <= batch; b += 2) {
+                    const float* rot0 = rot_batch.data() + size_t(b) * q->padded;
+                    const float* rot1 = rot_batch.data() + size_t(b + 1) * q->padded;
+                    float sum0 = 0, sum1 = 0;
+                    for (int g = 0; g < q->groups; ++g) {
+                        float norm = half_float(s[g]);
+                        float g0 = 0, g1 = 0;
+                        q->group_dot_pair(p + g * q->group * q->storage_bits / 8, rot0 + g * q->group, rot1 + g * q->group, g0, g1);
+                        sum0 += g0 * norm;
+                        sum1 += g1 * norm;
+                    }
+                    outputs[m][size_t(b) * q->out + r] = sum0;
+                    outputs[m][size_t(b + 1) * q->out + r] = sum1;
                 }
-                outputs[m][size_t(b) * q->out + r] = sum0;
-                outputs[m][size_t(b + 1) * q->out + r] = sum1;
-            }
-            for (; b < batch; ++b) {
-                const float* rot_b = rot_batch.data() + size_t(b) * q->padded;
-                float sum = 0;
-                for (int g = 0; g < q->groups; ++g) {
-                    sum += q->group_dot(p + g * q->group * q->storage_bits / 8, rot_b + g * q->group) * half_float(s[g]);
+                for (; b < batch; ++b) {
+                    const float* rot_b = rot_batch.data() + size_t(b) * q->padded;
+                    float sum = 0;
+                    for (int g = 0; g < q->groups; ++g) {
+                        sum += q->group_dot(p + g * q->group * q->storage_bits / 8, rot_b + g * q->group) * half_float(s[g]);
+                    }
+                    outputs[m][size_t(b) * q->out + r] = sum;
                 }
-                outputs[m][size_t(b) * q->out + r] = sum;
             }
-        }
+        });
     }
     void row(int ti,int ri,float*out){
         if(t[ti].cq)static_cast<CQ*>(t[ti].cq)->row(ri,out);
@@ -586,86 +723,80 @@ struct Engine {
             groups[num_groups++]={h,kh,count};
             h+=count;
         }
-#ifdef _OPENMP
-#pragma omp parallel for num_threads(threads) if(threads>1 && num_groups>1) schedule(static)
-#endif
-        for(int g=0;g<num_groups;++g) {
-#ifdef _OPENMP
-            int tid=omp_get_thread_num();
-#else
-            int tid=0;
-#endif
-            int h=groups[g].h,kh=groups[g].kh,count=groups[g].count;
-            float max0=-INFINITY,max1=-INFINITY,scale=1/std::sqrt(float(HD));
-            auto*s0=thread_scores.data()+size_t(tid)*2*capacity;
-            auto*s1=s0+capacity;
-            if(!int8_kv_enabled) {
-                const auto*kc=keys.data()+size_t(l)*capacity*K;
-                for(int s=0;s<length;++s) {
-                    int pos=cache_slot(s<prefix_count?s:start+s-prefix_count);
-                    if(count==2)dot_pair(q_in+h*HD,q_in+(h+1)*HD,kc+pos*K+kh*HD,HD,s0[s],s1[s]);
-                    else s0[s]=dot_f32(q_in+h*HD,kc+pos*K+kh*HD,HD);
-                    s0[s]*=scale;max0=std::max(max0,s0[s]);
-                    if(count==2){s1[s]*=scale;max1=std::max(max1,s1[s]);}
-                }
-                softmax_inplace(s0,length,max0);if(count==2)softmax_inplace(s1,length,max1);
-                auto *dst=att_out+h*HD,*dst1=dst+HD;std::fill(dst,dst+count*HD,0);
-                const auto*vc=values.data()+size_t(l)*capacity*K;
-                for(int s=0;s<length;++s) {
-                    const auto *src=vc+cache_slot(s<prefix_count?s:start+s-prefix_count)*K+kh*HD;float prob=s0[s],prob1=count==2?s1[s]:0;
-                    int d=0;
-#ifdef __aarch64__
-                    for(;d+4<=HD;d+=4){auto value=vld1q_f32(src+d);vst1q_f32(dst+d,vfmaq_n_f32(vld1q_f32(dst+d),value,prob));if(count==2)vst1q_f32(dst1+d,vfmaq_n_f32(vld1q_f32(dst1+d),value,prob1));}
-#endif
-                    for(;d<HD;++d){dst[d]+=prob*src[d];if(count==2)dst1[d]+=prob1*src[d];}
-                }
-            } else {
-                const auto*kc_i8=keys_i8.data()+size_t(l)*capacity*K;
-                const auto*ks=k_scales.data()+size_t(l)*capacity*KV;
-                for(int s=0;s<length;++s) {
-                    int pos=cache_slot(s<prefix_count?s:start+s-prefix_count);
-                    float k_scale=ks[pos*KV+kh];
-                    if(count==2) {
-                        dot_pair_i8_f32(q_in+h*HD,q_in+(h+1)*HD,kc_i8+pos*K+kh*HD,HD,s0[s],s1[s]);
-                        s0[s]*=k_scale;s1[s]*=k_scale;
-                    } else {
-                        s0[s]=dot_i8_f32(q_in+h*HD,kc_i8+pos*K+kh*HD,HD)*k_scale;
+        parallel_for(num_groups, [&](int tid, int start_g, int end_g) {
+            for(int g=start_g;g<end_g;++g) {
+                int h=groups[g].h,kh=groups[g].kh,count=groups[g].count;
+                float max0=-INFINITY,max1=-INFINITY,scale=1/std::sqrt(float(HD));
+                auto*s0=thread_scores.data()+size_t(tid)*2*capacity;
+                auto*s1=s0+capacity;
+                if(!int8_kv_enabled) {
+                    const auto*kc=keys.data()+size_t(l)*capacity*K;
+                    for(int s=0;s<length;++s) {
+                        int pos=cache_slot(s<prefix_count?s:start+s-prefix_count);
+                        if(count==2)dot_pair(q_in+h*HD,q_in+(h+1)*HD,kc+pos*K+kh*HD,HD,s0[s],s1[s]);
+                        else s0[s]=dot_f32(q_in+h*HD,kc+pos*K+kh*HD,HD);
+                        s0[s]*=scale;max0=std::max(max0,s0[s]);
+                        if(count==2){s1[s]*=scale;max1=std::max(max1,s1[s]);}
                     }
-                    s0[s]*=scale;max0=std::max(max0,s0[s]);
-                    if(count==2){s1[s]*=scale;max1=std::max(max1,s1[s]);}
-                }
-                softmax_inplace(s0,length,max0);if(count==2)softmax_inplace(s1,length,max1);
-                auto *dst=att_out+h*HD,*dst1=dst+HD;std::fill(dst,dst+count*HD,0);
-                const auto*vc_i8=values_i8.data()+size_t(l)*capacity*K;
-                const auto*vs=v_scales.data()+size_t(l)*capacity*KV;
-                for(int s=0;s<length;++s) {
-                    int pos=cache_slot(s<prefix_count?s:start+s-prefix_count);
-                    float v_scale=vs[pos*KV+kh];
-                    const auto*src_i8=vc_i8+pos*K+kh*HD;
-                    float prob=s0[s]*v_scale,prob1=(count==2?s1[s]:0)*v_scale;
-                    int d=0;
+                    softmax_inplace(s0,length,max0);if(count==2)softmax_inplace(s1,length,max1);
+                    auto *dst=att_out+h*HD,*dst1=dst+HD;std::fill(dst,dst+count*HD,0);
+                    const auto*vc=values.data()+size_t(l)*capacity*K;
+                    for(int s=0;s<length;++s) {
+                        const auto *src=vc+cache_slot(s<prefix_count?s:start+s-prefix_count)*K+kh*HD;float prob=s0[s],prob1=count==2?s1[s]:0;
+                        int d=0;
 #ifdef __aarch64__
-                    for(;d+8<=HD;d+=8) {
-                        int8x8_t v8=vld1_s8(src_i8+d);
-                        int16x8_t v16=vmovl_s8(v8);
-                        float32x4_t vf0=vcvtq_f32_s32(vmovl_s16(vget_low_s16(v16)));
-                        float32x4_t vf1=vcvtq_f32_s32(vmovl_s16(vget_high_s16(v16)));
-                        vst1q_f32(dst+d,vfmaq_n_f32(vld1q_f32(dst+d),vf0,prob));
-                        vst1q_f32(dst+d+4,vfmaq_n_f32(vld1q_f32(dst+d+4),vf1,prob));
-                        if(count==2){
-                            vst1q_f32(dst1+d,vfmaq_n_f32(vld1q_f32(dst1+d),vf0,prob1));
-                            vst1q_f32(dst1+d+4,vfmaq_n_f32(vld1q_f32(dst1+d+4),vf1,prob1));
+                        for(;d+4<=HD;d+=4){auto value=vld1q_f32(src+d);vst1q_f32(dst+d,vfmaq_n_f32(vld1q_f32(dst+d),value,prob));if(count==2)vst1q_f32(dst1+d,vfmaq_n_f32(vld1q_f32(dst1+d),value,prob1));}
+#endif
+                        for(;d<HD;++d){dst[d]+=prob*src[d];if(count==2)dst1[d]+=prob1*src[d];}
+                    }
+                } else {
+                    const auto*kc_i8=keys_i8.data()+size_t(l)*capacity*K;
+                    const auto*ks=k_scales.data()+size_t(l)*capacity*KV;
+                    for(int s=0;s<length;++s) {
+                        int pos=cache_slot(s<prefix_count?s:start+s-prefix_count);
+                        float k_scale=ks[pos*KV+kh];
+                        if(count==2) {
+                            dot_pair_i8_f32(q_in+h*HD,q_in+(h+1)*HD,kc_i8+pos*K+kh*HD,HD,s0[s],s1[s]);
+                            s0[s]*=k_scale;s1[s]*=k_scale;
+                        } else {
+                            s0[s]=dot_i8_f32(q_in+h*HD,kc_i8+pos*K+kh*HD,HD)*k_scale;
                         }
+                        s0[s]*=scale;max0=std::max(max0,s0[s]);
+                        if(count==2){s1[s]*=scale;max1=std::max(max1,s1[s]);}
                     }
+                    softmax_inplace(s0,length,max0);if(count==2)softmax_inplace(s1,length,max1);
+                    auto *dst=att_out+h*HD,*dst1=dst+HD;std::fill(dst,dst+count*HD,0);
+                    const auto*vc_i8=values_i8.data()+size_t(l)*capacity*K;
+                    const auto*vs=v_scales.data()+size_t(l)*capacity*KV;
+                    for(int s=0;s<length;++s) {
+                        int pos=cache_slot(s<prefix_count?s:start+s-prefix_count);
+                        float v_scale=vs[pos*KV+kh];
+                        const auto*src_i8=vc_i8+pos*K+kh*HD;
+                        float prob=s0[s]*v_scale,prob1=(count==2?s1[s]:0)*v_scale;
+                        int d=0;
+#ifdef __aarch64__
+                        for(;d+8<=HD;d+=8) {
+                            int8x8_t v8=vld1_s8(src_i8+d);
+                            int16x8_t v16=vmovl_s8(v8);
+                            float32x4_t vf0=vcvtq_f32_s32(vmovl_s16(vget_low_s16(v16)));
+                            float32x4_t vf1=vcvtq_f32_s32(vmovl_s16(vget_high_s16(v16)));
+                            vst1q_f32(dst+d,vfmaq_n_f32(vld1q_f32(dst+d),vf0,prob));
+                            vst1q_f32(dst+d+4,vfmaq_n_f32(vld1q_f32(dst+d+4),vf1,prob));
+                            if(count==2){
+                                vst1q_f32(dst1+d,vfmaq_n_f32(vld1q_f32(dst1+d),vf0,prob1));
+                                vst1q_f32(dst1+d+4,vfmaq_n_f32(vld1q_f32(dst1+d+4),vf1,prob1));
+                            }
+                        }
 #endif
-                    for(;d<HD;++d){
-                        float val=float(src_i8[d]);
-                        dst[d]+=prob*val;
-                        if(count==2)dst1[d]+=prob1*val;
+                        for(;d<HD;++d){
+                            float val=float(src_i8[d]);
+                            dst[d]+=prob*val;
+                            if(count==2)dst1[d]+=prob1*val;
+                        }
                     }
                 }
             }
-        }
+        });
     }
     void step(int token,float*out,float*hidden_out) {
         int D=c.dim,N=c.lanes,H=c.heads,KV=c.kvheads,HD=c.head_dim,A=H*HD,K=KV*HD;
@@ -1005,27 +1136,38 @@ struct Engine {
         if (sdot_enabled && sdot[0]) {
             auto* q = sdot[0].get();
             q->prepare(z.data(), sdot_input);
-#ifdef _OPENMP
-#pragma omp parallel for num_threads(threads) if(threads > 1 && num_candidates >= 128) schedule(static)
-#endif
-            for (int i = 0; i < num_candidates; ++i) {
-                candidate_logits[i] = q->row(candidates[i], sdot_input);
+            if (num_candidates >= 128) {
+                parallel_for(num_candidates, [&](int tid, int start, int end) {
+                    for (int i = start; i < end; ++i) {
+                        candidate_logits[i] = q->row(candidates[i], sdot_input);
+                    }
+                });
+            } else {
+                for (int i = 0; i < num_candidates; ++i) candidate_logits[i] = q->row(candidates[i], sdot_input);
             }
         } else if (t[0].cq) {
             auto* cq = static_cast<CQ*>(t[0].cq);
             cq->transform(z.data(), rot.data());
-#ifdef _OPENMP
-#pragma omp parallel for num_threads(threads) if(threads > 1 && num_candidates >= 128) schedule(static)
-#endif
-            for (int i = 0; i < num_candidates; ++i) {
-                candidate_logits[i] = cq->dot_row(candidates[i], rot.data());
+            if (num_candidates >= 128) {
+                parallel_for(num_candidates, [&](int tid, int start, int end) {
+                    for (int i = start; i < end; ++i) {
+                        candidate_logits[i] = cq->dot_row(candidates[i], rot.data());
+                    }
+                });
+            } else {
+                for (int i = 0; i < num_candidates; ++i) candidate_logits[i] = cq->dot_row(candidates[i], rot.data());
             }
         } else {
-#ifdef _OPENMP
-#pragma omp parallel for num_threads(threads) if(threads > 1 && num_candidates >= 128) schedule(static)
-#endif
-            for (int i = 0; i < num_candidates; ++i) {
-                candidate_logits[i] = dot_f32(t[0].data + size_t(candidates[i]) * t[0].cols, z.data(), t[0].cols);
+            if (num_candidates >= 128) {
+                parallel_for(num_candidates, [&](int tid, int start, int end) {
+                    for (int i = start; i < end; ++i) {
+                        candidate_logits[i] = dot_f32(t[0].data + size_t(candidates[i]) * t[0].cols, z.data(), t[0].cols);
+                    }
+                });
+            } else {
+                for (int i = 0; i < num_candidates; ++i) {
+                    candidate_logits[i] = dot_f32(t[0].data + size_t(candidates[i]) * t[0].cols, z.data(), t[0].cols);
+                }
             }
         }
     }
