@@ -218,10 +218,12 @@ struct Engine {
         const auto &w=t[ti];if(rows<0)rows=w.rows;
         if(sdot_enabled&&sdot[ti]) {
             auto*q=sdot[ti].get();q->prepare(in,sdot_input);
+            int n4=rows/4;
 #ifdef _OPENMP
 #pragma omp parallel for num_threads(threads) if(threads>1&&rows>=128) schedule(static)
 #endif
-            for(int r=0;r<rows;++r)out[r]=q->row(first+r,sdot_input);
+            for(int b=0;b<n4;++b)q->row4(first+b*4,sdot_input,out+b*4);
+            for(int r=n4*4;r<rows;++r)out[r]=q->row(first+r,sdot_input);
         } else if(w.cq) {
             auto *cq=static_cast<CQ*>(w.cq);
             cq->transform(in,rot.data());
@@ -241,6 +243,7 @@ struct Engine {
             for(int i=1;i<4&&compatible;++i)compatible=matrices[i]&&matrices[i]->bits==matrices[0]->bits&&matrices[i]->group==matrices[0]->group&&matrices[i]->columns==matrices[0]->columns;
             if(!compatible){linear(ti+1,input,q.data());linear(ti+2,input,k.data());linear(ti+3,input,v.data());linear(ti+6,input,gate.data());return;}
             matrices[0]->prepare(input,sdot_input);int total=0;for(auto*m:matrices)total+=m->rows;
+            int total4=total/4;
 #ifdef _OPENMP
 #pragma omp parallel num_threads(threads) if(threads>1)
 #endif
@@ -250,8 +253,13 @@ struct Engine {
 #else
                 int tid=0,nt=1;
 #endif
-                int begin=total*tid/nt,end=total*(tid+1)/nt,offset=0;
-                for(int m=0;m<4;++m){int b=std::max(0,begin-offset),e=std::min(matrices[m]->rows,end-offset);offset+=matrices[m]->rows;for(int r=b;r<e;++r)outputs[m][r]=matrices[m]->row(r,sdot_input);}
+                int begin=total4*tid/nt*4,end=total4*(tid+1)/nt*4,offset=0;
+                for(int m=0;m<4;++m){
+                    int b=std::max(0,begin-offset),e=std::min(matrices[m]->rows,end-offset);
+                    offset+=matrices[m]->rows;
+                    for(int r=b;r<e-3;r+=4)matrices[m]->row4(r,sdot_input,outputs[m]+r);
+                    for(int r=std::max(b,(e/4)*4);r<e;++r)outputs[m][r]=matrices[m]->row(r,sdot_input);
+                }
             }
             return;
         }
