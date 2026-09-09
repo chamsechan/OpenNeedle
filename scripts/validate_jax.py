@@ -21,7 +21,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoint", type=Path, default=ROOT / "artifacts/official/checkpoints/needle2.pkl")
     parser.add_argument("--upstream", type=Path, default=ROOT / "third_party/needle/needle/model")
-    parser.add_argument("--output", type=Path, default=ROOT / "reports/model_jax_parity.json")
+    parser.add_argument("--output", type=Path, default=ROOT / "artifacts/reports/model_jax_parity.json")
     parser.add_argument("--tokens", default="2,176,45,3,128,52,765,1298,40,819,901,123,51,2001,97,1")
     args = parser.parse_args()
     import numpy as np

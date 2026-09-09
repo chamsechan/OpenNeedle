@@ -84,7 +84,7 @@ def main():
     parser.add_argument("--warmup", type=int, default=1)
     parser.add_argument("--repeat", type=int, default=3)
     parser.add_argument("--cpu-affinity", help="Pin process and native workers to comma-separated CPU IDs, e.g. 0")
-    parser.add_argument("--output", type=Path, default=ROOT / "reports/official_benchmark.json")
+    parser.add_argument("--output", type=Path, default=ROOT / "artifacts/reports/official_benchmark.json")
     args = parser.parse_args()
     if args.repeat < 1 or args.warmup < 0:
         parser.error("repeat must be >= 1 and warmup >= 0")

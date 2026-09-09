@@ -30,7 +30,7 @@ def main():
     p.add_argument('--tokens', type=int, default=64)
     p.add_argument('--matmul', choices=['fp32', 'sdot'], default='fp32')
     p.add_argument('--kv-cache', choices=['fp32', 'int8'], default='fp32')
-    p.add_argument('--output', default='reports/native_profile.json')
+    p.add_argument('--output', default='artifacts/reports/native_profile.json')
     a = p.parse_args()
 
     dest = ROOT / 'artifacts/profiler'

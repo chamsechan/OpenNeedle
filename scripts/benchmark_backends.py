@@ -195,7 +195,7 @@ def main():
     parser.add_argument('--max-new-tokens', type=int, default=128)
     parser.add_argument('--kv-cache', choices=['fp32', 'int8'], default='fp32')
     parser.add_argument('--affinity', default='0,1,2,3')
-    parser.add_argument('--output', default='reports/backend_comparison.json')
+    parser.add_argument('--output', default='artifacts/reports/backend_comparison.json')
     args = parser.parse_args()
     torch_threads = [int(value) for value in args.torch_threads.split(',')]
     if args.repeat < 1 or args.native_threads < 1 or not torch_threads or min(torch_threads) < 1 or args.max_new_tokens < 2:

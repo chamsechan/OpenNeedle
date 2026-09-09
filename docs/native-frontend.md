@@ -10,7 +10,7 @@ native 推理的 tokenizer、工具 JSON 解析、schema 编译、首 token 选�
 
 官方二进制包含 `Matcher::feed(char)`、`Frame`、`Branch`、`feed_schema_all` 等符号；本实现使用独立的 NFA → UTF-8 字节 DFA → token DFA 编译流程，不能声称内部算法与官方完全相同。
 
-[官方初始化探测](../reports/official_grammar_probe.json)显示官方会接受 range、pattern、type union、anyOf 等 schema。[生成探测](../reports/official_grammar_behavior.json)中 union 和 anyOf 成功生成，已补入本原生编译器；范围、pattern、数组边界冲突样例出现截断，不能仅凭这些失败反推完整约束语义。探测固定使用本项目已下载的官方 2.0.4 库，不代表所有版本。
+[官方初始化探测](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/official_grammar_probe.json)显示官方会接受 range、pattern、type union、anyOf 等 schema。[生成探测](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/official_grammar_behavior.json)中 union 和 anyOf 成功生成，已补入本原生编译器；范围、pattern、数组边界冲突样例出现截断，不能仅凭这些失败反推完整约束语义。探测固定使用本项目已下载的官方 2.0.4 库，不代表所有版本。
 
 **尚未完全兼容的边界：** 当前不实现 pattern、数值 minimum/maximum、$ref 等全部 JSON Schema 关键字，遇到未实现字段明确报错；type union/anyOf 的组合也受本实现的关键字校验约束。对象键依照 schema 声明顺序，工具调用外层依照 name、arguments 顺序。不能据此宣称支持官方全部 schema 或逐 token 产品输出一致。
 
@@ -56,9 +56,9 @@ Python 的 `grammar.py` 和 `_grammar_dfa.py` 保留用于参考、测试以及 
 - tokenizer 与 Python 参考及发布的 SentencePiece 模型对照；覆盖平分合并、中文、emoji、特殊 token、dummy prefix、NUL 和非法字节 decode。
 - C ABI 检查截断 blob、非法 JSON、无效 UTF-8、容量不足及越界 token。
 - 独立 C 程序链接共享库完成 tokenizer + grammar，完全不依赖 Python；全新 venv 仅安装 NumPy 也完成真实工具调用。
-- `scripts/benchmark_frontend.py` 对照提交 `0988b81` 的 Python 前端，比较首次工具/schema 请求和后续热请求，检查 19 个真实用例的完整 token 与预期调用。
+- [历史脚本 benchmark_frontend.py](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/scripts/benchmark_frontend.py) 对照提交 `0988b81` 的 Python 前端，比较首次工具/schema 请求和后续热请求，检查 19 个真实用例的完整 token 与预期调用。
 
-性能原始数据见 [前端对照报告](../reports/frontend_benchmark.json)，验证清单见 [frontend_validation.json](../reports/frontend_validation.json)。首次请求包含分词/grammar 编译及前缀 prefill；这不是全新进程冷启动，不能与纯 decode TPS 或官方内部 TPS 混用。
+性能原始数据见 [前端对照报告](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/frontend_benchmark.json)，验证清单见 [frontend_validation.json](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/frontend_validation.json)。首次请求包含分词/grammar 编译及前缀 prefill；这不是全新进程冷启动，不能与纯 decode TPS 或官方内部 TPS 混用。
 
 
 ## 本机性能观察
@@ -78,7 +78,8 @@ ARM64、4 线程、SDOT、INT8 KV，同一当前神经网络引擎，对照 `098
 cmake -S . -B artifacts/frontend_cmake -DCMAKE_BUILD_TYPE=Release
 cmake --build artifacts/frontend_cmake -j2
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python -m pytest -q tests/test_native_frontend.py tests/test_inference_session.py
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python scripts/benchmark_frontend.py
 ```
 
 [独立 C 示例](../examples/native_frontend.c)接收从模型归档导出的 tokenizer blob 路径。它演示组件 ABI，不加载神经网络模型，也不依赖 Python 运行时。编译时包含 `needle2/csrc`，并链接构建产物 `libneedle2_native.so`。
+
+这组一次性实验脚本已从当前版本移除。原脚本及完整复现步骤见[清理前的历史版本](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/docs/native-frontend.md)；需要复现时，请在该提交的独立 checkout 中按历史说明运行。

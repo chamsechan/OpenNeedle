@@ -3,10 +3,10 @@
 [English](README.md) | **中文**
 
 <picture>
-  <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-static-dark.svg?v=4864bfb80a16">
-  <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/openeedle-hero-static.svg?v=942df258f2c9">
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-dark.svg?v=c41ea59dda20">
-  <img src="docs/assets/openeedle-hero-light.svg?v=dd59bce35fbb" width="1200" alt="OpenNeedle 压缩 CPU 推理。扩展解码吞吐：官方 493.70 token/s（较早测量）、OpenNeedle SDOT＋INT8 KV 402.38 token/s。计时口径不同。">
+  <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-static-dark.svg?v=1208e5cc0928">
+  <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/openeedle-hero-static.svg?v=ae7e6ff3a6de">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-dark.svg?v=3e33026698da">
+  <img src="docs/assets/openeedle-hero-light.svg?v=b4e782a7d2aa" width="1200" alt="OpenNeedle 压缩 CPU 推理。扩展解码吞吐：官方 493.70 token/s（较早测量）、OpenNeedle SDOT＋INT8 KV 402.38 token/s。计时口径不同。">
 </picture>
 
 **面向 Needle 2 的开源 CPU 推理引擎与 PyTorch 工具链。**
@@ -28,7 +28,7 @@
 
 官方 2.0.4 较早一轮扩展解码自报 **493.70 token/s**，最新原生测量值在数值上为其 **81.5%**。**两者并非同轮交错测速，且计时口径不同**，这个比例不能证明内核的相对速度。原生完整热请求包括准备、前缀恢复、query prefill、decode 和结果解析，不含会话/模型初始化及首次 grammar/前缀构建。各列独立取中位数。
 
-数据来源：[最新原始样本](reports/frontend_benchmark.json)、[C++ 前端实现与测速](docs/native-frontend.md)、[计时方法及历史官方基线](docs/backend-comparison.md)。基础与扩展的首次请求准备分别为 21.50 ms、97.80 ms，均为已初始化会话中的单次观测，不代表模型冷启动耗时。
+数据来源：[测量总结](reports/README.md)、[C++ 前端实现与测速](docs/native-frontend.md)、[计时方法及历史官方基线](docs/backend-comparison.md)。基础与扩展的首次请求准备分别为 21.50 ms、97.80 ms，均为已初始化会话中的单次观测，不代表模型冷启动耗时。
 
 **默认仍为 FP32；SDOT 与 INT8 KV 均为可选近似模式。** 19 个测速用例全部调用正确，C++ 前端迁移前后 token 序列完全一致；前端回归测试通过 **248 项测试及 4 个子测试**。这不表示与官方 logits 相同，完整 BFCL 尚未评估。历史质量结果及 schema 支持边界见 [精度验证](docs/results.md) 与 [grammar 支持范围](docs/grammar.md)。
 

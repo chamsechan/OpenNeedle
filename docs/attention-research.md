@@ -10,7 +10,7 @@
 
 ## 真实请求阶段测量
 
-使用当前 mHC 优化后的实现、4 个 native 线程、CPU 0–3、SDOT 投影、INT8 KV；19 个真实工具调用用例，每例预热一次、测量三次，检查生成 token 与基线一致及预期工具调用。原始结果和源码/库哈希见 [profile 报告](../reports/real_decode_profile_attention_detail.json)。
+使用当前 mHC 优化后的实现、4 个 native 线程、CPU 0–3、SDOT 投影、INT8 KV；19 个真实工具调用用例，每例预热一次、测量三次，检查生成 token 与基线一致及预期工具调用。原始结果和源码/库哈希见 [profile 报告](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/real_decode_profile_attention_detail.json)。
 
 下表是跨层累计、按输出 token 归一化的主线程阶段耗时，不是单层耗时。
 
@@ -62,7 +62,7 @@ norm、RoPE、KV 写入、softmax 的优先级低于 QK/V。KV absmax 和量化�
 
 检查固定发行版本的 [libneedle.a](https://huggingface.co/Cactus-Compute/needle2/blob/32e9e3a93b205f786929697446ae669cf0a84579/linux-arm64/libneedle.a)，SHA-256 为 `daea5a6610ec5872c9e5c4b4751f4edf00bf8774493e34b7726e5cf2f9be6285`。
 
-[证据记录](../reports/official_attention_evidence.json)保存符号、调用点和 SDOT 指令：
+[证据记录](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/official_attention_evidence.json)保存符号、调用点和 SDOT 指令：
 
 - `forward_range` 的内部 lambda 有对 `dot_i8_pair64_dp` 的实际调用重定位。
 - 该函数包含 8 条 SDOT 指令，随后做整数归约、浮点转换与 scale 乘法。
@@ -70,11 +70,6 @@ norm、RoPE、KV 写入、softmax 的优先级低于 QK/V。KV absmax 和量化�
 
 因此不是仅凭函数名推测“官方可能使用整数点积”。但本轮未完整恢复其量化规则、分支条件和实际请求中调用频率，也未证明其与通用 Cactus PR 内核完全相同。公开材料已有技术说明；本次未找到完整公开的 Needle2 生产 attention 源码或专门内核论文。
 
-## 复现
+## 历史复现
 
-```bash
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python scripts/profile_attention.py build
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python scripts/profile_attention.py run
-```
-
-插桩脚本从当前工作区生成独立库，生产源码不插入计时代码。改变工作区后重跑属于新的实现，应记录报告哈希并重新建立对照。
+这组一次性实验脚本已从当前版本移除。原脚本及完整复现步骤见[清理前的历史版本](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/docs/attention-research.md)；需要复现时，请在该提交的独立 checkout 中按历史说明运行。

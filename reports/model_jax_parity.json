@@ -1,9 +1,0 @@
-{
-  "source": "official checkpoints/needle2.pkl FP16 master cast FP32",
-  "oracle": "upstream architecture.SimpleAttentionNetwork.apply dtype=float32 flash=False",
-  "shape": [1, 16, 8192],
-  "max_abs": 0.00341796875,
-  "rms_error": 0.00012314345804043114,
-  "cosine_similarity": 1.0,
-  "top1_agreement": 1.0
-}

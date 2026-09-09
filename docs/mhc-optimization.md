@@ -25,15 +25,15 @@ Expanded 的基线分布约为：
 
 Basic 固定前缀为 177 token，Expanded 为 418 token。固定前缀作为 sink 保留，不能把这些请求等同于只关注 256 个 token 的无前缀微基准。这个分布也解释了为何上轮 LM head 局部优化无法带来显著请求级收益。
 
-[基线 profile](../reports/real_decode_profile_baseline.json)和[最终 profile](../reports/real_decode_profile_mhc_final.json)保留逐请求阶段计时及计数。mHC 前半段在 Expanded 中约从 0.495 降至 0.255 ms/token。profile 版本带计时开销，且两个版本分开运行，阶段变化只用于定位；性能结论使用无插桩库的交错请求对照。
+[基线 profile](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/real_decode_profile_baseline.json)和[最终 profile](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/real_decode_profile_mhc_final.json)保留逐请求阶段计时及计数。mHC 前半段在 Expanded 中约从 0.495 降至 0.255 ms/token。profile 版本带计时开销，且两个版本分开运行，阶段变化只用于定位；性能结论使用无插桩库的交错请求对照。
 
 ## 无插桩性能对照
 
 同机 CPU 0–3、4 个 native 线程，独立常驻进程，轮换请求执行顺序。每例预热一次；首轮测量 5 次，最终确认测量 9 次。使用同一模型、工具、query、KV 配置和长度上限，检查所有 token 及预期工具调用。
 
-[首轮实验](../reports/mhc_decode_experiment.json)比较逐行基线、仅成对投影、成对投影加合并并行。Expanded decode TPS 中位数分别为 335.8、348.2、372.4。因此选择合并并行，并为较小矩阵保留串行路径。
+[首轮实验](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/mhc_decode_experiment.json)比较逐行基线、仅成对投影、成对投影加合并并行。Expanded decode TPS 中位数分别为 335.8、348.2、372.4。因此选择合并并行，并为较小矩阵保留串行路径。
 
-最终确认数据见 [原始报告](../reports/mhc_decode_final.json)。
+最终确认数据见 [原始报告](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/mhc_decode_final.json)。
 
 | 用例集 | 基线请求 ms | 优化后请求 ms | 基线 decode TPS | 优化后 decode TPS | TPS 提升 |
 |---|---:|---:|---:|---:|---:|
@@ -44,7 +44,7 @@ Basic 固定前缀为 177 token，Expanded 为 418 token。固定前缀作为 si
 
 ## 精度与边界验证
 
-- [数值对照](../reports/mhc_numerical_validation.json)：每个变体 216 个数组、1,828,304 个 logits/hidden 元素，与基线逐位一致。
+- [数值对照](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/mhc_numerical_validation.json)：每个变体 216 个数组、1,828,304 个 logits/hidden 元素，与基线逐位一致。
 - 覆盖 FP32/SDOT、FP32/INT8 KV、1/4 线程，带固定前缀的 280 步生成、滑窗回绕及前缀恢复。
 - 小模型包含多种 mHC 归档存储格式；装载后仍是 FP32，不将它们误记为运行时 SDOT mHC 覆盖。
 - 新回归测试覆盖 1/2/3/4 lane、奇数行尾部、滑窗和两种 KV 格式，对照未修改的单 token prefill 路径。
@@ -56,18 +56,8 @@ Basic 固定前缀为 177 token，Expanded 为 418 token。固定前缀作为 si
 
 后续已完成 [attention 细分调查](attention-research.md)和[固定 64 维 QK 优化](attention-optimization.md)。本报告保留 mHC 实验当时的数据；其中 attention 大类包含 norm/RoPE/gate，不能把整个 37.8% 都算作 attention 核心。
 
-## 复现
+## 历史复现
 
-```bash
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python scripts/experiment_decode.py build baseline mhc_pair mhc_parallel mhc_final
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python scripts/experiment_decode.py bench reports/mhc_decode_experiment.json baseline mhc_pair mhc_parallel
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python scripts/experiment_decode.py bench reports/mhc_decode_final.json baseline mhc_final --repeat 9
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python scripts/verify_mhc.py
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python scripts/profile_real_decode.py build baseline
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python scripts/profile_real_decode.py build mhc_final
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python scripts/profile_real_decode.py run baseline
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python scripts/profile_real_decode.py run mhc_final
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python -m pytest -q tests/test_mhc_projection.py tests/test_native.py tests/test_native_grammar.py tests/test_candidate_projection_dense.py tests/test_sdot_row4.py
-```
+这组一次性实验脚本已从当前版本移除。原脚本及完整复现步骤见[清理前的历史版本](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/docs/mhc-optimization.md)；需要复现时，请在该提交的独立 checkout 中按历史说明运行。
 
-基线和两个初步变体从固定提交生成；`mhc_final` 从当前工作区生成，因此在后续代码修改后重跑属于新的实现。不要在测速时同时运行编译或测试。
+当前实现的数值回归仍由 `tests/test_mhc_projection.py` 和 `tests/test_native.py` 等测试覆盖。

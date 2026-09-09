@@ -62,18 +62,17 @@ print(session.setup_seconds, second['request_seconds'])
 
 `tests/test_inference_session.py` 覆盖重复请求的隔离、工具/system 切换、无工具请求、零长度、原生 grammar 不调用 Python 回退、异常恢复、PyTorch 后端和 Torch prefill，以及禁止导入 torch/safetensors 时运行 native 推理。分段分词测试覆盖有/无 dummy prefix、特殊 token、中文和 Unicode。
 
-完整套件 225 项测试、4 个 subtest 通过；随后补充 Torch prefill 兼容分支及对应测试，相关 15 项测试再次通过。在全新 venv 中执行默认安装，仅安装 NumPy、regex 和本包，未安装 torch/safetensors，重复真实工具调用及前缀复用验证通过。源码哈希、安装依赖与验证状态见 [验证清单](../reports/session_validation.json)。
+完整套件 225 项测试、4 个 subtest 通过；随后补充 Torch prefill 兼容分支及对应测试，相关 15 项测试再次通过。在全新 venv 中执行默认安装，仅安装 NumPy、regex 和本包，未安装 torch/safetensors，重复真实工具调用及前缀复用验证通过。源码哈希、安装依赖与验证状态见 [验证清单](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/session_validation.json)。
 
 ```bash
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python -m pytest -q tests/test_inference_session.py tests/test_runtime_regressions.py tests/test_grammar.py tests/test_native_grammar.py
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python scripts/benchmark_session.py --repeat 3
 ```
 
-基准比较提交 `2664107` 的单次入口与当前常驻会话，包含分词、初始化、解析；19 个真实工具用例检查 token 一致与预期调用。单次入口在同一进程中重复执行，因此模块导入、库和文件页缓存已热，不应标注为全新进程冷启动。结果保存到 `reports/session_benchmark.json`。
+基准比较提交 `2664107` 的单次入口与当前常驻会话，包含分词、初始化、解析；19 个真实工具用例检查 token 一致与预期调用。单次入口在同一进程中重复执行，因此模块导入、库和文件页缓存已热，不应标注为全新进程冷启动。原始结果见下方指向固定提交的最终报告。
 
 ## 本机完整请求结果
 
-[最终报告](../reports/session_benchmark.json)使用 ARM64、CPU 0–3、native 4 线程、SDOT 和 INT8 KV。每例三次测量、交错调用旧单次入口和常驻入口，另检查新单次包装的 token 一致性。
+[最终报告](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/session_benchmark.json)使用 ARM64、CPU 0–3、native 4 线程、SDOT 和 INT8 KV。每例三次测量、交错调用旧单次入口和常驻入口，另检查新单次包装的 token 一致性。
 
 | 场景 | 旧单次入口 ms | 常驻会话 ms |
 |---|---:|---:|
@@ -82,6 +81,8 @@ OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python scripts/benchmark_session.py --r
 
 Expanded 的准备阶段中位数为 0.38 ms，prefill 29.63 ms，decode 46.98 ms，解析/结果构造 0.06 ms。首次会话初始化另计，本轮约 79 ms；首次工具 schema 分词、DFA 编译和前缀 prefill 发生在首个请求，未计入热请求表格。
 
-[中间版本](../reports/session_benchmark_initial.json)仅复用引擎、grammar 和 KV 前缀，Expanded 仍约 412 ms，其中重复工具前缀分词约 328 ms。最终版本缓存分词结果，并将模型哈希移至初始化。两版阶段计时支持这些工作的优化优先级，但不同测量轮次不能直接当作严格配对实验。
+[中间版本](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/session_benchmark_initial.json)仅复用引擎、grammar 和 KV 前缀，Expanded 仍约 412 ms，其中重复工具前缀分词约 328 ms。最终版本缓存分词结果，并将模型哈希移至初始化。两版阶段计时支持这些工作的优化优先级，但不同测量轮次不能直接当作严格配对实验。
 
 完整入口收益主要来自消除重复 Python 工作和前缀 prefill，不是 C++ 解码内核获得同倍数提升。云主机测量存在长尾，各列中位数不能直接相加，也不保证其它机器获得同样的比例。19 个用例所有被比较结果的 token 和预期工具调用一致；不能把本结果与此前只测常驻引擎的 TPS 表混用，也没有重新测量官方完整接口。
+
+这组一次性实验脚本已从当前版本移除。原脚本及完整复现步骤见[清理前的历史版本](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/docs/python-runtime.md)；需要复现时，请在该提交的独立 checkout 中按历史说明运行。

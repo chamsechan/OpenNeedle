@@ -42,7 +42,7 @@ def measure(fn, iterations, warmup=5):
 def main():
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--model", default="artifacts/official/needle2.cact")
-    p.add_argument("--output", default="reports/native_kernel_benchmark.json")
+    p.add_argument("--output", default="artifacts/reports/native_kernel_benchmark.json")
     p.add_argument("--threads", default="1,2,4")
     p.add_argument("--affinity", help="comma-separated CPU IDs, e.g. 0,1,2,3")
     p.add_argument("--iterations", type=int, default=200)

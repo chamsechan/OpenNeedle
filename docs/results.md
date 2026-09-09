@@ -15,7 +15,7 @@
 
 无损往返依赖保存原始码本、codes/norms 及张量指纹；修改的张量才重新量化。master 路径实际重新执行 Hadamard、归一化、码本最近邻和 norm 舍入，微小差异来自浮点归约和量化边界。这不能证明修改模型或重新训练后的质量不变。
 
-数据：[转换后的官方引擎回归](../reports/conversion_parity.json)、[权重与数值验证](../reports/validation.json)。格式、真实位宽及原始资料见 [技术参考](research.md)。
+数据：[转换后的官方引擎回归](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/conversion_parity.json)、[权重与数值验证](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/validation.json)。格式、真实位宽及原始资料见 [技术参考](research.md)。
 
 ## 数值对齐
 
@@ -29,7 +29,7 @@
 
 SDOT 会额外舍入旋转后的激活与码本；64-token 诊断中最大 logits 误差约 1.45，位置 3、63 的 top-1 改变。因此它是可选速度/精度取舍，不能套用 FP32 的验收结论。上述历史诊断的两种原生模式均使用 FP32 KV；当前引擎还支持可选 INT8 KV，没有声称复刻官方所有 A8/KV8 舍入。官方公开 C ABI 没有 logits 导出接口，不能直接测闭源 logits 的逐元素相等。
 
-数据：[JAX 对照](../reports/model_jax_parity.json)、[FP32 对照](../reports/validation.json)、[SDOT 误差诊断](../reports/sdot_model_error.json)。
+数据：[JAX 对照](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/model_jax_parity.json)、[FP32 对照](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/validation.json)、[SDOT 误差诊断](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/sdot_model_error.json)。
 
 ### 四行 SDOT 算术一致性
 
@@ -66,7 +66,7 @@ Top-1 与 grammar 筛选后的选择均无分歧。共比较 33,619,968 个 logi
 
 未答对的两例仍为 `negation_no_action` 与 `off_topic`；官方和原生实现的具体错误 calls 并不相同。表中的 token 一致性是各模式优化前后比较，不是四种模式之间比较。本轮性能优化没有修复已有的质量错误，也没有新增错误。官方提供的 negation/grounding 标记未用于过滤本表输出。
 
-这些是诊断小样本，不代表 BFCL 或广泛真实请求准确率。可复核的官方输出、当前各模式 token、逐位置误差摘要见 [发布测量记录](../reports/performance_f4f9b38.json)。
+这些是诊断小样本，不代表 BFCL 或广泛真实请求准确率。可复核的官方输出、当前各模式 token、逐位置误差摘要见 [发布测量记录](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/performance_f4f9b38.json)。
 
 ## 性能
 
@@ -83,13 +83,13 @@ OMP_WAIT_POLICY=PASSIVE OPENBLAS_NUM_THREADS=1 .venv/bin/python -m pytest -q
 OMP_WAIT_POLICY=PASSIVE OPENBLAS_NUM_THREADS=1 .venv/bin/python scripts/validate.py
 OMP_WAIT_POLICY=PASSIVE OPENBLAS_NUM_THREADS=1 .venv/bin/python scripts/validate_sdot.py
 OMP_WAIT_POLICY=PASSIVE OPENBLAS_NUM_THREADS=1 .venv/bin/python scripts/evaluate_quality.py \
-  --threads 1 --matmul fp32 --output reports/quality.json
+  --threads 1 --matmul fp32 --output artifacts/reports/quality.json
 OMP_WAIT_POLICY=PASSIVE OPENBLAS_NUM_THREADS=1 .venv/bin/python scripts/evaluate_quality.py \
-  --threads 1 --matmul sdot --output reports/quality_sdot.json
+  --threads 1 --matmul sdot --output artifacts/reports/quality_sdot.json
 OMP_WAIT_POLICY=PASSIVE OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 \
   .venv/bin/python scripts/benchmark_backends.py \
   --native-threads 4 --torch-threads 1,2,4 --repeat 5 \
-  --output reports/backend_comparison_current.json
+  --output artifacts/reports/backend_comparison_current.json
 ```
 
-当前优化测试结果：**194 passed，4 subtests passed**，日志见 [pytest.txt](../reports/published_f4f9b38/pytest.txt)。覆盖格式校验、CQ 数值 oracle、转换、模型 cache、probe、QAT 梯度、tokenizer、grammar、native 构建与 SDOT 路径。
+当前优化测试结果：**194 passed，4 subtests passed**，日志见 [pytest.txt](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/published_f4f9b38/pytest.txt)。覆盖格式校验、CQ 数值 oracle、转换、模型 cache、probe、QAT 梯度、tokenizer、grammar、native 构建与 SDOT 路径。

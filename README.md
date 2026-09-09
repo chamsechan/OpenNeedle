@@ -3,10 +3,10 @@
 **English** | [中文](README_zh.md)
 
 <picture>
-  <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-static-dark.svg?v=4864bfb80a16">
-  <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/openeedle-hero-static.svg?v=942df258f2c9">
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-dark.svg?v=c41ea59dda20">
-  <img src="docs/assets/openeedle-hero-light.svg?v=dd59bce35fbb" width="1200" alt="OpenNeedle packed CPU inference. Expanded decode throughput: official 493.70 token/s (earlier run), OpenNeedle SDOT + INT8 KV 402.38 token/s. Timing definitions differ.">
+  <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-static-dark.svg?v=1208e5cc0928">
+  <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/openeedle-hero-static.svg?v=ae7e6ff3a6de">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-dark.svg?v=3e33026698da">
+  <img src="docs/assets/openeedle-hero-light.svg?v=b4e782a7d2aa" width="1200" alt="OpenNeedle packed CPU inference. Expanded decode throughput: official 493.70 token/s (earlier run), OpenNeedle SDOT + INT8 KV 402.38 token/s. Timing definitions differ.">
 </picture>
 
 **Open-source CPU inference engine and PyTorch toolchain for Needle 2.**
@@ -28,7 +28,7 @@ Supports direct inference on CQ2/CQ4 compressed weights, bidirectional PyTorch c
 
 The earlier official 2.0.4 run reported **493.70 token/s** for expanded decode; the latest native measurement is numerically **81.5%** of that value. **These are not an interleaved official/native comparison, and timing definitions differ.** Official TPS is self-reported; this ratio does not establish relative kernel speed. Native full warm request wall time includes preparation, prefix restoration, query prefill, decode and result parsing, but excludes session/model initialization and first grammar/prefix construction. Columns are independent medians.
 
-Source: [latest raw samples](reports/frontend_benchmark.json), [frontend implementation and benchmark](docs/native-frontend.md), and [measurement methodology / historical official baseline](docs/backend-comparison.md). First-request preparation was 21.50 ms (basic) and 97.80 ms (expanded), each a single observation in an initialized session, not a cold model-load measurement.
+Source: [measurement summary](reports/README.md), [frontend implementation and benchmark](docs/native-frontend.md), and [measurement methodology / historical official baseline](docs/backend-comparison.md). First-request preparation was 21.50 ms (basic) and 97.80 ms (expanded), each a single observation in an initialized session, not a cold model-load measurement.
 
 **FP32 remains the default. SDOT and INT8 KV are optional approximations.** All 19 benchmark cases produced the expected calls, with identical token sequences before and after the C++ frontend migration. The frontend regression run passed **248 tests + 4 subtests**. This does not establish equality with official logits or full BFCL quality. Historical quality results and supported schema limits are in [validation](docs/results.md) and [grammar coverage](docs/grammar.md).
 

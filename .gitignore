@@ -9,3 +9,6 @@ build/
 .cache/
 third_party/
 
+# Reports contain only the summary; raw measurements belong in artifacts/.
+/reports/*
+!/reports/README.md

@@ -82,7 +82,7 @@ logits = engine.step(int(logits.argmax()))
 
 ```sh
 python3 -m pytest tests/test_native.py -q
-python3 scripts/benchmark_native.py --output reports/native_kernel_benchmark.json
+python3 scripts/benchmark_native.py --output artifacts/reports/native_kernel_benchmark.json
 ```
 
 性能脚本测真实模型矩阵、固定输入 token 解码以及初次/复用 prefill；报告包含模型 SHA256、环境、均值及分位数。运行时应避免其他 CPU 密集任务。更多线程未必更快；短矩阵的线程协调和云主机调度会带来长尾。与官方库比较时须统一 token、上下文、prefix、计算输出、线程和采样约束，不能将只返回工具 JSON 的总时间直接当作固定 token 解码吞吐。
@@ -91,7 +91,7 @@ python3 scripts/benchmark_native.py --output reports/native_kernel_benchmark.jso
 
 q/k/v/gate 四个投影共享一次输入 Hadamard 变换。默认 4 线程前向通过常驻线程池调度融合投影、attention 和输出投影；部分查表实验路径仍使用 OpenMP。`projection_lookup=-1`（默认）在 CQ2、group=128、合并输出至少 1024 行且线程数不超过 2 时，进一步使用每线程 32 KB 的 activation lookup table；其余形状保留 NEON FMA。表内仍是 FP32 码本与 FP32 旋转输入的乘积和，没有增加 INT8 舍入，但求和顺序变化会产生小的浮点差异。`projection_lookup=0` 可固定使用 NEON FMA 供基线比较。
 
-`projection_lookup=1/2/3/4` 和 `NativeCQ.linear(..., lookup=1/2/3)` 是显式实验模式，不保证每种形状都更快。真实 190-token 上下文后的固定 32-token 对照中，私有查表相对融合 NEON 约提升 3%，logits 最大差约 `6.87e-5`，argmax 全部相同。原始数据和复现实验分别在 `reports/lookup_engine_benchmark.json`、`scripts/benchmark_lookup_engine.py`；单矩阵和融合投影数据在 `reports/cq_lookup_benchmark.json`。这些优化没有证明与官方闭源库等速。
+`projection_lookup=1/2/3/4` 和 `NativeCQ.linear(..., lookup=1/2/3)` 是显式实验模式，不保证每种形状都更快。真实 190-token 上下文后的固定 32-token 对照中，私有查表相对融合 NEON 约提升 3%，logits 最大差约 `6.87e-5`，argmax 全部相同。原始数据和复现实验分别在 [lookup_engine_benchmark.json](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/lookup_engine_benchmark.json)、[历史脚本 benchmark_lookup_engine.py](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/scripts/benchmark_lookup_engine.py)；单矩阵和融合投影数据在 [cq_lookup_benchmark.json](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/cq_lookup_benchmark.json)。这些优化没有证明与官方闭源库等速。
 
 ## 显式 SDOT 近似后端
 
@@ -127,7 +127,7 @@ if sdot_available():
 
 ```bash
 OMP_WAIT_POLICY=PASSIVE OPENBLAS_NUM_THREADS=1 python scripts/profile_native.py \
-  --threads 1 --matmul sdot --tokens 64 --output reports/native_profile.json
+  --threads 1 --matmul sdot --tokens 64 --output artifacts/reports/native_profile.json
 ```
 
 插桩构建不覆盖生产库。报告对嵌套 Engram 投影做扣除，输出互斥阶段、剩余开销、head 投影行数、step 次数和最终保留的 KV 长度。插桩本身会增加计时成本，应用性能见 [最新测量及计时边界](backend-comparison.md)。

@@ -4,12 +4,10 @@ import hashlib
 from html import escape
 import json
 import re
-import statistics
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-REPORT = ROOT / 'reports/frontend_benchmark.json'
-OFFICIAL_REPORT = ROOT / 'reports/performance_f4f9b38.json'
+REPORT = ROOT / 'reports/README.md'
 OUT = ROOT / 'docs/assets'
 
 PALETTES = {
@@ -26,12 +24,7 @@ PALETTES = {
 
 def draw(theme, report, static=False):
     c = PALETTES[theme]
-    summary = {
-        'official': json.loads(OFFICIAL_REPORT.read_text())['summary']['official'],
-        'optimized': {'decode_tps_median': statistics.median(
-            row['outputs']['cpp']['result']['decode_tokens_per_second']
-            for row in report['suites']['expanded']['rows'])},
-    }
+    summary = report
     official_tps = summary['official']['decode_tps_median']
     optimized_tps = summary['optimized']['decode_tps_median']
     ratio = optimized_tps / official_tps
@@ -53,7 +46,7 @@ def draw(theme, report, static=False):
         f"{official_tps:.2f}, OpenNeedle SDOT plus INT8 KV {optimized_tps:.2f} tokens per second. "+
         'Sixteen queries, five repeats for OpenNeedle; official is from an earlier five-repeat run. '+
         'Timing definitions differ; SDOT and INT8 KV add quantization error. Motion is illustrative.</desc>')
-    add('<metadata>'+escape(json.dumps({'source':str(REPORT.relative_to(ROOT)),'sha256':hashlib.sha256(REPORT.read_bytes()).hexdigest(),'official_source':str(OFFICIAL_REPORT.relative_to(ROOT)),'official_sha256':hashlib.sha256(OFFICIAL_REPORT.read_bytes()).hexdigest(),'theme':theme,'static':static}))+'</metadata>')
+    add('<metadata>'+escape(json.dumps({'source':str(REPORT.relative_to(ROOT)),'sha256':hashlib.sha256(REPORT.read_bytes()).hexdigest(),'theme':theme,'static':static}))+'</metadata>')
     add('<style>text{font-family:Inter,"Segoe UI",Arial,sans-serif}.mono{font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace}.overline{letter-spacing:2.2px}.flow{stroke-dasharray:5 18;stroke-linecap:round;animation:travel 2.6s linear infinite}.phase2{animation-delay:-1.3s}.phase3{animation-duration:1.8s}.spark{animation:shimmer 3.4s ease-in-out infinite}.spark2{animation-delay:-1.7s}@keyframes travel{to{stroke-dashoffset:-92}}@keyframes shimmer{0%,100%{opacity:.38}50%{opacity:1}}@media(prefers-reduced-motion:reduce){.flow,.spark{animation:none!important}.flow{stroke-dasharray:5 18;opacity:.7}}'+
         ('.flow,.spark{animation:none!important}' if static else '')+'</style>')
     add('<defs><pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">'+
@@ -133,7 +126,7 @@ def draw(theme, report, static=False):
 
 
 def main():
-    report=json.loads(REPORT.read_text())
+    report=json.loads(re.search(r'```json\n(.*?)\n```', REPORT.read_text(), re.DOTALL).group(1))
     OUT.mkdir(parents=True,exist_ok=True)
     for theme in PALETTES:
         path=OUT/f'openeedle-hero-{theme}.svg'

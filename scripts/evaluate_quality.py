@@ -30,7 +30,7 @@ def main():
     parser.add_argument("--library", type=Path, default=ROOT / "artifacts/official/python/libneedle.so")
     parser.add_argument("--tools", type=Path, default=ROOT / "benchmarks/quality_tools.json")
     parser.add_argument("--cases", type=Path, default=ROOT / "benchmarks/quality_cases.jsonl")
-    parser.add_argument("--output", type=Path, default=ROOT / "reports/quality.json")
+    parser.add_argument("--output", type=Path, default=ROOT / "artifacts/reports/quality.json")
     parser.add_argument("--threads", type=int, default=1)
     parser.add_argument("--prefill-backend", choices=("native", "torch"), default="native")
     parser.add_argument("--matmul", choices=("fp32", "sdot"), default="fp32")

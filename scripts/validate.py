@@ -15,7 +15,7 @@ sys.path.insert(0,str(ROOT))
 def main():
     p=argparse.ArgumentParser(description=__doc__)
     p.add_argument('--model',default=str(ROOT/'artifacts/official/needle2.cact'))
-    p.add_argument('--output',default=str(ROOT/'reports/validation.json'))
+    p.add_argument('--output',default=str(ROOT/'artifacts/reports/validation.json'))
     p.add_argument('--tokens',type=int,default=192)
     p.add_argument('--threads',type=int,default=1)
     args=p.parse_args()

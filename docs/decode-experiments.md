@@ -20,7 +20,7 @@
 - `dense6144`：提高全量切换阈值到 6144，用于后续对照。
 - `dense7680`：最终保守候选方案，同时要求候选数至少 7680 且覆盖词表的 15/16；最终未采用。
 
-投影微基准独立于模型层前向，测试 128–8192 个候选、1/2/4 线程、排序及随机排列。每种情况预热 5 次、测量 31 次。所有被比较的候选 logits 逐位一致。原始数据见 [微基准](../reports/decode_projection_micro.json)。该微基准的输入来自一个四 token 前缀，不能代表所有 hidden 状态或所有硬件。
+投影微基准独立于模型层前向，测试 128–8192 个候选、1/2/4 线程、排序及随机排列。每种情况预热 5 次、测量 31 次。所有被比较的候选 logits 逐位一致。原始数据见 [微基准](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/decode_projection_micro.json)。该微基准的输入来自一个四 token 前缀，不能代表所有 hidden 状态或所有硬件。
 
 4 线程、8037 个候选的中位数：
 
@@ -31,11 +31,11 @@
 
 排序对原逐行路径的缓存局部性影响很大，不能将随机候选的收益直接外推到真实 DFA。6144 个排序候选时，全量路径在 1/2/4 线程均略慢，所以最终阈值进一步收紧。512 阈值在较小候选集上做了不必要的全量计算，未采用。
 
-[首轮请求对照](../reports/decode_projection_experiment.json)中，Expanded decode TPS 中位数分别为 331.4（原路径）、337.9（dense512）、336.0（batch4）；不足以支持 20%～30% 的收益预期。没有把任意四行内核加入生产代码，避免为当前工作负载的微小收益扩充内核实现。
+[首轮请求对照](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/decode_projection_experiment.json)中，Expanded decode TPS 中位数分别为 331.4（原路径）、337.9（dense512）、336.0（batch4）；不足以支持 20%～30% 的收益预期。没有把任意四行内核加入生产代码，避免为当前工作负载的微小收益扩充内核实现。
 
 保守候选方案仅影响 SDOT 大候选分支；保留小候选路径、候选输出顺序和并列分数的处理。首次需要时分配、随后复用一个全词表 float 缓冲区，在当前 8192 词表下增加 32 KiB。
 
-[最终同轮请求对照](../reports/decode_optimization_final.json)：
+[最终同轮请求对照](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/decode_optimization_final.json)：
 
 | 用例集 | 基线请求 ms | dense7680 请求 ms | 基线 decode TPS | dense7680 decode TPS |
 |---|---:|---:|---:|---:|
@@ -46,7 +46,7 @@
 
 ## 2. Attention 小范围对照
 
-在 `dense6144` 基础上比较：原并行策略、仅 decode 全串行、仅 decode 有效 attention 长度不超过 64 时串行。prefill 不变。原始数据见 [attention 对照](../reports/decode_attention_experiment.json)。
+在 `dense6144` 基础上比较：原并行策略、仅 decode 全串行、仅 decode 有效 attention 长度不超过 64 时串行。prefill 不变。原始数据见 [attention 对照](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/decode_attention_experiment.json)。
 
 | 用例集 | 原并行 decode ms | decode 全串行 ms |
 |---|---:|---:|
@@ -59,7 +59,7 @@
 
 ## 3. 唯一候选连续批量推进
 
-将同轮生成的完整 token 序列逐个重放到实际 DFA，统计首 token 之后每个 decode 步骤的候选数量，以及连续唯一候选链。见 [机会统计](../reports/decode_chunk_opportunities.json)。
+将同轮生成的完整 token 序列逐个重放到实际 DFA，统计首 token 之后每个 decode 步骤的候选数量，以及连续唯一候选链。见 [机会统计](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/decode_chunk_opportunities.json)。
 
 19 个用例没有任何单候选步骤，因此也没有可合并的唯一候选链。JSON 字节上的固定骨架不等于 tokenizer/DFA 下只有一个合法 token。当前基准无法从这项优化获益，故没有加入 chunking 运行时代码。该结论只适用于这组工具与请求，不否定其他 schema 上的潜力。
 
@@ -67,28 +67,10 @@
 
 新增边界测试覆盖 7679/7680、8037、8192 及小候选集，包含乱序、重复候选，1/2/4 线程，FP32/INT8 KV，多步 hidden 和后续完整 logits 一致性。候选投影、既有 row4 和 native grammar 测试在候选改动上共 33 项通过，撤回后默认路径同样验证通过。
 
-```bash
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python scripts/experiment_decode.py build baseline dense512 batch4 dense6144 dense6144_serial dense6144_short dense7680
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python scripts/experiment_decode.py micro baseline 4 sorted
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python scripts/experiment_decode.py micro dense6144 4 sorted
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python scripts/experiment_decode.py bench reports/decode_optimization_final.json baseline dense7680
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python scripts/experiment_decode.py bench reports/decode_projection_experiment.json baseline dense512 batch4
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python scripts/experiment_decode.py bench reports/decode_attention_experiment.json baseline dense6144 dense6144_serial dense6144_short
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python scripts/analyze_decode_chains.py
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python -m pytest -q tests/test_candidate_projection_dense.py tests/test_sdot_row4.py tests/test_native_grammar.py
-```
+这组一次性实验脚本已从当前版本移除。原脚本及完整复现步骤见[清理前的历史版本](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/docs/decode-experiments.md)；需要复现时，请在该提交的独立 checkout 中按历史说明运行。
 
-本报告的候选变体均从固定基线提交生成独立源码和共享库，不改写工作区运行时代码。要验证实验库，可在 pytest 命令前设置 `NEEDLE2_NATIVE_LIBRARY="$PWD/artifacts/decode_experiments/dense7680/lib.so"`。库与生成源码放在 `artifacts/decode_experiments/`。不要在基准期间运行编译、测试或其他 CPU 密集任务。微基准各版本为串行分开测量，请求对照则为交错测量。
-
-完整微基准汇总可按以下方式重建；环境与库哈希见 [实验登记](../reports/decode_experiment_manifest.json)。
+当前默认实现仍可运行：
 
 ```bash
-for threads in 1 2 4; do
-  for order in sorted random; do
-    for variant in baseline dense6144 batch4; do
-      OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python scripts/experiment_decode.py micro "$variant" "$threads" "$order"
-    done
-  done
-done
-OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 .venv/bin/python scripts/experiment_decode.py summarize
+python -m pytest -q tests/test_candidate_projection_dense.py tests/test_sdot_row4.py tests/test_native_grammar.py
 ```

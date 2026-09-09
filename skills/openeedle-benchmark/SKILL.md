@@ -7,7 +7,7 @@ description: 复现 OpenNeedle、官方 Needle 2 引擎与 PyTorch 的 CPU 性�
 
 定位包含 `scripts/benchmark_backends.py` 和项目名 `needle2-open` 的 checkout，
 从根目录工作。以下路径均相对 checkout，不相对 skill 安装目录。
-用户只要求解释已有结果时，读取 `reports/backend_comparison.json` 和
+用户只要求解释已有结果时，读取 `reports/README.md` 和
 `docs/backend-comparison.md`；需要目标机器数据时才运行实测。
 
 ## 检查平台与测量条件
@@ -41,7 +41,7 @@ OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python scripts/benchmark_backends.py \
   --output artifacts/benchmarks/backend_comparison.json
 ```
 
-将新实验写入单独的输出路径；只有用户要更新项目基准时才替换 `reports/` 中的发布数据。
+将新实验写入单独的输出路径；只有用户要更新项目基准时才更新 `reports/README.md` 中的总结；原始输出留在 `artifacts/`。
 案例 JSONL 格式读取 `benchmarks/cases.jsonl`；请求必须共享同一工具前缀。
 脚本已经实现独立持久进程、预热和串行交错采样，不需要外部并行启动多个副本。
 

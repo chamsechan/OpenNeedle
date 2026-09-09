@@ -2,7 +2,7 @@
 
 ## 最新 C++ 前端结果
 
-README 和 SVG 使用 [frontend_benchmark.json](../reports/frontend_benchmark.json) 的 `cpp` 热请求样本：4 核 ARM Neoverse-N1、4 线程、SDOT＋INT8 KV，Basic 3 例、Expanded 16 例，每例 5 次。复现：`python scripts/benchmark_frontend.py`（与旧 Python 前端交错，双方使用相同的当前神经网络引擎；不会重测官方）。
+README 和 SVG 的数据汇总见[测量总结](../reports/README.md)：4 核 ARM Neoverse-N1、4 线程、SDOT＋INT8 KV，Basic 3 例、Expanded 16 例，每例 5 次。历史前端对照及复现说明见[原生前端文档](native-frontend.md)；该轮与旧 Python 前端交错测量，双方使用相同的神经网络引擎，未重测官方。
 
 | 中位数 | Basic | Expanded |
 |---|---:|---:|
@@ -24,7 +24,7 @@ Python 完整入口新增了模型/grammar/前缀复用与分词缓存，测量�
 
 此前 mHC 投影优化的独立同轮对照见 [mHC 优化报告](mhc-optimization.md)：Expanded decode TPS 334.2 → 366.0（+9.5%），请求耗时 86.83 → 82.24 ms。
 
-以下历史实测实现为 `f4f9b38`（2026-09-09），同轮原生基线为 `e809ffc`。硬件为 4 核 ARM Neoverse-N1，使用同一份官方 CACT。原始样本、配置、官方库/模型哈希和数值验证汇总保存在 [performance_f4f9b38.json](../reports/performance_f4f9b38.json)。
+以下历史实测实现为 `f4f9b38`（2026-09-09），同轮原生基线为 `e809ffc`。硬件为 4 核 ARM Neoverse-N1，使用同一份官方 CACT。原始样本、配置、官方库/模型哈希和数值验证汇总保存在 [performance_f4f9b38.json](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/performance_f4f9b38.json)。
 
 ## 官方与 OpenNeedle
 
@@ -79,8 +79,10 @@ OpenNeedle 使用 4 线程、SDOT＋INT8 KV；这是可选近似配置，默认�
 ```bash
 mkdir -p /tmp/needle2-e809ffc
 git archive e809ffc | tar -x -C /tmp/needle2-e809ffc
+mkdir -p artifacts/published_f4f9b38
+git show e096870b4b45b979b9714a172666233ffd99ab48:reports/published_f4f9b38/benchmark.py > artifacts/published_f4f9b38/benchmark.py
 OMP_WAIT_POLICY=PASSIVE OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
-  python3 reports/published_f4f9b38/benchmark.py
+  python3 artifacts/published_f4f9b38/benchmark.py
 ```
 
 这组历史结果对应 `f4f9b38`；脚本使用当前 checkout，现在重跑得到的是后续优化代码的性能，不能标注为 `f4f9b38`。脚本保存全部生成 token 和逐请求计时，并检查两个版本的输出相等、调用正确以及测量期间源码未变化。
@@ -92,7 +94,7 @@ OMP_WAIT_POLICY=PASSIVE OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
   python3 scripts/benchmark_backends.py \
   --tools benchmarks/expanded_tools.json --cases benchmarks/expanded_cases.jsonl \
   --native-threads 4 --torch-threads 1 --kv-cache int8 --repeat 9 \
-  --max-new-tokens 192 --output reports/backend_comparison_current.json
+  --max-new-tokens 192 --output artifacts/reports/backend_comparison_current.json
 ```
 
 先按 [官方下载脚本](../scripts/download_official.py) 准备权重和比较库。测试期间避免同时编译或运行其他 CPU 密集任务。首页 SVG 从已保存的数据生成，不会触发测速。

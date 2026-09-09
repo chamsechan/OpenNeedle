@@ -291,7 +291,7 @@ git -C artifacts/reference/needle-jax checkout --detach \
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python scripts/validate_jax.py \
   --checkpoint artifacts/official/checkpoints/needle2.pkl \
   --upstream artifacts/reference/needle-jax/needle/model \
-  --output reports/reproduced/model_jax_parity.json
+  --output artifacts/reports/reproduced/model_jax_parity.json
 ```
 
 已有 `third_party/needle` 时可省略 `--upstream`。此脚本使用官方 master checkpoint，对照公开 `architecture.SimpleAttentionNetwork` 的 FP32 路径；默认 16 个 token，序列不能超过 checkpoint 的 `kv_window`。它不加载闭源运行库，也不检验闭源引擎的逐位 INT8 运算。
@@ -300,8 +300,8 @@ OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python scripts/validate_jax.py \
 
 ```bash
 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python -m pytest -q
-python scripts/validate.py --output reports/reproduced/validation.json
-python scripts/validate_sdot.py --output reports/reproduced/sdot_model_error.json
+python scripts/validate.py --output artifacts/reports/reproduced/validation.json
+python scripts/validate_sdot.py --output artifacts/reports/reproduced/sdot_model_error.json
 ```
 
 SDOT 验证需要支持 DotProd 的 Linux ARM64 CPU，输出是近似误差诊断。与官方库的转换回归、工具质量和性能比较涉及显式加载官方二进制，应按各脚本 `--help` 选择模型、库路径和输出文件。协议与既有结果见[实测报告](results.md)和[同轮后端对比](backend-comparison.md)；技术依据见[技术参考](research.md)。
@@ -326,6 +326,6 @@ SDOT 验证需要支持 DotProd 的 Linux ARM64 CPU，输出是近似误差诊�
 | `artifacts/official/python/` | 官方 Python wheel、共享库与对应来源记录，仅作显式基线使用 |
 | `artifacts/wheels/needle2_open-0.1.0-py3-none-any.whl` | 可安装包，包含原生引擎 C++ 源码 |
 | `artifacts/needle2-open-source.tar.gz` | 源码、脚本、测试、文档与报告归档，不含大型模型 |
-| `reports/` | 数值、转换、质量和性能的原始报告 |
+| `reports/` | 性能与验证总结；原始记录见 Git 历史 |
 
 模型 revision 为 `32e9e3a93b205f786929697446ae669cf0a84579`；源码依据为 `53df049c4a1a82fca1027b81f9ff21336dfb0861`。这些已有文件名沿用构建时的包名；项目展示名为 OpenNeedle。许可及来源归属见 [NOTICE](../NOTICE)。

@@ -36,7 +36,7 @@ def main():
     parser.add_argument("--cases", type=Path, default=ROOT / "benchmarks/cases.jsonl")
     parser.add_argument("--cpu-affinity", help="Comma-separated CPU IDs")
     parser.add_argument("--max-new-tokens", type=int, default=256)
-    parser.add_argument("--output", type=Path, default=ROOT / "reports/conversion_parity.json")
+    parser.add_argument("--output", type=Path, default=ROOT / "artifacts/reports/conversion_parity.json")
     args = parser.parse_args()
     if len(args.models) < 2:
         parser.error("at least two models are required; the first is the reference")

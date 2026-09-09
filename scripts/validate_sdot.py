@@ -9,7 +9,7 @@ ROOT=Path(__file__).resolve().parents[1];sys.path.insert(0,str(ROOT))
 
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--tokens',type=int,default=64)
-    p.add_argument('--output',default='reports/sdot_model_error.json');a=p.parse_args()
+    p.add_argument('--output',default='artifacts/reports/sdot_model_error.json');a=p.parse_args()
     import numpy as np
     from needle2.archive import Archive
     from needle2.native import NativeEngine,sdot_available
