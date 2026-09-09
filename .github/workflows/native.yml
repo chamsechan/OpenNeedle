@@ -19,4 +19,4 @@ jobs:
       - name: Compile the native library
         run: python -m needle2 build-native
       - name: Compare native execution and grammar with references
-        run: python -m pytest -q tests/test_native_build.py tests/test_native.py tests/test_optimized_attention_prefill.py tests/test_sdot_row4.py tests/test_grammar.py tests/test_dfa_equivalence.py tests/test_runtime_regressions.py
+        run: python -m pytest -q -s tests/test_native_build.py tests/test_native.py tests/test_optimized_attention_prefill.py tests/test_sdot_row4.py tests/test_grammar.py tests/test_dfa_equivalence.py tests/test_runtime_regressions.py
