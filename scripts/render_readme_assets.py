@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-REPORT = ROOT / 'reports/backend_comparison.json'
+REPORT = ROOT / 'reports/performance_f4f9b38.json'
 OUT = ROOT / 'docs/assets'
 
 PALETTES = {
@@ -24,11 +24,10 @@ PALETTES = {
 def draw(theme, report, static=False):
     c = PALETTES[theme]
     summary = report['summary']
-    ratio = summary['native_sdot']['decode_tps_median'] / summary['pytorch_t1']['decode_tps_median']
-    rows = [('official', 'Official engine', 'official'),
-            ('native_sdot', 'OpenNeedle / SDOT*', 'accent'),
-            ('native_fp32', 'OpenNeedle / FP32', 'teal'),
-            ('pytorch_t1', 'PyTorch / FP32 (1T)', 'torch')]
+    ratio = summary['optimized']['decode_tps_median'] / summary['baseline']['decode_tps_median']
+    rows = [('official', 'Official 2.0.4†', 'official'),
+            ('optimized', 'OpenNeedle f4f9b38*', 'accent'),
+            ('baseline', 'OpenNeedle e809ffc*', 'teal')]
     maximum = max(summary[name]['decode_tps_median'] for name, _, _ in rows)
     pieces = []
     def add(value): pieces.append(value)
@@ -41,11 +40,12 @@ def draw(theme, report, static=False):
         add(f'<path d="{d}" fill="none" stroke="{c.get(color,color)}" stroke-width="{width}" {extra}/>')
     add('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500" role="img" aria-labelledby="title desc">')
     add('<title id="title">OpenNeedle — packed CPU inference and measured decode throughput</title>')
-    add('<desc id="desc">Conceptual packed GEMV data flow. On a 4-core ARM Neoverse-N1 CPU: official '+
-        f"{summary['official']['decode_tps_median']:.2f}, OpenNeedle SDOT {summary['native_sdot']['decode_tps_median']:.2f}, "+
-        f"OpenNeedle FP32 {summary['native_fp32']['decode_tps_median']:.2f}, and PyTorch {summary['pytorch_t1']['decode_tps_median']:.2f} tokens per second. "+
-        'Medians of three queries repeated five times. Application timing definitions differ; SDOT adds quantization error. Motion is illustrative.</desc>')
-    add('<metadata>'+escape(json.dumps({'source':'reports/backend_comparison.json','sha256':hashlib.sha256(REPORT.read_bytes()).hexdigest(),'theme':theme,'static':static}))+'</metadata>')
+    add('<desc id="desc">Conceptual packed projection data flow. Expanded suite on a 4-core ARM Neoverse-N1 CPU: official '+
+        f"{summary['official']['decode_tps_median']:.2f}, optimized SDOT plus INT8 KV {summary['optimized']['decode_tps_median']:.2f}, "+
+        f"baseline SDOT plus INT8 KV {summary['baseline']['decode_tps_median']:.2f} tokens per second. "+
+        'Sixteen queries, nine repeats per native revision; official is from an earlier five-repeat run. '+
+        'Timing definitions differ; SDOT and INT8 KV add quantization error. Motion is illustrative.</desc>')
+    add('<metadata>'+escape(json.dumps({'source':'reports/performance_f4f9b38.json','sha256':hashlib.sha256(REPORT.read_bytes()).hexdigest(),'theme':theme,'static':static}))+'</metadata>')
     add('<style>text{font-family:Inter,"Segoe UI",Arial,sans-serif}.mono{font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace}.overline{letter-spacing:2.2px}.flow{stroke-dasharray:5 18;stroke-linecap:round;animation:travel 2.6s linear infinite}.phase2{animation-delay:-1.3s}.phase3{animation-duration:1.8s}.spark{animation:shimmer 3.4s ease-in-out infinite}.spark2{animation-delay:-1.7s}@keyframes travel{to{stroke-dashoffset:-92}}@keyframes shimmer{0%,100%{opacity:.38}50%{opacity:1}}@media(prefers-reduced-motion:reduce){.flow,.spark{animation:none!important}.flow{stroke-dasharray:5 18;opacity:.7}}'+
         ('.flow,.spark{animation:none!important}' if static else '')+'</style>')
     add('<defs><pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse">'+
@@ -86,7 +86,7 @@ def draw(theme, report, static=False):
     text(342,283,'GEMV',28,'coreink',600,'text-anchor="middle" class="mono"')
     text(342,304,'Hx + CQ lookup',11,'coreink',400,'text-anchor="middle" class="mono"')
     text(342,350,'NEON / SDOT',15,'ink',600,'text-anchor="middle"')
-    text(342,369,'SDOT: four-row reuse',12,'muted',400,'text-anchor="middle"')
+    text(342,369,'row + token reuse',12,'muted',400,'text-anchor="middle"')
     path('M416 272H520','border',2)
     path('M416 272H520','accent',2.5,extra='class="flow phase2"')
     rect(520,229,125,95,'panel',12,'border')
@@ -95,9 +95,9 @@ def draw(theme, report, static=False):
         rect(536,y,93,5,'track',2)
         rect(536,y,width,5,'accent' if y==278 else 'teal',2)
     text(520,349,'token logits',15,'ink',600)
-    text(520,369,'grammar → token',12,'muted')
+    text(520,369,'validated DFA → token',12,'muted')
     path('M52 391H652')
-    for x,value,label in [(52,'13.74 MB','DEPLOYMENT FILE'),(265,'43.6M','DEPLOYED PARAMETERS'),(510,'FP32 KV','CURRENT CACHE')]:
+    for x,value,label in [(52,'13.74 MB','DEPLOYMENT FILE'),(265,'43.6M','DEPLOYED PARAMETERS'),(510,'INT8 KV*','BENCHMARK CACHE')]:
         text(x,430,value,26,'ink',550,'letter-spacing="-.5"')
         text(x,451,label,10,'muted',500,'letter-spacing="1.3"')
     text(52,477,'One projection, illustrated. Packet motion is not a timing measurement.',11,'muted')
@@ -106,7 +106,7 @@ def draw(theme, report, static=False):
     text(751,80,'Decode throughput',23,'ink',600,'letter-spacing="-.4"')
     text(751,103,'4-core ARM Neoverse-N1 · median token/s',12,'muted')
     for index,(name,label,color) in enumerate(rows):
-        y=145+index*69
+        y=150+index*82
         value=summary[name]['decode_tps_median']
         text(751,y,label,14,'ink',550)
         text(1145,y+2,f'{value:.2f}',25,color,600,'text-anchor="end" class="mono" letter-spacing="-.8"')
@@ -115,10 +115,10 @@ def draw(theme, report, static=False):
              extra=f'data-backend="{name}" data-value="{value:.12g}"')
     path('M751 391H1145')
     text(751,434,f'{ratio:.1f}×',36,'accent',600,'letter-spacing="-1.5"')
-    text(890,420,'SDOT / PyTorch FP32',14,'ink',500)
-    text(890,442,'Same model · application comparison',10.5,'muted')
-    text(751,467,'* SDOT adds INT8 rounding. Timing definitions differ.',11,'muted')
-    text(751,484,'Source: recorded benchmark · 3 queries × 5 repetitions',10,'muted')
+    text(890,420,'Decode gain vs e809ffc',14,'ink',500)
+    text(890,442,'Same SDOT + INT8 KV · interleaved',10.5,'muted')
+    text(751,467,'* SDOT + INT8 KV. † Earlier run; timing definitions differ.',11,'muted')
+    text(751,484,'16 queries · native 9 repeats · official 5 (self-reported TPS)',10,'muted')
     add('</svg>')
     return '\n'.join(pieces)+'\n'
 

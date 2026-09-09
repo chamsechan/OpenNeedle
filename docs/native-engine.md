@@ -89,7 +89,7 @@ python3 scripts/benchmark_native.py --output reports/native_kernel_benchmark.jso
 
 ## FP32 投影优化与实验开关
 
-q/k/v/gate 四个投影共享一次输入 Hadamard 变换和一个 OpenMP 区域。`projection_lookup=-1`（默认）在 CQ2、group=128、合并输出至少 1024 行且线程数不超过 2 时，进一步使用每线程 32 KB 的 activation lookup table；其余形状保留 NEON FMA。表内仍是 FP32 码本与 FP32 旋转输入的乘积和，没有增加 INT8 舍入，但求和顺序变化会产生小的浮点差异。`projection_lookup=0` 可固定使用 NEON FMA 供基线比较。
+q/k/v/gate 四个投影共享一次输入 Hadamard 变换。默认 4 线程前向通过常驻线程池调度融合投影、attention 和输出投影；部分查表实验路径仍使用 OpenMP。`projection_lookup=-1`（默认）在 CQ2、group=128、合并输出至少 1024 行且线程数不超过 2 时，进一步使用每线程 32 KB 的 activation lookup table；其余形状保留 NEON FMA。表内仍是 FP32 码本与 FP32 旋转输入的乘积和，没有增加 INT8 舍入，但求和顺序变化会产生小的浮点差异。`projection_lookup=0` 可固定使用 NEON FMA 供基线比较。
 
 `projection_lookup=1/2/3/4` 和 `NativeCQ.linear(..., lookup=1/2/3)` 是显式实验模式，不保证每种形状都更快。真实 190-token 上下文后的固定 32-token 对照中，私有查表相对融合 NEON 约提升 3%，logits 最大差约 `6.87e-5`，argmax 全部相同。原始数据和复现实验分别在 `reports/lookup_engine_benchmark.json`、`scripts/benchmark_lookup_engine.py`；单矩阵和融合投影数据在 `reports/cq_lookup_benchmark.json`。这些优化没有证明与官方闭源库等速。
 
@@ -115,7 +115,7 @@ if sdot_available():
 
 `SdotCQ::row4` 同时计算四个 CQ2/CQ4 输出行，在每个 group 内复用激活向量加载，各行独立完成 INT32 点积和 FP32 缩放累加。权重保持行主序 packed 布局；不满四行的尾部使用单行内核。融合 QKVG 也按四行工作单元分配输出区间。
 
-普通 `linear` 与单矩阵 `multiply` 在输出行数少于 128 时串行执行，避免小任务的 OpenMP 协调成本。线程数通过 `threads` 指定；库不设置全局 `OMP_WAIT_POLICY`。性能报告使用的等待策略和线程环境见 [测量条件](backend-comparison.md)。
+普通 `linear` 与单矩阵 `multiply` 在输出行数少于 128 时串行执行，避免小任务的线程协调成本。线程数通过 `threads` 指定；库不设置全局 `OMP_WAIT_POLICY`。性能报告使用的等待策略和线程环境见 [测量条件](backend-comparison.md)。
 
 四行实现与单行 SDOT 使用相同量化规则及逐 group 累加公式。[test_sdot_row4.py](../tests/test_sdot_row4.py) 对 CQ2/CQ4、group64/128、9/129 行、129 列 padding、1/2/4 线程，以及随机、零和 one-hot 输入做逐元素完全一致检查。这说明四行计算不额外改变 SDOT 数值，不代表 SDOT 与 FP32 等价。
 
@@ -130,7 +130,7 @@ OMP_WAIT_POLICY=PASSIVE OPENBLAS_NUM_THREADS=1 python scripts/profile_native.py 
   --threads 1 --matmul sdot --tokens 64 --output reports/native_profile.json
 ```
 
-插桩构建不覆盖生产库。报告对嵌套 Engram 投影做扣除，输出互斥阶段、剩余开销、head 投影行数、step 次数和最终保留的 KV 长度。插桩本身会增加计时成本，应用性能使用 [backend_comparison.json](../reports/backend_comparison.json)。
+插桩构建不覆盖生产库。报告对嵌套 Engram 投影做扣除，输出互斥阶段、剩余开销、head 投影行数、step 次数和最终保留的 KV 长度。插桩本身会增加计时成本，应用性能见 [最新测量及计时边界](backend-comparison.md)。
 
 
 ## Prefill 与 attention 数据复用

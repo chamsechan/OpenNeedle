@@ -6,7 +6,7 @@
   <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-static-dark.svg">
   <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/openeedle-hero-static.svg">
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-dark.svg">
-  <img src="docs/assets/openeedle-hero-light.svg" width="1200" alt="OpenNeedle compressed inference pipeline and CPU speed comparison: Official 488.90, OpenNeedle SDOT 150.59, Native FP32 120.77, PyTorch 9.23 token/s. SDOT is approximate; see the performance notes for full conditions.">
+  <img src="docs/assets/openeedle-hero-light.svg" width="1200" alt="OpenNeedle packed CPU inference. Expanded decode throughput: official 493.70 token/s (earlier run), optimized SDOT + INT8 KV 327.40, baseline 201.31. Timing definitions differ.">
 </picture>
 
 **Open-source CPU inference engine and PyTorch toolchain for Needle 2.**
@@ -17,20 +17,21 @@ Supports direct inference on CQ2/CQ4 compressed weights, bidirectional PyTorch c
 
 ## Current Performance
 
-Measured on a 4-core ARM Neoverse-N1 with the same release model. Three tool requests are each repeated five times after warmup, serially interleaving separate persistent backend processes. Warm requests use the [prefix-cache API](docs/native-engine.md#固定-tools-前缀复用); values are medians of 15 measurements.
+Latest measured implementation: **`f4f9b38`**, 4-core ARM Neoverse-N1, 4 threads, **SDOT + INT8 KV**, same official release weights. Values are medians; basic and expanded suites contain 3 and 16 distinct requests.
 
-| Backend | Threads | Decode Speed ↑ | Warm Request Compute Time ↓ |
-|---|---:|---:|---:|
-| Official Closed-Source Engine | Auto | 488.90 token/s | 47.9 ms |
-| OpenNeedle FP32 | 4 | **120.77 token/s** | **244.0 ms** |
-| OpenNeedle SDOT | 4 | **150.59 token/s** | **167.7 ms** |
-| PyTorch FP32 | 1 | 9.23 token/s | 1825.1 ms |
+| Metric | Official 2.0.4¹ | OpenNeedle optimized | OpenNeedle relative to official |
+|---|---:|---:|---|
+| Basic warm request compute | 45.1 ms | **60.3 ms** | 33.6% more time |
+| Expanded warm request compute | 439.1 ms | **87.4 ms** | 80.1% less time |
+| Expanded query prefill | Not exposed | **32.3 ms** | Not directly comparable |
+| Expanded decode throughput | 493.7 token/s | **327.4 token/s** | 33.7% lower throughput |
+| Tool-call quality | 13/15 (86.7%) | 13/15 (86.7%) | Same score on this sample |
 
-FP32 / SDOT decode throughputs are **13.1× / 16.3×** the displayed PyTorch result; SDOT reaches **30.8%** of the official engine. PyTorch uses CPU eager without `torch.compile`; all 1/2/4-thread results are in [Benchmark Methodology & Reproduction](docs/backend-comparison.md). Measurements explicitly set `OMP_WAIT_POLICY=PASSIVE`; the library does not change the global wait policy. Timing workloads differ across the independent and official interfaces, so this is an application-level comparison.
+¹ Official measurements are from an earlier run on the same host (5 repeats/case); optimized measurements use 9 repeats/case. **They are not from a single interleaved official/native run.** Official TPS is self-reported, with different internal work and timing boundaries. Lower expanded request time does not establish a faster decoder kernel. Warm compute excludes model/prefix/DFA initialization; native query tokenization and final parsing are also outside the timer.
 
-Revision comparison: [16f2bd3f → a65a9a11](docs/backend-comparison.md#revision-comparison).
+In the interleaved **`e809ffc` → `f4f9b38`** comparison, expanded request compute fell **132.8 → 87.4 ms (−34.2%)**, query prefill **41.2 → 32.3 ms (−21.6%)**, and decode throughput rose **201.3 → 327.4 token/s (+62.6%)**. Each case was warmed once and measured nine times in separate persistent processes. [Methodology, raw samples and reproduction](docs/backend-comparison.md).
 
-**FP32 is the default; SDOT is an optional approximate mode that adds quantization error.** The official engine and both native modes pass 13 of 15 tool-call quality cases; full BFCL has not been evaluated. Four-row SDOT is tested for exact equality with single-row arithmetic across 24 parameter combinations. See the [Validation Report](docs/results.md) and [Grammar Documentation](docs/grammar.md).
+**FP32 remains the default. SDOT and INT8 KV are optional approximations.** All four native configurations retain their previous quality outputs. The optimization passed **194 tests + 4 subtests**; across 31 requests, each configuration's 1026 × 8192 full logits were bit-identical to its own pre-optimization result. This does not mean the four configurations, or the official logits, are equal. Full BFCL has not been evaluated. See [validation](docs/results.md) and [grammar coverage](docs/grammar.md).
 
 <a id="快速开始"></a>
 ## Quickstart
@@ -62,7 +63,7 @@ The resulting `function_calls`:
 
 The initial native invocation automatically compiles and caches the C++ kernel without requiring official closed-source libraries; you can also compile ahead of time with `python -m needle2 build-native`. See the [Build Guide](docs/build.md) for CMake builds and precompiled library deployment. Tool execution is handled by your application.
 
-Add `--matmul sdot` to enable SDOT; switch to `--backend torch` to run the PyTorch reference backend. Adjust thread count to fit the target CPU.
+Add `--matmul sdot --kv-cache int8` to select the approximate mode used in the performance table; omit these options for the FP32 defaults. Use `--matmul sdot` alone to retain FP32 KV; switch to `--backend torch` to run the PyTorch reference backend. Adjust thread count to fit the target CPU.
 
 <a id="模型转换"></a>
 ## Model Conversion
@@ -87,6 +88,8 @@ See the [Usage Guide](docs/usage.md) for FP16 master conversion, Python API, and
 The C++ engine shares one Hadamard input transform across Q/K/V/gate projections, reads packed CQ weights directly, and uses NEON FMA or optional SDOT integer dot products. SDOT computes four output rows together to reuse activation loads; ordinary matrix operations with fewer than 128 output rows run serially. Weights retain their packed row layout. KV defaults to FP32, with an optional INT8 cache that stores per-head scales and adds quantization error.
 
 Fixed tool prefixes can be reused through the [NativeEngine prefix-cache API](docs/native-engine.md#固定-tools-前缀复用). Native tool decoding compiles schema and UTF-8 constraints into a token DFA, projects only candidate rows, and skips the LM head for a single candidate. Large grammars fall back to the Python schema gate. The four-row kernel is checked against single-row SDOT arithmetic across CQ2/CQ4, padding, tail rows, and 1/2/4 threads.
+
+The latest optimization validates an immutable DFA once and reuses it across requests, while retaining vocabulary and raw C ABI checks. Attention reuses GQA work lists and KV slot mappings, accumulating V in 32-dimension NEON register tiles. Batched SDOT prefill shares packed-weight decoding between adjacent tokens and computes RoPE trigonometry once per chunk for all layers. These changes preserve existing quantization and per-dimension accumulation order; [implementation details](docs/native-engine.md#prefill-与-attention-数据复用).
 
 Model architecture and quantization follow pinned [Needle source](https://github.com/cactus-compute/needle/tree/53df049c4a1a82fca1027b81f9ff21336dfb0861) and [release weights](https://huggingface.co/Cactus-Compute/needle2/tree/32e9e3a93b205f786929697446ae669cf0a84579). See the [Technical Reference](docs/research.md) for the architecture, CQ format, Arm intrinsics and Cactus kernel references; see the [Native Engine](docs/native-engine.md) for execution details and numerical limits.
 

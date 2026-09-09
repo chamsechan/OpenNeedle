@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500" role="img" aria-labelledby="title desc">
 <title id="title">OpenNeedle — packed CPU inference and measured decode throughput</title>
-<desc id="desc">Conceptual packed GEMV data flow. On a 4-core ARM Neoverse-N1 CPU: official 488.90, OpenNeedle SDOT 150.59, OpenNeedle FP32 120.77, and PyTorch 9.23 tokens per second. Medians of three queries repeated five times. Application timing definitions differ; SDOT adds quantization error. Motion is illustrative.</desc>
-<metadata>{&quot;source&quot;: &quot;reports/backend_comparison.json&quot;, &quot;sha256&quot;: &quot;27c203433eabf96205ed12f290626e9b1e2458da9a437beb50c36091d8f9aaa9&quot;, &quot;theme&quot;: &quot;light&quot;, &quot;static&quot;: true}</metadata>
+<desc id="desc">Conceptual packed projection data flow. Expanded suite on a 4-core ARM Neoverse-N1 CPU: official 493.70, optimized SDOT plus INT8 KV 327.40, baseline SDOT plus INT8 KV 201.31 tokens per second. Sixteen queries, nine repeats per native revision; official is from an earlier five-repeat run. Timing definitions differ; SDOT and INT8 KV add quantization error. Motion is illustrative.</desc>
+<metadata>{&quot;source&quot;: &quot;reports/performance_f4f9b38.json&quot;, &quot;sha256&quot;: &quot;d7ba51de298a6e3a697bf0a1a08e25bd00e4790d7abd2162b1c82cbb8a058718&quot;, &quot;theme&quot;: &quot;light&quot;, &quot;static&quot;: true}</metadata>
 <style>text{font-family:Inter,"Segoe UI",Arial,sans-serif}.mono{font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace}.overline{letter-spacing:2.2px}.flow{stroke-dasharray:5 18;stroke-linecap:round;animation:travel 2.6s linear infinite}.phase2{animation-delay:-1.3s}.phase3{animation-duration:1.8s}.spark{animation:shimmer 3.4s ease-in-out infinite}.spark2{animation-delay:-1.7s}@keyframes travel{to{stroke-dashoffset:-92}}@keyframes shimmer{0%,100%{opacity:.38}50%{opacity:1}}@media(prefers-reduced-motion:reduce){.flow,.spark{animation:none!important}.flow{stroke-dasharray:5 18;opacity:.7}}.flow,.spark{animation:none!important}</style>
 <defs><pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".7" fill="#c9d8ce"/></pattern></defs>
 <rect x="0.5" y="0.5" width="1199" height="499" rx="20" fill="#f6f7f3" stroke="#d6dfd7" />
@@ -80,7 +80,7 @@
 <text x="342" y="283" fill="#eafff2" font-size="28" font-weight="600" text-anchor="middle" class="mono">GEMV</text>
 <text x="342" y="304" fill="#eafff2" font-size="11" font-weight="400" text-anchor="middle" class="mono">Hx + CQ lookup</text>
 <text x="342" y="350" fill="#182724" font-size="15" font-weight="600" text-anchor="middle">NEON / SDOT</text>
-<text x="342" y="369" fill="#53675f" font-size="12" font-weight="400" text-anchor="middle">SDOT: four-row reuse</text>
+<text x="342" y="369" fill="#53675f" font-size="12" font-weight="400" text-anchor="middle">row + token reuse</text>
 <path d="M416 272H520" fill="none" stroke="#d6dfd7" stroke-width="2" />
 <path d="M416 272H520" fill="none" stroke="#087d68" stroke-width="2.5" class="flow phase2"/>
 <rect x="520" y="229" width="125" height="95" rx="12" fill="#ffffff" stroke="#d6dfd7" />
@@ -92,38 +92,34 @@
 <rect x="536" y="291" width="93" height="5" rx="2" fill="#e7ece6" />
 <rect x="536" y="291" width="65" height="5" rx="2" fill="#2e9a85" />
 <text x="520" y="349" fill="#182724" font-size="15" font-weight="600" >token logits</text>
-<text x="520" y="369" fill="#53675f" font-size="12" font-weight="400" >grammar → token</text>
+<text x="520" y="369" fill="#53675f" font-size="12" font-weight="400" >validated DFA → token</text>
 <path d="M52 391H652" fill="none" stroke="#d6dfd7" stroke-width="1" />
 <text x="52" y="430" fill="#182724" font-size="26" font-weight="550" letter-spacing="-.5">13.74 MB</text>
 <text x="52" y="451" fill="#53675f" font-size="10" font-weight="500" letter-spacing="1.3">DEPLOYMENT FILE</text>
 <text x="265" y="430" fill="#182724" font-size="26" font-weight="550" letter-spacing="-.5">43.6M</text>
 <text x="265" y="451" fill="#53675f" font-size="10" font-weight="500" letter-spacing="1.3">DEPLOYED PARAMETERS</text>
-<text x="510" y="430" fill="#182724" font-size="26" font-weight="550" letter-spacing="-.5">FP32 KV</text>
-<text x="510" y="451" fill="#53675f" font-size="10" font-weight="500" letter-spacing="1.3">CURRENT CACHE</text>
+<text x="510" y="430" fill="#182724" font-size="26" font-weight="550" letter-spacing="-.5">INT8 KV*</text>
+<text x="510" y="451" fill="#53675f" font-size="10" font-weight="500" letter-spacing="1.3">BENCHMARK CACHE</text>
 <text x="52" y="477" fill="#53675f" font-size="11" font-weight="400" >One projection, illustrated. Packet motion is not a timing measurement.</text>
 <text x="751" y="48" fill="#53675f" font-size="11" font-weight="600" class="overline">MEASURED ON CPU</text>
 <text x="751" y="80" fill="#182724" font-size="23" font-weight="600" letter-spacing="-.4">Decode throughput</text>
 <text x="751" y="103" fill="#53675f" font-size="12" font-weight="400" >4-core ARM Neoverse-N1 · median token/s</text>
-<text x="751" y="145" fill="#182724" font-size="14" font-weight="550" >Official engine</text>
-<text x="1145" y="147" fill="#53625c" font-size="25" font-weight="600" text-anchor="end" class="mono" letter-spacing="-.8">488.90</text>
-<rect x="751" y="160" width="394" height="5" rx="2" fill="#e7ece6" />
-<rect x="751" y="160" width="394.0" height="5" rx="2" fill="#53625c" data-backend="official" data-value="488.9"/>
-<text x="751" y="214" fill="#182724" font-size="14" font-weight="550" >OpenNeedle / SDOT*</text>
-<text x="1145" y="216" fill="#087d68" font-size="25" font-weight="600" text-anchor="end" class="mono" letter-spacing="-.8">150.59</text>
-<rect x="751" y="229" width="394" height="5" rx="2" fill="#e7ece6" />
-<rect x="751" y="229" width="121.356" height="5" rx="2" fill="#087d68" data-backend="native_sdot" data-value="150.586353144"/>
-<text x="751" y="283" fill="#182724" font-size="14" font-weight="550" >OpenNeedle / FP32</text>
-<text x="1145" y="285" fill="#2e9a85" font-size="25" font-weight="600" text-anchor="end" class="mono" letter-spacing="-.8">120.77</text>
-<rect x="751" y="298" width="394" height="5" rx="2" fill="#e7ece6" />
-<rect x="751" y="298" width="97.331" height="5" rx="2" fill="#2e9a85" data-backend="native_fp32" data-value="120.774994056"/>
-<text x="751" y="352" fill="#182724" font-size="14" font-weight="550" >PyTorch / FP32 (1T)</text>
-<text x="1145" y="354" fill="#9ba69f" font-size="25" font-weight="600" text-anchor="end" class="mono" letter-spacing="-.8">9.23</text>
-<rect x="751" y="367" width="394" height="5" rx="2" fill="#e7ece6" />
-<rect x="751" y="367" width="7.442" height="5" rx="2" fill="#9ba69f" data-backend="pytorch_t1" data-value="9.23435112477"/>
+<text x="751" y="150" fill="#182724" font-size="14" font-weight="550" >Official 2.0.4†</text>
+<text x="1145" y="152" fill="#53625c" font-size="25" font-weight="600" text-anchor="end" class="mono" letter-spacing="-.8">493.70</text>
+<rect x="751" y="165" width="394" height="5" rx="2" fill="#e7ece6" />
+<rect x="751" y="165" width="394.0" height="5" rx="2" fill="#53625c" data-backend="official" data-value="493.7"/>
+<text x="751" y="232" fill="#182724" font-size="14" font-weight="550" >OpenNeedle f4f9b38*</text>
+<text x="1145" y="234" fill="#087d68" font-size="25" font-weight="600" text-anchor="end" class="mono" letter-spacing="-.8">327.40</text>
+<rect x="751" y="247" width="394" height="5" rx="2" fill="#e7ece6" />
+<rect x="751" y="247" width="261.281" height="5" rx="2" fill="#087d68" data-backend="optimized" data-value="327.397228376"/>
+<text x="751" y="314" fill="#182724" font-size="14" font-weight="550" >OpenNeedle e809ffc*</text>
+<text x="1145" y="316" fill="#2e9a85" font-size="25" font-weight="600" text-anchor="end" class="mono" letter-spacing="-.8">201.31</text>
+<rect x="751" y="329" width="394" height="5" rx="2" fill="#e7ece6" />
+<rect x="751" y="329" width="160.654" height="5" rx="2" fill="#2e9a85" data-backend="baseline" data-value="201.306805846"/>
 <path d="M751 391H1145" fill="none" stroke="#d6dfd7" stroke-width="1" />
-<text x="751" y="434" fill="#087d68" font-size="36" font-weight="600" letter-spacing="-1.5">16.3×</text>
-<text x="890" y="420" fill="#182724" font-size="14" font-weight="500" >SDOT / PyTorch FP32</text>
-<text x="890" y="442" fill="#53675f" font-size="10.5" font-weight="400" >Same model · application comparison</text>
-<text x="751" y="467" fill="#53675f" font-size="11" font-weight="400" >* SDOT adds INT8 rounding. Timing definitions differ.</text>
-<text x="751" y="484" fill="#53675f" font-size="10" font-weight="400" >Source: recorded benchmark · 3 queries × 5 repetitions</text>
+<text x="751" y="434" fill="#087d68" font-size="36" font-weight="600" letter-spacing="-1.5">1.6×</text>
+<text x="890" y="420" fill="#182724" font-size="14" font-weight="500" >Decode gain vs e809ffc</text>
+<text x="890" y="442" fill="#53675f" font-size="10.5" font-weight="400" >Same SDOT + INT8 KV · interleaved</text>
+<text x="751" y="467" fill="#53675f" font-size="11" font-weight="400" >* SDOT + INT8 KV. † Earlier run; timing definitions differ.</text>
+<text x="751" y="484" fill="#53675f" font-size="10" font-weight="400" >16 queries · native 9 repeats · official 5 (self-reported TPS)</text>
 </svg>

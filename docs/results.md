@@ -27,7 +27,7 @@
 
 前两项分别隔离架构迁移和原生实现的误差，没有把已经量化的权重与未量化 master 混为同一参考。JAX 报告的 cosine=1 是 FP32 统计舍入，不代表逐位相同。原生验证的 cosine 用 FP64 统计，为 0.999999999999868。
 
-SDOT 会额外舍入旋转后的激活与码本；64-token 诊断中最大 logits 误差约 1.45，位置 3、63 的 top-1 改变。因此它是可选速度/精度取舍，不能套用 FP32 的验收结论。两种原生模式均保留 FP32 KV，没有声称复刻官方所有 A8/KV8 舍入。官方公开 C ABI 没有 logits 导出接口，不能直接测闭源 logits 的逐元素相等。
+SDOT 会额外舍入旋转后的激活与码本；64-token 诊断中最大 logits 误差约 1.45，位置 3、63 的 top-1 改变。因此它是可选速度/精度取舍，不能套用 FP32 的验收结论。上述历史诊断的两种原生模式均使用 FP32 KV；当前引擎还支持可选 INT8 KV，没有声称复刻官方所有 A8/KV8 舍入。官方公开 C ABI 没有 logits 导出接口，不能直接测闭源 logits 的逐元素相等。
 
 数据：[JAX 对照](../reports/model_jax_parity.json)、[FP32 对照](../reports/validation.json)、[SDOT 误差诊断](../reports/sdot_model_error.json)。
 
@@ -37,27 +37,42 @@ SDOT 会额外舍入旋转后的激活与码本；64-token 诊断中最大 logit
 
 四行复用不改变每行点积、量化或逐 group 累加公式；它保持 SDOT 自身的数值语义，FP32→SDOT 的近似误差仍按上表单独报告。
 
+## f4f9b38 优化前后数值验证
+
+基线为 `e809ffc`。固定同一 CACT、prompt、prefix sink 和逐步历史 token，对扩展 16 例＋质量 15 例进行 teacher forcing；所有位置投影完整的 8192 词表，不使用单候选 `[0.0]` 占位值。首个位置来自 query prefill，后续来自逐 token decode。
+
+| 每种配置相对自身优化前版本 | 解码决策位置 | 比较 logits 数 | 逐位不同元素 | 最大绝对误差 |
+|---|---:|---:|---:|---:|
+| FP32＋FP32 KV | 1026 | 8,404,992 | 0 | 0 |
+| FP32＋INT8 KV | 1026 | 8,404,992 | 0 | 0 |
+| SDOT＋FP32 KV | 1026 | 8,404,992 | 0 | 0 |
+| SDOT＋INT8 KV | 1026 | 8,404,992 | 0 | 0 |
+
+Top-1 与 grammar 筛选后的选择均无分歧。共比较 33,619,968 个 logits；结论限定于这些样例和 Linux ARM64 的 4 线程配置，不是不同量化模式彼此相同，也不是与官方闭源 logits 相同。官方接口没有 logits 导出能力。
+
+新增回归覆盖不可变 DFA 的数据/形状/字段保护、跨词表验证，GQA 比例 3 的配对和单 head、32/38 维 SIMD/尾部、CQ2/CQ4、奇数 batch、滑窗回绕、prefix 恢复及 1/4 线程。[新内核测试](../tests/test_optimized_attention_prefill.py) 对照逐 token 路径与独立 PyTorch FP32 参考。
+
 ## 工具调用质量
 
-固定的 [15 个案例](../benchmarks/quality_cases.jsonl) 和 [工具定义](../benchmarks/quality_tools.json) 覆盖数字改写、布尔值、零值、optional/enum、多调用、重复调用、自我更正、否定和无关请求。预期答案在对比前固定，采用区分布尔/数字类型的 JSON 严格比较。
+固定 [15 个案例](../benchmarks/quality_cases.jsonl) 和 [工具定义](../benchmarks/quality_tools.json)，使用区分布尔/数字类型及调用顺序的严格 JSON 比较。
 
-| 模式 | 正确调用 | 可解析输出 | 与官方原始 calls 一致 |
-|---|---:|---:|---:|
-| 官方 2.0.4 | 13/15 | 15/15 | — |
-| 独立 FP32 | 13/15 | 15/15 | 13/15 |
-| 独立 SDOT | 13/15 | 15/15 | 13/15 |
+| 模式 | 正确调用 | 优化前后完整生成 token |
+|---|---:|---|
+| 官方 2.0.4（此前实测） | 13/15 | 不适用 |
+| FP32＋FP32 KV | 13/15 | 15/15 一致 |
+| FP32＋INT8 KV | 13/15 | 15/15 一致 |
+| SDOT＋FP32 KV | 13/15 | 15/15 一致 |
+| SDOT＋INT8 KV | 13/15 | 15/15 一致 |
 
-FP32 与 SDOT 的 15/15 完整生成 token 序列一致。双方未答对的两例是 `negation_no_action` 与 `off_topic`，且各自生成的错误 calls 并不相同。官方接口还提供置信度和 validation 字段；独立 CLI 的输出契约见 [grammar 文档](grammar.md)。因而“calls 正确数相同”不等于产品整体行为相同。
+未答对的两例仍为 `negation_no_action` 与 `off_topic`；官方和原生实现的具体错误 calls 并不相同。表中的 token 一致性是各模式优化前后比较，不是四种模式之间比较。本轮性能优化没有修复已有的质量错误，也没有新增错误。官方提供的 negation/grounding 标记未用于过滤本表输出。
 
-这些是手工小样本回归，不能当作 BFCL、泛化精度或长上下文准确率。质量脚本每例重新建立独立模型，包含完整前缀的耗时只作诊断，不用于宣称热请求性能。
-
-数据：[FP32 质量报告](../reports/quality.json)、[SDOT 质量报告](../reports/quality_sdot.json)。两份报告均记录固定模型、源码和实际动态库哈希，`source_changed_during_run=false`。
+这些是诊断小样本，不代表 BFCL 或广泛真实请求准确率。可复核的官方输出、当前各模式 token、逐位置误差摘要见 [发布测量记录](../reports/performance_f4f9b38.json)。
 
 ## 性能
 
-4 核 ARM Neoverse-N1、原生 4 线程、固定工具前缀复用：FP32 为 **120.77 token/s、244.0 ms/请求**，SDOT 为 **150.59 token/s、167.7 ms/请求**。3 组请求各预热后重复 5 次，均为中位数；各后端 15/15 次调用正确。
+`e809ffc` 与 `f4f9b38` 同机交错测量，4 线程 SDOT＋INT8 KV：扩展请求中位耗时 **132.8 → 87.4 ms**，query prefill **41.2 → 32.3 ms**，decode 吞吐 **201.3 → 327.4 token/s**。每例预热 1 次、测量 9 次。基础 3 例和扩展 16 例的全部生成 token 均保持相同，调用全部正确。
 
-官方及 PyTorch 1/2/4 线程完整数据、等待策略、计时边界和首次前缀成本见 [CPU 性能与测量方法](backend-comparison.md)。原始数据为 [backend_comparison.json](../reports/backend_comparison.json)。
+官方对照、计时边界和复现见 [性能说明](backend-comparison.md)。
 
 ## 复现
 
@@ -74,7 +89,7 @@ OMP_WAIT_POLICY=PASSIVE OPENBLAS_NUM_THREADS=1 .venv/bin/python scripts/evaluate
 OMP_WAIT_POLICY=PASSIVE OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 \
   .venv/bin/python scripts/benchmark_backends.py \
   --native-threads 4 --torch-threads 1,2,4 --repeat 5 \
-  --output reports/backend_comparison.json
+  --output reports/backend_comparison_current.json
 ```
 
-完整测试结果：**90 passed，4 subtests passed**，日志见 [pytest.txt](../reports/pytest.txt)。覆盖格式校验、CQ 数值 oracle、转换、模型 cache、probe、QAT 梯度、tokenizer、grammar、native 构建与 SDOT 路径。
+当前优化测试结果：**194 passed，4 subtests passed**，日志见 [pytest.txt](../reports/published_f4f9b38/pytest.txt)。覆盖格式校验、CQ 数值 oracle、转换、模型 cache、probe、QAT 梯度、tokenizer、grammar、native 构建与 SDOT 路径。

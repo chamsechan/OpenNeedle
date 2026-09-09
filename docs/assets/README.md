@@ -3,10 +3,13 @@
 The README uses a self-contained SVG with light and dark palettes. Subtle packet
 motion illustrates one packed matrix–vector projection; it does not represent
 measured latency. Throughput bars are static, share a zero origin, and use the
-recorded values in [`backend_comparison.json`](../../reports/backend_comparison.json).
-The chart displays native 4-thread results and PyTorch 1-thread FP32, the fastest
-PyTorch configuration in the recorded test. See the [benchmark methodology](../backend-comparison.md) for all backend
-configurations, timing boundaries, and the SDOT accuracy tradeoff.
+recorded expanded-suite values in [`performance_f4f9b38.json`](../../reports/performance_f4f9b38.json).
+The chart shows optimized and baseline OpenNeedle with SDOT + INT8 KV, both using
+4 threads and nine measurements per case. The official result is from an earlier
+five-repeat run and reports its own TPS. The 1.6× callout compares the two native
+revisions, which were interleaved; it does not compare against PyTorch or official.
+See [methodology](../backend-comparison.md) for the different timing boundaries,
+quantization tradeoffs and the 16 distinct requests.
 
 - [Light animated SVG](openeedle-hero-light.svg)
 - [Dark animated SVG](openeedle-hero-dark.svg)

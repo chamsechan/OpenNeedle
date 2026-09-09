@@ -1,70 +1,74 @@
 # CPU 性能与测量方法
 
-测试设备为 4 核 ARM Neoverse-N1，所有后端使用相同的官方 `needle2.cact`。PyTorch 2.11.0+cu130 实际运行于 CPU，权重从发布文件反量化为 FP32，使用 eager、eval、inference_mode；未启用 torch.compile。
+当前实测实现为 `f4f9b38`（2026-09-09），同轮原生基线为 `e809ffc`。硬件为 4 核 ARM Neoverse-N1，使用同一份官方 CACT。原始样本、配置、官方库/模型哈希和数值验证汇总保存在 [performance_f4f9b38.json](../reports/performance_f4f9b38.json)。
 
-各配置使用独立持久进程、相同 affinity `0,1,2,3`。3 组工具请求各预热一次，再重复 5 次；请求串行交错。原生使用 4 线程，官方自动选择线程；PyTorch intra-op 分别为 1/2/4，inter-op 为 1。进程启动前统一设置 `OMP_WAIT_POLICY=PASSIVE`、`OMP_NUM_THREADS=1`、`OPENBLAS_NUM_THREADS=1`；各后端再按上述线程配置执行。
+## 官方与优化后 OpenNeedle
 
-## 测量结果
+OpenNeedle 使用 4 线程、SDOT＋INT8 KV；这是可选近似配置，默认仍为 FP32＋FP32 KV。
 
-| 后端 | 解码 token/s | 请求计算耗时 ms | 首次工具前缀 ms | 正确调用 |
-|---|---:|---:|---:|---:|
-| 官方闭源库 | 488.90 | 47.9 | 194.9 | 15/15 |
-| OpenNeedle FP32 / 4 线程 | 120.77 | 244.0 | 942.0 | 15/15 |
-| OpenNeedle SDOT / 4 线程 | 150.59 | 167.7 | 694.9 | 15/15 |
-| PyTorch eager FP32 / 1 线程 | 9.23 | 1825.1 | 772.1 | 15/15 |
-| PyTorch eager FP32 / 2 线程 | 8.57 | 1950.8 | 810.7 | 15/15 |
-| PyTorch eager FP32 / 4 线程 | 8.36 | 1993.6 | 791.1 | 15/15 |
+| 指标 | 官方 2.0.4 | OpenNeedle f4f9b38 | OpenNeedle 相对官方 |
+|---|---:|---:|---|
+| 基础热请求计算耗时 | 45.1 ms | 60.3 ms | 耗时高 33.6% |
+| 扩展热请求计算耗时 | 439.1 ms | 87.4 ms | 耗时低 80.1% |
+| 扩展 query prefill 耗时 | 未公开 | 32.3 ms | 无法直接比较 |
+| 扩展解码吞吐 | 493.7 token/s | 327.4 token/s | 吞吐低 33.7% |
+| 质量集正确调用 | 13/15 | 13/15 | 该样本得分相同 |
 
-解码速度与请求耗时为 15 次测量的中位数；首次前缀成本为每进程一次观测。独立路径固定工具前缀为 177 tokens。所有独立模式与 PyTorch 在全部请求中生成相同 token 序列，六种配置均为 15/15 正确调用。这是固定工具请求的性能测试，质量回归见 [验证结果](results.md)。
-
-README 展示 PyTorch 1 线程配置，它是这组测试中吞吐最高的 PyTorch 配置。以它为参照，FP32 和 SDOT 解码吞吐分别为 13.08 倍和 16.31 倍；SDOT 为官方的 30.80%。这些比值描述给定应用和接口，不是相同算子工作量下的内核加速比。
-
-## 执行方式
-
-- Native 在 C++ 内完成逐 token 模型前向，直接读取压缩 CQ 权重；Q/K/V/gate 共享输入变换与并行区域。
-- SDOT 同时计算四行以共享激活加载；普通矩阵运算少于 128 个输出行时串行执行。KV 与 mHC dense routing 使用 FP32。
-- 工具前缀快照保存各层 KV、token 历史和 Engram 环；热请求恢复快照后消费 query。该复用通过 NativeEngine API 显式执行。
-- 解码计算完整词表 logits，再应用 grammar；prefill 仅在需要输出的位置计算 LM head。
-- PyTorch 参考路径包含逐 token eager 小算子、20 轮 Sinkhorn、Hadamard 和 KV 操作。它的结果不代表编译或融合优化后的 PyTorch 上限。
-
-SDOT 对旋转激活和码本引入 INT8 舍入。四行与单行 SDOT 的逐元素一致性不消除这种 FP32→SDOT 误差，详见 [数值验证](results.md) 和 [内核说明](native-engine.md)。
-
-## 计时边界
-
-- 热请求包括前缀恢复、query prefill、grammar 和逐 token decode；不包括模型加载、首次编译及工具初始化。
-- 独立路径 query 预分词和最终字符串解析位于计时外；官方 wall time 包含其公开接口内部输入处理与 JSON 解析。因此表中是请求计算耗时，不是完整服务端到端延迟。
-- 独立 decode TPS = 实际 forward 次数 N−1 / 含 grammar 的 decode 时间。首 token 来自 prefill，最后选出的 token 不额外 forward。官方 TPS 由其响应自报，内部 prompt、grammar、验证与置信度流程不同。
-- 各请求间隔 20 ms，帮助空闲运行时线程退出忙等待；间隔和 IPC 不计入 worker 时间。报告保留全部样本与 process CPU time，云主机调度仍可能影响结果。
-- FP32 前缀快照和可选 PyTorch dense prefill 各有额外内存成本；本表不宣称与官方 INT8 引擎具有相同 RSS。
-
-## 复现
-
-```bash
-OMP_WAIT_POLICY=PASSIVE OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 \
-  .venv/bin/python scripts/benchmark_backends.py \
-  --native-threads 4 --torch-threads 1,2,4 --repeat 5 \
-  --output reports/backend_comparison.json
-```
-
-完整数据：[backend_comparison.json](../reports/backend_comparison.json)。报告记录模型、源码和官方库哈希，线程环境、启动成本、全部请求及 token 一致性；`source_changed_during_run=false`。运行性能测试时避免同时进行编译或其他 CPU 密集任务。
+基础与扩展集分别包含 3、16 个独立请求；每例预热一次。官方沿用同机较早一轮、每例 5 次测量的数据；新版每例测量 9 次。**官方与新版并非同轮交错运行。** 所有时间/吞吐为中位数。官方 TPS 为自报值，内部 token 数、prompt、validation 及计时范围不公开；不能将吞吐比值当作相同算子的加速比，也不能从扩展请求耗时推断解码内核比官方更快。
 
 <a id="revision-comparison"></a>
 
-## 版本速度对比：16f2bd3f → a65a9a11
+## 同轮版本对比：e809ffc → f4f9b38
 
-本次在同一台主机按上述配置重新测量两个提交，先运行 16f2bd3f，再运行 a65a9a11；表内均为 15 次测量的中位数。当前页面及 README 已同步为 a65a9a11 的本次数据。
+两个原生版本使用相同的 SDOT＋INT8 KV、4 线程配置，在独立常驻进程中串行交错测量，每例预热 1 次、测量 9 次。基础集各 27 个计时样本，扩展集各 144 个。
 
-| 后端 | 16f2bd3f token/s | a65a9a11 token/s | 吞吐变化 | 16f2bd3f 请求 ms | a65a9a11 请求 ms | 耗时降低 |
-|---|---:|---:|---:|---:|---:|---:|
-| official | 500.90 | 488.90 | -2.40% | 59.0 | 47.9 | +18.87% |
-| native_fp32 | 116.51 | 120.77 | +3.66% | 225.8 | 244.0 | -8.04% |
-| native_sdot | 149.75 | 150.59 | +0.56% | 175.1 | 167.7 | +4.19% |
-| pytorch_t1 | 9.39 | 9.23 | -1.69% | 1817.1 | 1825.1 | -0.44% |
-| pytorch_t2 | 8.42 | 8.57 | +1.79% | 2044.1 | 1950.8 | +4.56% |
-| pytorch_t4 | 8.58 | 8.36 | -2.57% | 1958.6 | 1993.6 | -1.79% |
+| 用例集 | 指标 | e809ffc | f4f9b38 | 变化 |
+|---|---|---:|---:|---:|
+| 基础 | 请求计算 ms | 82.80 | 60.29 | −27.2% |
+| 基础 | Query prefill ms | 28.87 | 22.54 | −21.9% |
+| 基础 | Decode token/s | 329.68 | 412.30 | +25.1% |
+| 扩展 | 请求计算 ms | 132.77 | 87.40 | −34.2% |
+| 扩展 | Query prefill ms | 41.23 | 32.33 | −21.6% |
+| 扩展 | Decode ms | 90.08 | 54.94 | −39.0% |
+| 扩展 | Decode token/s | 201.31 | 327.40 | +62.6% |
 
-两个版本的模型、官方库、测试脚本、工具、案例与线程设置一致，源码哈希均未在运行中变化。各版本六个后端均正确调用 15/15；独立后端的完整生成 token 序列在版本内及跨版本均一致。
+每列独立取中位数，不能相加还原请求中位数。19 个独立用例的全部测量均调用正确，优化前后生成 token 完全相同。云主机有明显长尾，这些比例不代表所有输入和硬件的固定收益。
 
-代码变化集中于 SDOT 四行激活复用和独立 SDOT 矩阵乘的小矩阵并行阈值，FP32 计算路径未修改。两个版本不是逐请求交错测量；官方与 PyTorch 对照也可能出现漂移，因此以上变化包含主机调度噪声，不代表统计显著性或所有负载的固定加速比。
+首次工具前缀准备含 native prefill、快照和 DFA 编译，不在热请求计时中。扩展集单次观测：基线 1565 ms、新版 1360 ms；不是冷启动中位数。更早版本和 PyTorch 的测量保留在 [历史文档](https://github.com/chamsechan/OpenNeedle/blob/0d7c15d/docs/backend-comparison.md)，未重新测量的数据不用于宣称当前性能。
 
-原始数据：[16f2bd3f](../reports/backend_comparison_16f2bd3f.json)、[a65a9a11](../reports/backend_comparison.json)、[版本对比汇总](../reports/revision_comparison.json)。复现时在两个提交的独立 worktree 中串行执行上方命令，以 `--model`、`--library` 指向相同文件，并为 `--output` 指定不同路径。
+## 实现变化与计时边界
+
+- **DFA 验证复用**：构造时验证完整图，冻结字段、使用不可变 bytes 存储；热请求仅检查当前词表上界。原始 C ABI 的结构检查保留。
+- **Attention**：复用 GQA 工作列表和 KV 槽位映射，NEON V 累加使用 32 维寄存器分块。固定前缀 sink 与滑窗语义不变。
+- **Prefill**：SDOT 相邻 token 共享 packed 权重解包，Prepared 缓冲区在投影间复用；RoPE 三角函数每个 prompt 块只计算一次，供所有层读取。Decode 的四行 SDOT 保留。
+- C++ 常驻线程池执行模型算子与 DFA 解码；只计算合法候选的 LM head，单候选跳过投影。大型 DFA 回退到 Python schema 检查。
+- 热请求包括 prefix restore、query prefill、grammar 和 decode，不含模型加载、首次编译与工具初始化。Native 查询分词和最终解析在计时外，官方 wall 包括其 API 内部处理；这不是完全相同处理链的服务端到端延迟。
+- Native decode TPS = 实际模型 forward 次数 N−1 / 含 grammar 的 decode 时间；首 token 来自 prefill。请求前间隔 20 ms 和 IPC 不计时。
+- CPU affinity 为 `0,1,2,3`；进程环境为 `OMP_WAIT_POLICY=PASSIVE`、`OMP_NUM_THREADS=1`、`OPENBLAS_NUM_THREADS=1`，native 引擎显式使用 4 线程。库不修改全局等待策略。
+
+实现细节见 [原生引擎](native-engine.md)、[grammar](grammar.md)。四种计算模式在本轮优化前后的全词表 logits 均逐位一致；这不消除 SDOT/INT8 原有量化误差，详见 [精度验证](results.md)。
+
+## 复现
+
+下载相同模型后，在该主机上复现版本对照的脚本如下。基线目录应为空；脚本使用固定的 `e809ffc` 源码目录和当前 checkout，避免在不同提交间切换运行中的进程。
+
+```bash
+mkdir -p /tmp/needle2-e809ffc
+git archive e809ffc | tar -x -C /tmp/needle2-e809ffc
+OMP_WAIT_POLICY=PASSIVE OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
+  python3 reports/published_f4f9b38/benchmark.py
+```
+
+此文档提交的运行时代码与 `f4f9b38` 相同；脚本使用当前 checkout，以后在新运行时提交运行得到的是新提交的性能。脚本保存全部生成 token 和逐请求计时，并检查两个版本的输出相等、调用正确以及测量期间源码未变化。
+
+如需重新进行官方、native 和 PyTorch 的同轮扩展集比较，可运行现有通用脚本。它会产生新的测量，不能把其结果当作上表历史记录：
+
+```bash
+OMP_WAIT_POLICY=PASSIVE OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
+  python3 scripts/benchmark_backends.py \
+  --tools benchmarks/expanded_tools.json --cases benchmarks/expanded_cases.jsonl \
+  --native-threads 4 --torch-threads 1 --kv-cache int8 --repeat 9 \
+  --max-new-tokens 192 --output reports/backend_comparison_current.json
+```
+
+先按 [官方下载脚本](../scripts/download_official.py) 准备权重和比较库。测试期间避免同时编译或运行其他 CPU 密集任务。首页 SVG 从已保存的数据生成，不会触发测速。
