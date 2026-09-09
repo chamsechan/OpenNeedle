@@ -281,19 +281,8 @@ extern "C" void needle2_profile_reset() {
     import platform
     flags = ['-O3', '-DNDEBUG', '-std=c++17', '-fPIC', '-shared', '-pthread']
     if platform.system() == 'Darwin':
-        omp_candidates = [
-            (Path(sys.prefix) / 'include', Path(sys.prefix) / 'lib'),
-            (Path('/opt/homebrew/opt/libomp/include'), Path('/opt/homebrew/opt/libomp/lib')),
-            (Path('/usr/local/opt/libomp/include'), Path('/usr/local/opt/libomp/lib')),
-        ]
-        omp_found = False
-        for inc, lib in omp_candidates:
-            if (inc / 'omp.h').exists() and any(lib.glob('libomp*.dylib')):
-                flags += ['-Xpreprocessor', '-fopenmp', f'-I{inc}', f'-L{lib}', '-lomp']
-                omp_found = True
-                break
-        if not omp_found:
-            flags.append('-fopenmp')
+        from needle2.native import _darwin_openmp_flags
+        flags += _darwin_openmp_flags()
         # Let the selected compiler resolve its matching C++ headers and SDK.
         # Injecting CLT libc++ headers can mix them with an active Xcode SDK.
     else:

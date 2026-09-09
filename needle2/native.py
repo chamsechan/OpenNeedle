@@ -20,6 +20,32 @@ import tempfile
 import numpy as np
 
 
+def _darwin_openmp_flags() -> list[str]:
+    """Use installed OpenMP headers and, when present, PyTorch's runtime.
+
+    Loading Homebrew libomp alongside the copy bundled with PyTorch aborts on
+    macOS. An explicit rpath resolves both users to the same shared library.
+    Discover the package without importing/initializing PyTorch during build.
+    """
+    import importlib.util
+    import sys
+
+    candidates = [
+        (Path(sys.prefix) / "include", Path(sys.prefix) / "lib"),
+        (Path("/opt/homebrew/opt/libomp/include"), Path("/opt/homebrew/opt/libomp/lib")),
+        (Path("/usr/local/opt/libomp/include"), Path("/usr/local/opt/libomp/lib")),
+    ]
+    torch_spec = importlib.util.find_spec("torch")
+    torch_lib = Path(torch_spec.origin).parent / "lib" if torch_spec and torch_spec.origin else None
+    for inc, lib in candidates:
+        if (inc / "omp.h").is_file() and any(lib.glob("libomp*.dylib")):
+            if torch_lib is not None and (torch_lib / "libomp.dylib").is_file():
+                lib = torch_lib
+            return ["-Xpreprocessor", "-fopenmp", f"-I{inc}", f"-L{lib}",
+                    "-lomp", f"-Wl,-rpath,{lib}"]
+    return ["-fopenmp"]
+
+
 @functools.lru_cache(maxsize=1)
 def build_native() -> Path:
     prebuilt = os.environ.get("NEEDLE2_NATIVE_LIBRARY")
@@ -38,20 +64,7 @@ def build_native() -> Path:
         raise RuntimeError("CXX must name a C++17 compiler with OpenMP support")
     flags = ["-O3", "-DNDEBUG", "-std=c++17", "-fPIC", "-shared", "-pthread"]
     if platform.system() == "Darwin":
-        import sys
-        omp_candidates = [
-            (Path(sys.prefix) / "include", Path(sys.prefix) / "lib"),
-            (Path("/opt/homebrew/opt/libomp/include"), Path("/opt/homebrew/opt/libomp/lib")),
-            (Path("/usr/local/opt/libomp/include"), Path("/usr/local/opt/libomp/lib")),
-        ]
-        omp_found = False
-        for inc, lib in omp_candidates:
-            if (inc / "omp.h").exists() and any(lib.glob("libomp*.dylib")):
-                flags += ["-Xpreprocessor", "-fopenmp", f"-I{inc}", f"-L{lib}", "-lomp"]
-                omp_found = True
-                break
-        if not omp_found:
-            flags.append("-fopenmp")
+        flags += _darwin_openmp_flags()
         # Let the selected compiler resolve its matching C++ headers and SDK.
         # Injecting CLT libc++ headers can mix them with an active Xcode SDK.
     else:

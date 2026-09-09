@@ -108,3 +108,9 @@ NEEDLE2_NATIVE_LIBRARY="$PWD/build/native/libneedle2_native.so" \
 编译器缺失时检查 `CXX`；OpenMP 检测失败时安装所选编译器对应的 OpenMP 开发库。
 共享库加载失败时检查 `ldd`、CPU 架构及 Python/库源码版本。
 数值模式与平台能力说明见[原生引擎文档](native-engine.md)。
+
+## macOS 自动编译
+
+Python 的自动构建路径使用当前所选编译器的 SDK，不另外注入 Command Line Tools 的 libc++ 头文件。使用 Apple Clang 时先安装 `brew install libomp`，供编译器查找 OpenMP 头文件。
+
+如果已安装的 PyTorch 包含 `torch/lib/libomp.dylib`，自动构建和 profiling 会链接这份运行库并记录其 rpath，使 PyTorch 与 OpenNeedle 共用 OpenMP。没有这份文件时使用环境或 Homebrew 的 libomp。不要通过允许重复 OpenMP 运行库的环境开关掩盖冲突。移动 Python 环境后应重新构建原生库。

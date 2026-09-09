@@ -72,3 +72,27 @@ def test_macos_uses_compiler_sdk_and_keeps_openmp(monkeypatch, tmp_path):
     assert not any("CommandLineTools/SDKs" in arg or arg.startswith("-isystem") for arg in command)
     assert "-Xpreprocessor" in command and "-fopenmp" in command
     assert f"-I{tmp_path / 'include'}" in command and "-lomp" in command
+
+
+def test_macos_reuses_torch_openmp_runtime(monkeypatch, tmp_path):
+    import importlib.util
+    import sys
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(sys, "prefix", str(tmp_path))
+    (tmp_path / "include").mkdir()
+    (tmp_path / "include" / "omp.h").touch()
+    (tmp_path / "lib").mkdir()
+    (tmp_path / "lib" / "libomp.dylib").touch()
+    torch_lib = tmp_path / "site-packages" / "torch" / "lib"
+    torch_lib.mkdir(parents=True)
+    runtime = torch_lib / "libomp.dylib"
+    runtime.touch()
+    monkeypatch.setattr(importlib.util, "find_spec", lambda name: SimpleNamespace(origin=str(torch_lib.parent / "__init__.py")))
+    flags = native._darwin_openmp_flags()
+    assert f"-I{tmp_path / 'include'}" in flags
+    assert f"-L{torch_lib}" in flags and f"-Wl,-rpath,{torch_lib}" in flags
+    assert f"-L{tmp_path / 'lib'}" not in flags
+    # A PyTorch distribution without bundled libomp still uses the installed runtime.
+    runtime.unlink()
+    assert f"-L{tmp_path / 'lib'}" in native._darwin_openmp_flags()
