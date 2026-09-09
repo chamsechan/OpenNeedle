@@ -8,6 +8,10 @@ from .tokenizer import RefTokenizer,parse_tokenizer_blob
 
 def retrieve_tools(archive, tokenizer, prompt, tools, top_k=4, threads=1):
     """Rank candidate tools against prompt using NativeProbeEncoder and return top-k."""
+    if isinstance(top_k, (bool, np.bool_)) or not isinstance(top_k, (int, np.integer)) or top_k < 1:
+        raise ValueError("top_k must be a positive integer")
+    from .prompt import normalize_tools
+    tools = normalize_tools(tools)
     if "contrastive_head.probes" not in archive.tensors:
         raise ValueError("retrieval requested but archive contains no exported contrastive_head")
     from .heads import NativeProbeEncoder
@@ -20,6 +24,12 @@ def retrieve_tools(archive, tokenizer, prompt, tools, top_k=4, threads=1):
     for tool in tools:
         if "_embedding" in tool:
             tool_emb = np.asarray(tool["_embedding"], dtype=np.float32)
+            if tool_emb.shape != query_emb.shape or not np.isfinite(tool_emb).all():
+                raise ValueError("cached tool embedding must be finite and match the query dimension")
+            norm = float(np.linalg.norm(tool_emb))
+            if not np.isfinite(norm) or norm == 0:
+                raise ValueError("cached tool embedding must have a finite nonzero norm")
+            tool_emb = tool_emb / norm
         else:
             desc = tool.get("description", "")
             text = f"{tool.get('name', '')}: {desc}".strip(": ") if desc else tool.get("name", "")
@@ -37,6 +47,11 @@ def retrieve_tools(archive, tokenizer, prompt, tools, top_k=4, threads=1):
 def generate(model_path,prompt,*,tools=None,system=None,backend='native',max_new_tokens=96,threads=1,quant_activations=False,prefill_backend='native',constrain=True,matmul='fp32',kv_cache='fp32',retrieval=False,top_k_tools=None):
     if max_new_tokens < 0 or threads < 1:
         raise ValueError('max_new_tokens must be nonnegative; threads must be positive')
+    if top_k_tools is not None and (isinstance(top_k_tools, (bool, np.bool_)) or
+            not isinstance(top_k_tools, (int, np.integer)) or top_k_tools < 1):
+        raise ValueError('top_k_tools must be a positive integer')
+    if kv_cache not in ('fp32', 'int8') or (backend == 'torch' and kv_cache != 'fp32'):
+        raise ValueError('INT8 KV cache requires the native backend')
     model_path=Path(model_path)
     archive_path=model_path if model_path.is_file() else model_path/'source.cact'
     if backend=='native' and model_path.is_dir():
@@ -44,7 +59,6 @@ def generate(model_path,prompt,*,tools=None,system=None,backend='native',max_new
     archive=Archive.load(archive_path)
     tokenizer=RefTokenizer(parse_tokenizer_blob(archive.tensors['tokenizer'].blob))
     retrieval_performed = False
-    retrieved_tools_info = None
     if tools is not None:
         from .prompt import normalize_tools
         tools = normalize_tools(tools)
@@ -53,7 +67,7 @@ def generate(model_path,prompt,*,tools=None,system=None,backend='native',max_new
             selected_tools, scored = retrieve_tools(archive, tokenizer, prompt, tools, top_k=k, threads=threads)
             tools = selected_tools
             retrieval_performed = True
-            retrieved_tools_info = [{"name": t.get("name"), "score": round(s, 4)} for s, t in scored]
+        tools = [{key: value for key, value in tool.items() if key != "_embedding"} for tool in tools]
     text=render_prompt(prompt,tools,system) if tools is not None else prompt
     ids=[2]+tokenizer.encode(text)
     prefix_len=0
@@ -66,12 +80,12 @@ def generate(model_path,prompt,*,tools=None,system=None,backend='native',max_new
     grammar=None
     grammar_dfa=None
     if tools is not None and constrain:
-        from .grammar import ToolGrammar, compile_tool_dfa
+        from .grammar import ToolGrammar, compile_tool_dfa, GrammarTooLarge
         grammar=ToolGrammar(tools,tokenizer)
         if backend=='native':
             try:
                 grammar_dfa=compile_tool_dfa(tools,tokenizer)
-            except Exception:
+            except GrammarTooLarge:
                 grammar_dfa=None
     if backend=='native':
         from .native import NativeEngine
@@ -145,6 +159,7 @@ def generate(model_path,prompt,*,tools=None,system=None,backend='native',max_new
                   decode_tokens_per_second=decode_steps/decode_wall if decode_steps else None,
                   model_sha256=archive.sha256,
                   grammar_constrained=grammar is not None,
+                  grammar_backend='native_dfa' if grammar_dfa is not None else 'python_regex' if grammar is not None else 'none',
                   retrieval_enabled=retrieval_performed,
                   retrieved_tools=[t['name'] for t in tools] if (retrieval_performed and tools is not None) else None,
                   prefix_tokens=prefix_len,prefill_backend=prefill_backend if backend=='native' else 'torch')

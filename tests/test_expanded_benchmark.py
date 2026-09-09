@@ -1,17 +1,19 @@
 import json
 from pathlib import Path
 import pytest
-import numpy as np
 
 from needle2.archive import Archive
 from needle2.tokenizer import RefTokenizer, parse_tokenizer_blob
-from needle2.grammar import compile_tool_dfa, NativeGrammarDFA
-from needle2.native import NativeEngine, available as native_available
+from needle2.grammar import compile_tool_dfa
+from needle2.native import NativeEngine, available as native_available, sdot_available
 from needle2.official import OfficialEngine, strict_json_equal
 from needle2.prompt import render_prompt, parse_response
 
 MODEL_PATH = Path("artifacts/official/needle2.cact")
-OFFICIAL_LIB_PATH = Path("artifacts/official/libneedle.dylib")
+from needle2.official import platform_tag
+OFFICIAL_LIB_PATH = next((p for p in (Path("artifacts/official/python") / platform_tag()[1],
+                                      Path("artifacts/official") / platform_tag()[1]) if p.is_file()),
+                         Path("artifacts/official/python") / platform_tag()[1])
 TOOLS_PATH = Path("benchmarks/expanded_tools.json")
 CASES_PATH = Path("benchmarks/expanded_cases.jsonl")
 
@@ -50,6 +52,7 @@ def test_expanded_dataset_integrity(expanded_tools, expanded_cases):
 
 @requires_native
 @requires_model
+@pytest.mark.skipif(not sdot_available(), reason="SDOT unavailable")
 def test_native_engine_expanded_suite_precision(tokenizer, expanded_tools, expanded_cases):
     dfa = compile_tool_dfa(expanded_tools, tokenizer)
     engine = NativeEngine(MODEL_PATH, threads=4, matmul="sdot")
@@ -70,3 +73,17 @@ def test_native_engine_expanded_suite_precision(tokenizer, expanded_tools, expan
         matches += 1
 
     assert matches == len(expanded_cases)
+
+
+@pytest.mark.integration
+@requires_model
+@requires_official
+def test_official_engine_expanded_suite(expanded_tools, expanded_cases):
+    engine = OfficialEngine(OFFICIAL_LIB_PATH, MODEL_PATH, expanded_tools)
+    try:
+        for case in expanded_cases:
+            engine.reset()
+            calls = engine.complete(case["query"], 128)["response"].get("function_calls")
+            assert strict_json_equal(calls, case["expected_calls"]), case["id"]
+    finally:
+        engine.close()

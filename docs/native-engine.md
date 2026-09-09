@@ -12,7 +12,7 @@
 - ARM64 使用 NEON FMA 与字节查表；其他平台有标量回退。2 bit 的单字节映射为四个 FP32 值；4 bit 的单字节映射为两个值。
 - 默认模式使用 FP32 计算，包含 GQA/RoPE、mHC、Hadamard MLP、Engram 哈希与因果卷积。mHC 先减最大值再取指数，在正数域进行 20 次先行后列归一化；四 lane 使用 NEON SIMD。当 routing logits 的极差大于 60 或最大值非有限时，退回 log-space 路径。它与公开 JAX 的 log-domain Sinkhorn 在实数代数上对应，但浮点舍入不同。
 - ARM64 的 attention softmax、sigmoid 和 SiLU 使用向量指数近似；FP32 不代表与逐项 `expf` 或 JAX 逐位相等。验证需要同时检查 logits 误差与 token 一致率。
-- 大型 attention、embedding 和 engram 矩阵保持 CQ；小型 mHC routing 矩阵加载后展开为 FP32。KV 缓存是 FP32 的滑动环，可保留固定前缀 sink，因此内存占用不等同于官方 INT8 KV 引擎。
+- 大型 attention、embedding 和 engram 矩阵保持 CQ；小型 mHC routing 矩阵加载后展开为 FP32。KV 默认为 FP32 滑动环，可选 `kv_cache="int8"` 按 token/head 对 K/V 对称量化并保存 FP32 scale。两种格式均保留固定前缀 sink；只分配当前格式，前缀快照也使用同一格式。INT8 引入额外近似，不等同于官方内部量化。
 - 默认数值目标是公开 JAX `decode.py` 的 FP32 路径。`activation_bits=8` 开启公开 A8 fake quant；这仍不等价于闭源库的全部 INT8 内部舍入。当前整模型引擎仅接收 KV8 模型，CQ KV2/3/4 请使用 PyTorch 参考模型。
 
 ## 使用
@@ -28,6 +28,8 @@ logits = engine.step(next_id)
 ```
 
 每个实例服务一条不带 padding 的序列，调用会更新状态，不能并发调用同一个实例。`step(..., compute_logits=False)` 和 `prefill(..., last_only=True)` 跳过不需要的词表投影。`reset()` 清空逻辑状态；`reset(prefix_len=k)` 将前 k 个位置保留为 sink。直接处理长序列时，KV 内存由窗口与 prefix 长度决定。
+
+`set_int8_kv(enabled)` 每次调用都会清空序列与前缀快照，Python/C++ position 同步归零，保留配置的 prefix 长度；切换后需重新 prefill。`engine.kv_storage_bytes` 返回 KV 数组及前缀快照的已分配容量字节数，不含 allocator 开销。对 head_dim=64，INT8 元素及 scale 理论存储为 FP32 的 26.56%，实际容量还受 vector 预留影响。token 历史环按 Engram 最大 order 与卷积重建跨度确定，随模型配置有界。
 
 压缩矩阵也可以单独使用：
 
@@ -61,7 +63,7 @@ for suffix_ids in (request_a_ids, request_b_ids):
 
 任何 `reset()` 都会删除快照，包括再次设置相同的 `prefix_len`；此后调用 `reset_to_prefix()` 会报错，必须重新消费前缀并调用 `cache_prefix()`。当前 `generate()` 内部也调用 `reset()`；复用快照时应按示例组合 `prefill()` 和 `step()`。快照只属于创建它的实例，不能跨模型或实例使用。
 
-快照需要额外内存：KV 部分约为 `2 × num_layers × prefix_len × num_kv_heads × head_dim × 4` 字节，另加 Engram 环和 token 历史。当前模型约为每个 prefix token **54 KiB**；190-token 前缀的 KV 快照约 **10.0 MiB**，另加约 40 KiB 的 Engram 环和少量历史数据。这是在现有运行时缓存之外的开销。恢复包含内存复制，其时间应计入每个请求的 wall time；前缀前向计算只在快照创建前执行一次。
+FP32 快照需要额外内存：KV 部分约为 `2 × num_layers × prefix_len × num_kv_heads × head_dim × 4` 字节，另加 Engram 环和 token 历史。当前模型约为每个 prefix token **54 KiB**；190-token 前缀的 KV 快照约 **10.0 MiB**，另加约 40 KiB 的 Engram 环和少量历史数据。这是在现有运行时缓存之外的开销。恢复包含内存复制，其时间应计入每个请求的 wall time；前缀前向计算只在快照创建前执行一次。
 
 ## 可选 PyTorch 批量 prefill
 
@@ -72,7 +74,7 @@ engine.release_prefill_model()       # 释放可选 dense 模型；不影响 nat
 logits = engine.step(int(logits.argmax()))
 ```
 
-此路径用 PyTorch FP32 批量计算初始 prompt，再导入绝对位置对应的 KV 状态并重建 Engram 的短历史。之后解码继续使用 native packed 权重。它只支持 `reset()` 后的初始 prompt，当前会保留一份 dense PyTorch 模型供多次请求复用；43.6M 参数对应约 175 MB FP32 权重，首次转换还有临时内存与加载时间。释放后再次使用会重新创建。这是以内存换 prefill 吞吐的显式选项，默认仍是完全 native 的逐 token prefill。
+此路径用 PyTorch FP32 批量计算初始 prompt，再导入绝对位置对应的 KV 状态并重建 Engram 的短历史。之后解码继续使用 native packed 权重。它只支持 `reset()` 后的初始 prompt，当前会保留一份 dense PyTorch 模型供多次请求复用；43.6M 参数对应约 175 MB FP32 权重，首次转换还有临时内存与加载时间。释放后再次使用会重新创建。这是以内存换 prefill 吞吐的显式选项，默认是完全 native 的分块 prefill，复用打包权重；块内按因果顺序写入和读取 KV。
 
 ## 验证与测量
 
@@ -101,7 +103,7 @@ if sdot_available():
                           matmul="sdot", activation_bits=0)
 ```
 
-`matmul="sdot"` 需要 Linux ARM64 的 DotProd 指令。运行时先检查 HWCAP，只在检查通过后调用单独标注 DotProd target 的函数；默认 FP32 不依赖该指令。该模式对 CQ2/CQ4 投影和 LM head 使用直接 packed 的 INT8 dot product，mHC 的 dense 投影与 KV 缓存继续使用 FP32。其它 CQ 位宽回退到 FP32。
+`matmul="sdot"` 需要 ARM64 的 DotProd 指令。Linux 运行时检查 HWCAP，macOS 检查 `hw.optional.arm.FEAT_DotProd`，只在检查通过后调用单独标注 DotProd target 的函数；默认 FP32 不依赖该指令。该模式对 CQ2/CQ4 投影和 LM head 使用直接 packed 的 INT8 dot product，mHC 的 dense 投影继续使用 FP32，KV 格式由 `kv_cache` 独立选择。其它 CQ 位宽回退到 FP32。
 
 此模式**增加量化误差**：分别将 Hadamard 后的输入按组缩放到 INT8，并将 Lloyd-Max centroid 缩放到 INT8；与公开 `activation_bits=8` 的量化位置不同，因此两者组合会明确报错。默认仍为 `matmul="fp32"`。可单独调用 `NativeCQ.linear_sdot(x, threads=2)` 检查某个矩阵的速度及误差。
 

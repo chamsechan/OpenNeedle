@@ -302,6 +302,11 @@ class NativeEngine:
             raise ValueError("invalid native head/Hadamard geometry")
         if m["engram_layers"] and (not m["engram_orders"] or m["num_engram_tables"] % len(m["engram_orders"]) or m["num_engram_tables"] * m["engram_sub_dim"] != m["d_model"]):
             raise ValueError("inconsistent engram geometry")
+        if (not 0 < m["num_kv_heads"] <= m["num_heads"] or m["num_heads"] % m["num_kv_heads"] or
+                m["engram_conv_taps"] < 1 or m["engram_conv_dilation"] < 1 or
+                len(m["engram_orders"]) > 4 or len(m["engram_layers"]) > 4 or
+                any(order < 1 for order in m["engram_orders"])):
+            raise ValueError("invalid native attention/Engram geometry")
         d, n, layers = m["d_model"], m["mhc_lanes"], m["num_layers"]
         attn, kv = m["num_heads"] * m["head_dim"], m["num_kv_heads"] * m["head_dim"]
         expected = {"embedding": (m["vocab_size"], d)}
@@ -371,12 +376,21 @@ class NativeEngine:
         self.position = 0
 
     def set_int8_kv(self, enabled: bool = True):
+        """Select the KV format and reset the sequence, retaining prefix geometry."""
         lib = self._lib
         lib.needle2_engine_set_int8_kv.argtypes = [ct.c_void_p, ct.c_int]
         lib.needle2_engine_set_int8_kv.restype = ct.c_int
         if lib.needle2_engine_set_int8_kv(self._handle, int(bool(enabled))):
             raise RuntimeError(lib.needle2_engine_error().decode())
         self.kv_cache = "int8" if enabled else "fp32"
+        self.position = 0
+
+    @property
+    def kv_storage_bytes(self):
+        """Allocated KV array bytes, including prefix snapshots (excludes allocator overhead)."""
+        self._lib.needle2_engine_kv_storage_bytes.argtypes = [ct.c_void_p]
+        self._lib.needle2_engine_kv_storage_bytes.restype = ct.c_size_t
+        return self._lib.needle2_engine_kv_storage_bytes(self._handle)
 
     def __del__(self):
         if getattr(self, "_handle", None):
@@ -429,14 +443,18 @@ class NativeEngine:
         return (logits, hidden) if return_hidden else logits
 
     def step_candidates(self, token_id: int, candidates, *, return_hidden: bool = False):
-        """Forward a token and project only the specified candidate token logits."""
+        """Project candidate logits; a singleton skips projection and returns [0]."""
         if not isinstance(token_id, (int, np.integer)) or not 0 <= token_id < self.metadata["vocab_size"]:
             raise ValueError("token_id must be an integer within the vocabulary")
-        cands = np.ascontiguousarray(candidates, dtype=np.int32)
-        if cands.ndim != 1 or len(cands) == 0:
-            raise ValueError("candidates must be a nonempty 1D array of token IDs")
+        cands = np.asarray(candidates)
+        if cands.ndim != 1 or not cands.size or cands.dtype.kind not in "iu":
+            raise ValueError("candidates must be a nonempty 1D integer array")
+        if np.any((cands < 0) | (cands >= self.metadata["vocab_size"])):
+            raise ValueError("candidate outside vocabulary")
+        cands = np.ascontiguousarray(cands, dtype=np.int32)
         if len(cands) == 1:
-            hidden = self.step(token_id, compute_logits=False, return_hidden=return_hidden)
+            result = self.step(token_id, compute_logits=False, return_hidden=return_hidden)
+            hidden = result[1] if return_hidden else None
             logits = np.array([0.0], dtype=np.float32)
             return (logits, hidden) if return_hidden else logits
         logits = np.empty(len(cands), dtype=np.float32)
@@ -559,8 +577,19 @@ class NativeEngine:
 
     def decode(self, first_token: int, max_new_tokens: int = 128, grammar_dfa=None) -> list[int]:
         """Decode autoregressively in C++ until eos, max_new_tokens, or DFA terminal state."""
-        if max_new_tokens <= 0:
+        if not isinstance(max_new_tokens, (int, np.integer)) or not 0 <= max_new_tokens <= np.iinfo(np.int32).max:
+            raise ValueError("max_new_tokens must be a nonnegative int32")
+        if not isinstance(first_token, (int, np.integer)) or not 0 <= first_token < self.metadata["vocab_size"]:
+            raise ValueError("first_token outside vocabulary")
+        if grammar_dfa is not None:
+            from .grammar import NativeGrammarDFA
+            if not isinstance(grammar_dfa, NativeGrammarDFA):
+                raise TypeError("grammar_dfa must be NativeGrammarDFA")
+            grammar_dfa.validate(self.metadata["vocab_size"])
+        if max_new_tokens == 0:
             return []
+        if not self.metadata["kv_window"]:
+            max_new_tokens = min(max_new_tokens, self.metadata["max_seq_len"] - self.position + 1)
         output_buffer = (ct.c_int * (max_new_tokens + 1))()
         count = ct.c_int(0)
         dfa_ptr = ct.byref(grammar_dfa._desc) if grammar_dfa is not None else None

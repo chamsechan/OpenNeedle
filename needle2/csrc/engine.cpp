@@ -6,6 +6,10 @@
 #include <mutex>
 #include <condition_variable>
 #include <chrono>
+#include <limits>
+#if defined(__x86_64__) || defined(_M_X64)
+#include <immintrin.h>
+#endif
 
 struct TensorDesc {void *cq; const float *data; int rows; int cols;};
 struct EngineConfig {
@@ -352,7 +356,7 @@ struct Engine {
     Prepared sdot_input;
     std::vector<TensorDesc> t;
     int threads,abits,position=0,capacity,engring,prefix=0,projection_lookup=-1;
-    static constexpr int history_cap = 256;
+    int history_cap = 1;
     std::vector<int> history_ring;
     int history_token(int p) const {
         return history_ring[((p % history_cap) + history_cap) % history_cap];
@@ -368,7 +372,10 @@ struct Engine {
         if(threads > 1) pool = std::make_unique<PersistentThreadPool>(threads);
         int D=c.dim,N=c.lanes,A=c.heads*c.head_dim,K=c.kvheads*c.head_dim;
         sdot.resize(t.size());
-        capacity=c.window?c.window:c.max_seq;engring=(c.taps-1)*c.dilation+1;
+        capacity=c.window?c.window:c.max_seq;
+        int64_t ring_size=int64_t(c.taps-1)*c.dilation+1;
+        if(ring_size<1||ring_size>std::numeric_limits<int>::max())throw std::runtime_error("invalid Engram ring size");
+        engring=int(ring_size);
         keys.resize(size_t(c.layers)*capacity*K);values.resize(keys.size());
         engvalues.resize(size_t(c.num_sites)*engring*D);
         x.resize(N*D);nx.resize(N*D);u.resize(D);bx.resize(D);z.resize(D);
@@ -382,7 +389,23 @@ struct Engine {
         rot.resize(rotation_size);
         rope_cos.resize(c.head_dim/2);rope_sin.resize(c.head_dim/2);rope_divisor.resize(c.head_dim/2);
         for(int j=0;j<c.head_dim/2;++j)rope_divisor[j]=std::pow(c.rope_theta,float(2*j)/c.head_dim);
+        int max_order = 1;
+        for(int i=0;i<c.num_orders;++i)max_order=std::max(max_order,c.orders[i]);
+        // import_state rebuilds engring raw values, including their n-grams.
+        int64_t needed=int64_t(engring)+max_order-1;
+        if(needed>std::numeric_limits<int>::max())throw std::runtime_error("Engram history too large");
+        history_cap=c.num_sites?int(needed):1;
         history_ring.resize(history_cap, 0);
+    }
+    size_t kv_storage_bytes() const {
+        size_t bytes=(keys.capacity()+values.capacity()+k_scales.capacity()+v_scales.capacity())*sizeof(float)
+            +keys_i8.capacity()+values_i8.capacity();
+        if(prefix_snapshot) {
+            const auto&s=*prefix_snapshot;
+            bytes+=(s.keys.capacity()+s.values.capacity()+s.k_scales.capacity()+s.v_scales.capacity())*sizeof(float)
+                +s.keys_i8.capacity()+s.values_i8.capacity();
+        }
+        return bytes;
     }
     void set_int8_kv(bool en) {
         int8_kv_enabled = en;
@@ -402,10 +425,14 @@ struct Engine {
         position=0;std::fill(history_ring.begin(),history_ring.end(),0);prefix=prefix_len;
         capacity=c.window?c.window+prefix:c.max_seq;
         size_t K=size_t(c.kvheads)*c.head_dim;
-        keys.resize(size_t(c.layers)*capacity*K);values.resize(keys.size());
         if(int8_kv_enabled) {
+            std::vector<float>().swap(keys);std::vector<float>().swap(values);
             keys_i8.resize(size_t(c.layers)*capacity*K);values_i8.resize(keys_i8.size());
             k_scales.resize(size_t(c.layers)*capacity*c.kvheads);v_scales.resize(k_scales.size());
+        } else {
+            std::vector<int8_t>().swap(keys_i8);std::vector<int8_t>().swap(values_i8);
+            std::vector<float>().swap(k_scales);std::vector<float>().swap(v_scales);
+            keys.resize(size_t(c.layers)*capacity*K);values.resize(keys.size());
         }
         thread_scores.resize(size_t(std::max(1, threads))*2*capacity);
     }
@@ -414,11 +441,13 @@ struct Engine {
         auto snapshot=std::make_unique<PrefixSnapshot>();snapshot->position=position;
         snapshot->history_ring=history_ring;snapshot->engvalues=engvalues;
         size_t K=size_t(c.kvheads)*c.head_dim;
-        snapshot->keys.resize(size_t(c.layers)*prefix*K);snapshot->values.resize(snapshot->keys.size());
-        for(int l=0;l<c.layers;++l) {
-            const auto *ks=keys.data()+size_t(l)*capacity*K,*vs=values.data()+size_t(l)*capacity*K;
-            std::copy(ks,ks+size_t(prefix)*K,snapshot->keys.data()+size_t(l)*prefix*K);
-            std::copy(vs,vs+size_t(prefix)*K,snapshot->values.data()+size_t(l)*prefix*K);
+        if(!int8_kv_enabled) {
+            snapshot->keys.resize(size_t(c.layers)*prefix*K);snapshot->values.resize(snapshot->keys.size());
+            for(int l=0;l<c.layers;++l) {
+                const auto *ks=keys.data()+size_t(l)*capacity*K,*vs=values.data()+size_t(l)*capacity*K;
+                std::copy(ks,ks+size_t(prefix)*K,snapshot->keys.data()+size_t(l)*prefix*K);
+                std::copy(vs,vs+size_t(prefix)*K,snapshot->values.data()+size_t(l)*prefix*K);
+            }
         }
         if(int8_kv_enabled) {
             snapshot->int8_kv=true;
@@ -439,10 +468,12 @@ struct Engine {
         if(prefix!=cached||capacity!=(c.window?c.window+cached:c.max_seq))throw std::runtime_error("cached prefix geometry no longer matches the current state");
         history_ring=prefix_snapshot->history_ring;engvalues=prefix_snapshot->engvalues;
         size_t K=size_t(c.kvheads)*c.head_dim;
-        for(int l=0;l<c.layers;++l) {
-            const auto *ks=prefix_snapshot->keys.data()+size_t(l)*cached*K,*vs=prefix_snapshot->values.data()+size_t(l)*cached*K;
-            std::copy(ks,ks+size_t(cached)*K,keys.data()+size_t(l)*capacity*K);
-            std::copy(vs,vs+size_t(cached)*K,values.data()+size_t(l)*capacity*K);
+        if(!prefix_snapshot->int8_kv) {
+            for(int l=0;l<c.layers;++l) {
+                const auto *ks=prefix_snapshot->keys.data()+size_t(l)*cached*K,*vs=prefix_snapshot->values.data()+size_t(l)*cached*K;
+                std::copy(ks,ks+size_t(cached)*K,keys.data()+size_t(l)*capacity*K);
+                std::copy(vs,vs+size_t(cached)*K,values.data()+size_t(l)*capacity*K);
+            }
         }
         if(prefix_snapshot->int8_kv) {
             for(int l=0;l<c.layers;++l) {
@@ -743,10 +774,11 @@ struct Engine {
         int length=prefix_count+std::max(0,pos_cur-start+1);
         int num_groups=0;
         struct HeadWork {int h,kh,count;};
-        HeadWork groups[64];
+        std::vector<HeadWork> groups;
+        groups.reserve(H);
         for(int h=0;h<H;) {
             int kh=h/(H/KV),count=(h+1<H && (h+1)/(H/KV)==kh)?2:1;
-            groups[num_groups++]={h,kh,count};
+            groups.push_back({h,kh,count});++num_groups;
             h+=count;
         }
         parallel_for(num_groups, [&](int tid, int start_g, int end_g) {
@@ -1155,7 +1187,13 @@ struct Engine {
             std::copy(hidden.begin(), hidden.end(), hidden_out);
         }
     }
+    void validate_candidates(const int* candidates, int num_candidates) const {
+        if(!candidates || num_candidates<=0)throw std::runtime_error("candidates must be nonempty");
+        for(int i=0;i<num_candidates;++i)
+            if(candidates[i]<0||candidates[i]>=c.vocab)throw std::runtime_error("candidate outside vocabulary");
+    }
     void project_candidates(const int* candidates, int num_candidates, float* candidate_logits) {
+        validate_candidates(candidates,num_candidates);
         if (!candidate_logits || num_candidates <= 0) return;
         int D = c.dim;
         activation_quant(z.data(), D, abits);
@@ -1198,6 +1236,7 @@ struct Engine {
         }
     }
     void step_candidates(int token, const int* candidates, int num_candidates, float* candidate_logits, float* hidden_out) {
+        validate_candidates(candidates,num_candidates);
         step(token, nullptr, hidden_out);
         if (candidates && num_candidates > 0 && candidate_logits) {
             project_candidates(candidates, num_candidates, candidate_logits);
@@ -1212,6 +1251,29 @@ struct Engine {
             return 0;
         }
 
+        if(first_token<0||first_token>=c.vocab)throw std::runtime_error("token outside vocabulary");
+        if(dfa) {
+            if(dfa->num_states<=0||dfa->initial_state<0||dfa->initial_state>=dfa->num_states ||
+               !dfa->state_types||!dfa->fallback_next_states||!dfa->candidate_offsets)
+                throw std::runtime_error("invalid DFA states");
+            for(int token:{dfa->eos_id,dfa->stop_id,dfa->tool_start_id,dfa->tool_end_id})
+                if(token<0||token>=c.vocab)throw std::runtime_error("DFA token outside vocabulary");
+            if(dfa->candidate_offsets[0]!=0)throw std::runtime_error("invalid DFA offsets");
+            for(int s=0;s<dfa->num_states;++s) {
+                int type=dfa->state_types[s],fallback=dfa->fallback_next_states[s];
+                int begin=dfa->candidate_offsets[s],end=dfa->candidate_offsets[s+1];
+                if((type!=0&&type!=1&&type!=4)||fallback < -1||fallback>=dfa->num_states||begin<0||end<begin)
+                    throw std::runtime_error("invalid DFA state");
+                if(type==1&&begin==end)throw std::runtime_error("DFA state has no candidates");
+                if(end>begin) {
+                    if(!dfa->candidate_tokens||!dfa->next_states)throw std::runtime_error("missing DFA transitions");
+                    validate_candidates(dfa->candidate_tokens+begin,end-begin);
+                }
+                for(int i=begin;i<end;++i)
+                    if(dfa->next_states[i]<0||dfa->next_states[i]>=dfa->num_states)
+                        throw std::runtime_error("invalid DFA transition");
+            }
+        }
         int eos = dfa ? dfa->eos_id : 1;
         int stop_tok = dfa ? dfa->stop_id : 5;
         int tool_start = dfa ? dfa->tool_start_id : 10;
@@ -1239,8 +1301,9 @@ struct Engine {
                     break;
                 }
             }
-            if (!matched && first_token == tool_start && dfa->fallback_next_states[state] >= 0) {
-                state = dfa->fallback_next_states[state];
+            if (!matched) {
+                if(dfa->state_types[state]!=0)throw std::runtime_error("first token rejected by DFA");
+                if(dfa->fallback_next_states[state]>=0)state=dfa->fallback_next_states[state];
             }
         }
 
@@ -1305,8 +1368,7 @@ struct Engine {
                     next_tok = cands[best_idx];
                     state = dfa->next_states[start_idx + best_idx];
                 } else {
-                    next_tok = eos;
-                    break;
+                    throw std::runtime_error("DFA state has no candidates");
                 }
             }
 
@@ -1369,5 +1431,6 @@ int needle2_engine_set_int8_kv(void*p,int enable) {
     try{static_cast<Engine*>(p)->set_int8_kv(enable!=0);return 0;}
     catch(const std::exception&e){engine_error=e.what();return -1;}
 }
+size_t needle2_engine_kv_storage_bytes(void*p){return static_cast<Engine*>(p)->kv_storage_bytes();}
 const char*needle2_engine_error(){return engine_error.c_str();}
 }

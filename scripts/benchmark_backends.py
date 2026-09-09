@@ -72,7 +72,7 @@ def worker(connection, spec, config):
                            prefix_tokens=prefix_cache.position)
         else:
             from needle2.native import NativeEngine, build_native
-            from needle2.grammar import compile_tool_dfa
+            from needle2.grammar import compile_tool_dfa, GrammarTooLarge
             start = time.perf_counter()
             compiled = build_native()
             startup['compile_cache_ms'] = (time.perf_counter()-start)*1000
@@ -84,9 +84,14 @@ def worker(connection, spec, config):
             engine.reset(prefix_len=len(prefix_ids))
             engine.prefill(prefix_ids, last_only=True)
             engine.cache_prefix()
-            native_dfa = compile_tool_dfa(config['tools'], tokenizer)
+            try:
+                native_dfa = compile_tool_dfa(config['tools'], tokenizer)
+            except GrammarTooLarge:
+                native_dfa = None
             startup.update(prefix_setup_ms=(time.perf_counter()-start)*1000,
                            prefix_tokens=len(prefix_ids))
+        startup['kv_cache'] = config.get('kv_cache', 'fp32') if kind in ('fp32', 'sdot') else 'fp32' if kind == 'torch' else 'official_internal'
+        startup['grammar_backend'] = ('native_dfa' if native_dfa is not None else 'python_regex') if kind in ('fp32', 'sdot') else 'python_regex' if kind == 'torch' else 'official_internal'
         pin_all_threads(set(config['cpus']))
         connection.send({'ready': startup})
         while True:
@@ -125,7 +130,7 @@ def worker(connection, spec, config):
                 decode_start = time.perf_counter()
                 forward_seconds = 0.0
                 steps = 0
-                if kind != 'torch':
+                if kind != 'torch' and native_dfa is not None:
                     first_token = grammar.select(logits)
                     output = engine.decode(first_token, max_new_tokens=config['max_new_tokens'], grammar_dfa=native_dfa)
                     decode_wall = time.perf_counter() - decode_start
@@ -143,7 +148,11 @@ def worker(connection, spec, config):
                         if token in (1, 5) or grammar.finished or index == config['max_new_tokens']-1:
                             break
                         forward_start = time.perf_counter()
-                        logits, cache = consume([token], cache)
+                        if kind == 'torch':
+                            logits, cache = consume([token], cache)
+                        else:
+                            candidates = grammar.candidate_tokens()
+                            logits = engine.step(token) if candidates is None else engine.step_candidates(token, candidates)
                         forward_seconds += time.perf_counter()-forward_start
                         steps += 1
                 decode_ms = (time.perf_counter()-decode_start)*1000
@@ -161,6 +170,7 @@ def worker(connection, spec, config):
                               exact_call_match=strict_json_equal(response['function_calls'],case['expected_calls']))
                 if kind == 'torch' and prefix_cache.position != len(prefix_ids):
                     raise AssertionError('PyTorch input prefix cache was mutated')
+            result.update(kv_cache=startup['kv_cache'], grammar_backend=startup['grammar_backend'])
             connection.send({'result': result})
     except BaseException:
         connection.send({'error': traceback.format_exc()})
@@ -221,13 +231,13 @@ def main():
                   workload_before=workload(),model_sha256=sha256(args.model),
                   official_library_sha256=sha256(args.library),source_sha256=source_hashes,
                   tools=tools,cases_sha256=sha256(args.cases),prefix_tokens=len(prefix_ids),
-                  repeat=args.repeat,backends=specs,startup={},cases=[],
+                  native_kv_cache=args.kv_cache,repeat=args.repeat,backends=specs,startup={},cases=[],
                   environment={k:os.environ.get(k) for k in ['OMP_NUM_THREADS','OMP_WAIT_POLICY','GOMP_SPINCOUNT','OPENBLAS_NUM_THREADS']},
                   notes=[
                       'Each backend has its own persistent process; identical CPU affinity, serial interleaved requests, no simultaneous inference.',
                       '20 ms idle between requests allows inactive runtime thread pools to settle; idle and IPC are excluded from worker wall time.',
                       'Each engine prepares and reuses its tools prefix. Timed requests include cache restoration, query prefill, grammar selection and decode.',
-                      'Independent backends share the tokenizer, prompt, bounded grammar and stop rules. Official uses its built-in prompt/grammar/confidence.',
+                      'Native token DFA and PyTorch regex gate implement the same bounded schema and UTF-8 language; native falls back to regex on compilation size limits. Actual grammar/KV modes are recorded per result. Official uses its built-in prompt/grammar/confidence.',
                       'PyTorch uses the deployed CACT dequantized to dense FP32, eval/inference_mode on CPU, no torch.compile.',
                       'PyTorch reuses unchanged model operations but skips unused LM head positions: no prefix logits; final query position and each decode position only.',
                       'Independent decode TPS is actual forward steps divided by grammar-inclusive decode time; official TPS is self-reported, not identical operator work.',

@@ -6,7 +6,7 @@ import numpy as np
 from needle2.archive import Archive
 from needle2.tokenizer import RefTokenizer, parse_tokenizer_blob
 from needle2.grammar import compile_tool_dfa, NativeGrammarDFA
-from needle2.native import NativeEngine, available as native_available
+from needle2.native import NativeEngine, available as native_available, sdot_available
 from needle2.prompt import render_prompt, parse_response
 
 MODEL_PATH = Path("artifacts/official/needle2.cact")
@@ -61,6 +61,7 @@ def test_native_engine_decode_loop_unconstrained(tokenizer):
 
 @requires_native
 @requires_model
+@pytest.mark.skipif(not sdot_available(), reason="SDOT unavailable")
 def test_native_engine_decode_with_grammar(tokenizer, sample_tools):
     cases = [json.loads(line) for line in CASES_PATH.read_text().splitlines() if line.strip()]
     dfa = compile_tool_dfa(sample_tools, tokenizer)

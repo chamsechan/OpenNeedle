@@ -19,4 +19,10 @@ if grammar.finished:
 
 正常 token 将 SentencePiece 的 `▁` 替换为 ASCII 空格；BYTE token `<0xHH>` 使用原始字节。匹配期间允许合法 UTF-8 的未完成尾部，拒绝非法 UTF-8；只有完整 UTF-8 与完整 JSON 才能关闭调用。JSON 字符串支持转义。控制 token 不能闯入 JSON。
 
-该实现保证其支持子集内的结构与枚举约束，不能保证数值来自用户原文、工具选择正确，或拒绝无关请求。它没有复制官方工具检索、negation/grounding validator、官方内部提示词，也没有官方按候选行裁剪词表投影的优化；独立 runtime 仍先计算词表 logits。比较结果须保留这些差异。
+native 默认通过 `compile_tool_dfa(tools, tokenizer)` 将同一 schema 编译为字节 NFA，再与 UTF-8 状态机组合，并沿 tokenizer 字节 trie 构造 token DFA。工具名、参数名、分隔符均由实际 token 字节决定。仅 `<tool_call>` 之前不受约束；字符串和数字内部仍严格筛选。完整 `</tool_call>` 后立即停止，与 Python grammar 相同。
+
+C++ `NativeEngine.decode(..., grammar_dfa=dfa)` 根据候选集合裁剪 LM head；只有一个合法候选时跳过投影，但仍更新隐藏状态和 KV。公开 `step_candidates` 的单候选分数是 `[0.0]` 占位值，不是真实 logit；多个候选返回实际分数，`return_hidden=True` 始终返回 `(logits, hidden_array)`。候选 ID 必须为词表内整数，非法输入在推进模型前拒绝。
+
+编译结果按 schema 与 tokenizer 缓存。NFA/字节 DFA 各限制 20000 状态，token DFA 限制 4096 个正文状态和 4000000 条转移；超过限制抛出 `GrammarTooLarge`。`generate` 和 benchmark 会回退到原来的 Python `ToolGrammar`，保留约束及候选投影优化；不支持的 schema 仍明确报错。生成结果的 `grammar_backend`、benchmark 的逐结果元数据记录实际路径。首次编译属于初始化开销，不能当作热请求速度的一部分忽略不报。
+
+该实现保证其支持子集内的结构与枚举约束，不能保证数值来自用户原文、工具选择正确，或拒绝无关请求。它没有复制官方工具检索、negation/grounding validator、官方内部提示词；独立候选投影和 DFA 是本项目的实现，并非官方内部算法的复刻。比较结果须保留这些差异。
