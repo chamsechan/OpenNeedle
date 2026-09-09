@@ -294,9 +294,8 @@ extern "C" void needle2_profile_reset() {
                 break
         if not omp_found:
             flags.append('-fopenmp')
-        sdk_includes = list(Path('/Library/Developer/CommandLineTools/SDKs').glob('MacOSX*.sdk/usr/include/c++/v1'))
-        if sdk_includes:
-            flags.append(f'-isystem{sorted(sdk_includes)[-1]}')
+        # Let the selected compiler resolve its matching C++ headers and SDK.
+        # Injecting CLT libc++ headers can mix them with an active Xcode SDK.
     else:
         flags.append('-fopenmp')
         if platform.machine() in ('aarch64', 'arm64'):

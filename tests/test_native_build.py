@@ -36,3 +36,39 @@ def test_missing_compiler_cleans_temporary_output(monkeypatch, tmp_path):
     with pytest.raises(RuntimeError, match="Native compiler not found"):
         native.build_native()
     assert list((tmp_path / "cache").iterdir()) == []
+
+
+def test_macos_uses_compiler_sdk_and_keeps_openmp(monkeypatch, tmp_path):
+    """An installed CLT SDK must not override the active compiler's headers."""
+    import sys
+    from pathlib import Path
+    from types import SimpleNamespace
+
+    monkeypatch.setattr(native.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(sys, "prefix", str(tmp_path))
+    (tmp_path / "include").mkdir()
+    (tmp_path / "include" / "omp.h").touch()
+    (tmp_path / "lib").mkdir()
+    (tmp_path / "lib" / "libomp.dylib").touch()
+    glob = Path.glob
+
+    def installed_sdks(path, pattern):
+        if str(path) == "/Library/Developer/CommandLineTools/SDKs":
+            return iter([Path("/Library/Developer/CommandLineTools/SDKs/MacOSX15.sdk/usr/include/c++/v1")])
+        return glob(path, pattern)
+
+    monkeypatch.setattr(Path, "glob", installed_sdks)
+    commands = []
+
+    def compile_stub(command, **kwargs):
+        commands.append(command)
+        Path(command[command.index("-o") + 1]).write_bytes(b"compiled fixture")
+        return SimpleNamespace(returncode=0, stderr="")
+
+    monkeypatch.setattr(native.subprocess, "run", compile_stub)
+    result = native.build_native()
+    assert result.suffix == ".dylib" and result.read_bytes() == b"compiled fixture"
+    command, = commands
+    assert not any("CommandLineTools/SDKs" in arg or arg.startswith("-isystem") for arg in command)
+    assert "-Xpreprocessor" in command and "-fopenmp" in command
+    assert f"-I{tmp_path / 'include'}" in command and "-lomp" in command
