@@ -3,6 +3,7 @@
 import hashlib
 from html import escape
 import json
+import re
 import statistics
 from pathlib import Path
 
@@ -144,6 +145,16 @@ def main():
     path=OUT/'openeedle-hero-static-dark.svg'
     path.write_text(draw('dark',report,static=True),encoding='utf-8')
     print(path.relative_to(ROOT))
+    # Change the image URL with its contents so README image caches refresh.
+    pattern = r'docs/assets/openeedle-hero-(?:light|dark|static|static-dark)\.svg(?:\?v=[a-f0-9]+)?'
+    def versioned_image(match):
+        asset = match.group(0).split('?', 1)[0]
+        digest = hashlib.sha256((ROOT / asset).read_bytes()).hexdigest()[:12]
+        return f'{asset}?v={digest}'
+    for name in ('README.md', 'README_zh.md'):
+        readme = ROOT / name
+        readme.write_text(re.sub(pattern, versioned_image, readme.read_text(encoding='utf-8')),
+                          encoding='utf-8')
 
 
 if __name__=='__main__':

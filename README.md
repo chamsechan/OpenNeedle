@@ -3,10 +3,10 @@
 **English** | [中文](README_zh.md)
 
 <picture>
-  <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-static-dark.svg">
-  <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/openeedle-hero-static.svg">
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-dark.svg">
-  <img src="docs/assets/openeedle-hero-light.svg" width="1200" alt="OpenNeedle packed CPU inference. Expanded decode throughput: official 493.70 token/s (earlier run), OpenNeedle SDOT + INT8 KV 402.38 token/s. Timing definitions differ.">
+  <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-static-dark.svg?v=4864bfb80a16">
+  <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/openeedle-hero-static.svg?v=942df258f2c9">
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-dark.svg?v=c41ea59dda20">
+  <img src="docs/assets/openeedle-hero-light.svg?v=dd59bce35fbb" width="1200" alt="OpenNeedle packed CPU inference. Expanded decode throughput: official 493.70 token/s (earlier run), OpenNeedle SDOT + INT8 KV 402.38 token/s. Timing definitions differ.">
 </picture>
 
 **Open-source CPU inference engine and PyTorch toolchain for Needle 2.**

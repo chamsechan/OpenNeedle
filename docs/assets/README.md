@@ -23,7 +23,9 @@ Regenerate from the repository root with Python's standard library:
 python scripts/render_readme_assets.py
 ```
 
-This reads the saved report; it does not run a benchmark. Model size and architecture
+This reads the saved report; it does not run a benchmark. It also updates both
+README image URLs with a content-hash query parameter so changed artwork gets a
+new cache key. Model size and architecture
 labels are editorial annotations in the generator and should be reviewed if the
 model changes. Each SVG embeds both source reports' SHA-256 hashes for traceability.
 
