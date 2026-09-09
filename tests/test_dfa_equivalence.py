@@ -115,8 +115,8 @@ def test_decode_validates_vocab_and_mutated_descriptor_before_forward():
     dfa = desc(candidate_tokens=[31])
     with pytest.raises(ValueError, match='vocabulary'): e.decode(2, 3, dfa)
     dfa = desc()
-    dfa.candidate_offsets = np.array([0, 1000, 1000], dtype=np.int32)
-    with pytest.raises(ValueError, match='offsets'): e.decode(2, 3, dfa)
+    with pytest.raises(AttributeError, match='immutable'):
+        dfa.candidate_offsets = np.array([0, 1000, 1000], dtype=np.int32)
     assert e.position == 0
     np.testing.assert_array_equal(e.step(2), NativeEngine(archive()).step(2))
 
@@ -132,3 +132,31 @@ def test_large_exact_grammar_requests_constrained_fallback():
 def test_invalid_number_prefixes(value):
     tools = [{'name': 'do', 'parameters': {'type': 'object', 'properties': {'n': {'type': 'number'}}, 'required': ['n']}}]
     assert not check_prefixes(tools, b'[{"name":"do","arguments":{"n":' + value + b'}}]')
+
+
+def test_dfa_storage_and_metadata_are_immutable(monkeypatch):
+    source = np.array([3], dtype=np.int32)
+    dfa = desc(candidate_tokens=source)
+    source[0] = 999
+    assert dfa.candidate_tokens.tolist() == [3]
+    for name in dfa._arrays:
+        view = getattr(dfa, name)
+        with pytest.raises(ValueError): view.setflags(write=True)
+        with pytest.raises(ValueError): view[0] = 999
+        view.shape = (1, -1)
+        view.dtype = np.uint8
+        assert getattr(dfa, name).ndim == 1
+        assert getattr(dfa, name).dtype == np.int32
+        assert isinstance(view.base, bytes)
+    with pytest.raises(AttributeError): dfa.initial_state = 100
+    with pytest.raises(AttributeError): del dfa.candidate_tokens
+    with pytest.raises(AttributeError): dfa._frozen = False
+    descriptor = dfa._desc
+    descriptor.num_states = 1000
+    assert dfa._desc.num_states == 2
+    # Graph scans are unnecessary after construction, including across vocabularies.
+    def fail(*args, **kwargs): raise AssertionError("repeated graph validation")
+    monkeypatch.setattr(np, 'unique', fail)
+    monkeypatch.setattr(np, 'isin', fail)
+    for _ in range(3): dfa.validate(32)
+    with pytest.raises(ValueError, match='vocabulary'): dfa.validate(11)

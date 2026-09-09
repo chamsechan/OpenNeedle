@@ -354,6 +354,7 @@ struct Engine {
     std::unique_ptr<PrefixSnapshot> prefix_snapshot;
     std::vector<std::unique_ptr<SdotCQ>> sdot;
     Prepared sdot_input;
+    std::vector<Prepared> sdot_batch;
     std::vector<TensorDesc> t;
     int threads,abits,position=0,capacity,engring,prefix=0,projection_lookup=-1;
     int history_cap = 1;
@@ -365,6 +366,10 @@ struct Engine {
     std::vector<int8_t> keys_i8, values_i8;
     std::vector<float> k_scales, v_scales;
     std::vector<float> thread_scores;
+    struct HeadWork { int h, kh, count; };
+    std::vector<HeadWork> head_work;
+    std::vector<int> attention_slots;
+    int attention_position = -1;
     std::vector<float> keys,values,engvalues;
     std::vector<float> x,nx,u,bx,z,q,k,v,gate,att,proj,mlp,newx,hpre,hpost,hres;
     std::vector<float> ek,ev,e,rawv,logits,hidden,rot,rope_cos,rope_sin,rope_divisor;
@@ -372,6 +377,11 @@ struct Engine {
         if(threads > 1) pool = std::make_unique<PersistentThreadPool>(threads);
         int D=c.dim,N=c.lanes,A=c.heads*c.head_dim,K=c.kvheads*c.head_dim;
         sdot.resize(t.size());
+        for(int h=0;h<c.heads;) {
+            int kh=h/(c.heads/c.kvheads);
+            int count=(h+1<c.heads && (h+1)/(c.heads/c.kvheads)==kh)?2:1;
+            head_work.push_back({h,kh,count});h+=count;
+        }
         capacity=c.window?c.window:c.max_seq;
         int64_t ring_size=int64_t(c.taps-1)*c.dilation+1;
         if(ring_size<1||ring_size>std::numeric_limits<int>::max())throw std::runtime_error("invalid Engram ring size");
@@ -421,6 +431,7 @@ struct Engine {
         sdot_enabled=true;return true;
     }
     void reset(int prefix_len){
+        attention_position=-1;
         prefix_snapshot.reset();
         position=0;std::fill(history_ring.begin(),history_ring.end(),0);prefix=prefix_len;
         capacity=c.window?c.window+prefix:c.max_seq;
@@ -579,13 +590,15 @@ struct Engine {
         }
         if (sdot_enabled && sdot[ti]) {
             auto* q = sdot[ti].get();
-            std::vector<Prepared> prep(batch);
+            sdot_batch.resize(batch);
+            auto& prep = sdot_batch;
             for (int b = 0; b < batch; ++b) q->prepare(in + size_t(b) * q->columns, prep[b]);
             parallel_for(rows, [&](int tid, int start, int end) {
                 for (int r = start; r < end; ++r) {
-                    for (int b = 0; b < batch; ++b) {
-                        out[size_t(b) * rows + r] = q->row(first + r, prep[b]);
-                    }
+                    int b = 0;
+                    for (; b + 1 < batch; b += 2)
+                        q->row_pair(first+r, prep[b], prep[b+1], out[size_t(b)*rows+r], out[size_t(b+1)*rows+r]);
+                    if (b < batch) out[size_t(b)*rows+r] = q->row(first+r, prep[b]);
                 }
             });
             return;
@@ -638,7 +651,8 @@ struct Engine {
                 linear_batch(ti+6, in, gate_out, batch);
                 return;
             }
-            std::vector<Prepared> prep(batch);
+            sdot_batch.resize(batch);
+            auto& prep = sdot_batch;
             for (int b = 0; b < batch; ++b) matrices[0]->prepare(in + size_t(b) * matrices[0]->columns, prep[b]);
             int total = 0;
             for (auto* m : matrices) total += m->rows;
@@ -647,9 +661,10 @@ struct Engine {
                 for (int i = start; i < end; ++i) {
                     int m = 0, r = i;
                     while (m < 4 && r >= matrices[m]->rows) { r -= matrices[m]->rows; m++; }
-                    for (int b = 0; b < batch; ++b) {
-                        outputs[m][size_t(b) * matrices[m]->rows + r] = matrices[m]->row(r, prep[b]);
-                    }
+                    int b = 0, stride = matrices[m]->rows;
+                    for (; b + 1 < batch; b += 2)
+                        matrices[m]->row_pair(r, prep[b], prep[b+1], outputs[m][size_t(b)*stride+r], outputs[m][size_t(b+1)*stride+r]);
+                    if (b < batch) outputs[m][size_t(b)*stride+r] = matrices[m]->row(r, prep[b]);
                 }
             });
             return;
@@ -767,51 +782,125 @@ struct Engine {
         for(position=std::max(0,pos-engring);position<pos;++position)engrams();
         position=pos;
     }
+    template<bool Quantized, bool Paired>
+    void accumulate_values(int l, int kh, int length, const float* s0, const float* s1, float* dst) {
+        int HD=c.head_dim,K=c.kvheads*HD;
+        int d=0;
+#ifdef __aarch64__
+        // Keep a 32-dimension tile in registers over the entire context. Each
+        // dimension sees the same token/FMA order as the untiled kernel.
+        for (;d+32<=HD;d+=32) {
+            auto a0=vdupq_n_f32(0), b0=a0;
+            auto a1=vdupq_n_f32(0), b1=a1;
+            auto a2=vdupq_n_f32(0), b2=a2;
+            auto a3=vdupq_n_f32(0), b3=a3;
+            auto a4=vdupq_n_f32(0), b4=a4;
+            auto a5=vdupq_n_f32(0), b5=a5;
+            auto a6=vdupq_n_f32(0), b6=a6;
+            auto a7=vdupq_n_f32(0), b7=a7;
+            for(int s=0;s<length;++s) {
+                int slot=attention_slots[s];
+                float prob=s0[s], prob1=Paired?s1[s]:0;
+                float32x4_t v0,v1,v2,v3,v4,v5,v6,v7;
+                if constexpr (Quantized) {
+                    float scale=v_scales[(size_t(l)*capacity+slot)*c.kvheads+kh];
+                    prob*=scale;prob1*=scale;
+                    const auto* src=values_i8.data()+(size_t(l)*capacity+slot)*K+kh*HD+d;
+                    auto w0=vmovl_s8(vld1_s8(src+0));
+                    v0=vcvtq_f32_s32(vmovl_s16(vget_low_s16(w0)));
+                    v1=vcvtq_f32_s32(vmovl_s16(vget_high_s16(w0)));
+                    auto w1=vmovl_s8(vld1_s8(src+8));
+                    v2=vcvtq_f32_s32(vmovl_s16(vget_low_s16(w1)));
+                    v3=vcvtq_f32_s32(vmovl_s16(vget_high_s16(w1)));
+                    auto w2=vmovl_s8(vld1_s8(src+16));
+                    v4=vcvtq_f32_s32(vmovl_s16(vget_low_s16(w2)));
+                    v5=vcvtq_f32_s32(vmovl_s16(vget_high_s16(w2)));
+                    auto w3=vmovl_s8(vld1_s8(src+24));
+                    v6=vcvtq_f32_s32(vmovl_s16(vget_low_s16(w3)));
+                    v7=vcvtq_f32_s32(vmovl_s16(vget_high_s16(w3)));
+                } else {
+                    const auto* src=values.data()+(size_t(l)*capacity+slot)*K+kh*HD+d;
+                    v0=vld1q_f32(src+0);
+                    v1=vld1q_f32(src+4);
+                    v2=vld1q_f32(src+8);
+                    v3=vld1q_f32(src+12);
+                    v4=vld1q_f32(src+16);
+                    v5=vld1q_f32(src+20);
+                    v6=vld1q_f32(src+24);
+                    v7=vld1q_f32(src+28);
+                }
+                a0=vfmaq_n_f32(a0,v0,prob); if constexpr(Paired) b0=vfmaq_n_f32(b0,v0,prob1);
+                a1=vfmaq_n_f32(a1,v1,prob); if constexpr(Paired) b1=vfmaq_n_f32(b1,v1,prob1);
+                a2=vfmaq_n_f32(a2,v2,prob); if constexpr(Paired) b2=vfmaq_n_f32(b2,v2,prob1);
+                a3=vfmaq_n_f32(a3,v3,prob); if constexpr(Paired) b3=vfmaq_n_f32(b3,v3,prob1);
+                a4=vfmaq_n_f32(a4,v4,prob); if constexpr(Paired) b4=vfmaq_n_f32(b4,v4,prob1);
+                a5=vfmaq_n_f32(a5,v5,prob); if constexpr(Paired) b5=vfmaq_n_f32(b5,v5,prob1);
+                a6=vfmaq_n_f32(a6,v6,prob); if constexpr(Paired) b6=vfmaq_n_f32(b6,v6,prob1);
+                a7=vfmaq_n_f32(a7,v7,prob); if constexpr(Paired) b7=vfmaq_n_f32(b7,v7,prob1);
+            }
+            vst1q_f32(dst+d+0,a0); if constexpr(Paired) vst1q_f32(dst+HD+d+0,b0);
+            vst1q_f32(dst+d+4,a1); if constexpr(Paired) vst1q_f32(dst+HD+d+4,b1);
+            vst1q_f32(dst+d+8,a2); if constexpr(Paired) vst1q_f32(dst+HD+d+8,b2);
+            vst1q_f32(dst+d+12,a3); if constexpr(Paired) vst1q_f32(dst+HD+d+12,b3);
+            vst1q_f32(dst+d+16,a4); if constexpr(Paired) vst1q_f32(dst+HD+d+16,b4);
+            vst1q_f32(dst+d+20,a5); if constexpr(Paired) vst1q_f32(dst+HD+d+20,b5);
+            vst1q_f32(dst+d+24,a6); if constexpr(Paired) vst1q_f32(dst+HD+d+24,b6);
+            vst1q_f32(dst+d+28,a7); if constexpr(Paired) vst1q_f32(dst+HD+d+28,b7);
+        }
+#endif
+        // Small/odd head dimensions and non-NEON architectures retain a tail.
+        for(int j=d;j<HD;++j) {
+            float a=0,b=0;
+            for(int s=0;s<length;++s) {
+                int slot=attention_slots[s];
+                float prob=s0[s],prob1=Paired?s1[s]:0,value;
+                if constexpr(Quantized) {
+                    float scale=v_scales[(size_t(l)*capacity+slot)*c.kvheads+kh];
+                    prob*=scale;prob1*=scale;
+                    value=float(values_i8[(size_t(l)*capacity+slot)*K+kh*HD+j]);
+                } else value=values[(size_t(l)*capacity+slot)*K+kh*HD+j];
+                a+=prob*value;if constexpr(Paired)b+=prob1*value;
+            }
+            dst[j]=a;if constexpr(Paired)dst[HD+j]=b;
+        }
+    }
     void compute_attention(int l, int pos_cur, const float* q_in, float* att_out) {
         int H=c.heads,KV=c.kvheads,HD=c.head_dim,K=KV*HD;
         int prefix_count=c.window?std::min(prefix,pos_cur+1):0;
         int start=c.window?std::max(prefix,pos_cur-c.window+1):0;
         int length=prefix_count+std::max(0,pos_cur-start+1);
-        int num_groups=0;
-        struct HeadWork {int h,kh,count;};
-        std::vector<HeadWork> groups;
-        groups.reserve(H);
-        for(int h=0;h<H;) {
-            int kh=h/(H/KV),count=(h+1<H && (h+1)/(H/KV)==kh)?2:1;
-            groups.push_back({h,kh,count});++num_groups;
-            h+=count;
+        // The slot order depends only on position/prefix/window, not layer.
+        // Decode reuses this map across layers; prompt chunks also avoid doing
+        // modular arithmetic for every head and both K and V passes.
+        if (attention_position != pos_cur) {
+            attention_slots.resize(length);
+            for(int s=0;s<length;++s)
+                attention_slots[s]=cache_slot(s<prefix_count?s:start+s-prefix_count);
+            attention_position=pos_cur;
         }
-        parallel_for(num_groups, [&](int tid, int start_g, int end_g) {
+        parallel_for(int(head_work.size()), [&](int tid, int start_g, int end_g) {
             for(int g=start_g;g<end_g;++g) {
-                int h=groups[g].h,kh=groups[g].kh,count=groups[g].count;
+                int h=head_work[g].h,kh=head_work[g].kh,count=head_work[g].count;
                 float max0=-INFINITY,max1=-INFINITY,scale=1/std::sqrt(float(HD));
                 auto*s0=thread_scores.data()+size_t(tid)*2*capacity;
                 auto*s1=s0+capacity;
                 if(!int8_kv_enabled) {
                     const auto*kc=keys.data()+size_t(l)*capacity*K;
                     for(int s=0;s<length;++s) {
-                        int pos=cache_slot(s<prefix_count?s:start+s-prefix_count);
+                        int pos=attention_slots[s];
                         if(count==2)dot_pair(q_in+h*HD,q_in+(h+1)*HD,kc+pos*K+kh*HD,HD,s0[s],s1[s]);
                         else s0[s]=dot_f32(q_in+h*HD,kc+pos*K+kh*HD,HD);
                         s0[s]*=scale;max0=std::max(max0,s0[s]);
                         if(count==2){s1[s]*=scale;max1=std::max(max1,s1[s]);}
                     }
                     softmax_inplace(s0,length,max0);if(count==2)softmax_inplace(s1,length,max1);
-                    auto *dst=att_out+h*HD,*dst1=dst+HD;std::fill(dst,dst+count*HD,0);
-                    const auto*vc=values.data()+size_t(l)*capacity*K;
-                    for(int s=0;s<length;++s) {
-                        const auto *src=vc+cache_slot(s<prefix_count?s:start+s-prefix_count)*K+kh*HD;float prob=s0[s],prob1=count==2?s1[s]:0;
-                        int d=0;
-#ifdef __aarch64__
-                        for(;d+4<=HD;d+=4){auto value=vld1q_f32(src+d);vst1q_f32(dst+d,vfmaq_n_f32(vld1q_f32(dst+d),value,prob));if(count==2)vst1q_f32(dst1+d,vfmaq_n_f32(vld1q_f32(dst1+d),value,prob1));}
-#endif
-                        for(;d<HD;++d){dst[d]+=prob*src[d];if(count==2)dst1[d]+=prob1*src[d];}
-                    }
+                    if(count==2)accumulate_values<false,true>(l,kh,length,s0,s1,att_out+h*HD);
+                    else accumulate_values<false,false>(l,kh,length,s0,s1,att_out+h*HD);
                 } else {
                     const auto*kc_i8=keys_i8.data()+size_t(l)*capacity*K;
                     const auto*ks=k_scales.data()+size_t(l)*capacity*KV;
                     for(int s=0;s<length;++s) {
-                        int pos=cache_slot(s<prefix_count?s:start+s-prefix_count);
+                        int pos=attention_slots[s];
                         float k_scale=ks[pos*KV+kh];
                         if(count==2) {
                             dot_pair_i8_f32(q_in+h*HD,q_in+(h+1)*HD,kc_i8+pos*K+kh*HD,HD,s0[s],s1[s]);
@@ -823,35 +912,8 @@ struct Engine {
                         if(count==2){s1[s]*=scale;max1=std::max(max1,s1[s]);}
                     }
                     softmax_inplace(s0,length,max0);if(count==2)softmax_inplace(s1,length,max1);
-                    auto *dst=att_out+h*HD,*dst1=dst+HD;std::fill(dst,dst+count*HD,0);
-                    const auto*vc_i8=values_i8.data()+size_t(l)*capacity*K;
-                    const auto*vs=v_scales.data()+size_t(l)*capacity*KV;
-                    for(int s=0;s<length;++s) {
-                        int pos=cache_slot(s<prefix_count?s:start+s-prefix_count);
-                        float v_scale=vs[pos*KV+kh];
-                        const auto*src_i8=vc_i8+pos*K+kh*HD;
-                        float prob=s0[s]*v_scale,prob1=(count==2?s1[s]:0)*v_scale;
-                        int d=0;
-#ifdef __aarch64__
-                        for(;d+8<=HD;d+=8) {
-                            int8x8_t v8=vld1_s8(src_i8+d);
-                            int16x8_t v16=vmovl_s8(v8);
-                            float32x4_t vf0=vcvtq_f32_s32(vmovl_s16(vget_low_s16(v16)));
-                            float32x4_t vf1=vcvtq_f32_s32(vmovl_s16(vget_high_s16(v16)));
-                            vst1q_f32(dst+d,vfmaq_n_f32(vld1q_f32(dst+d),vf0,prob));
-                            vst1q_f32(dst+d+4,vfmaq_n_f32(vld1q_f32(dst+d+4),vf1,prob));
-                            if(count==2){
-                                vst1q_f32(dst1+d,vfmaq_n_f32(vld1q_f32(dst1+d),vf0,prob1));
-                                vst1q_f32(dst1+d+4,vfmaq_n_f32(vld1q_f32(dst1+d+4),vf1,prob1));
-                            }
-                        }
-#endif
-                        for(;d<HD;++d){
-                            float val=float(src_i8[d]);
-                            dst[d]+=prob*val;
-                            if(count==2)dst1[d]+=prob1*val;
-                        }
-                    }
+                    if(count==2)accumulate_values<true,true>(l,kh,length,s0,s1,att_out+h*HD);
+                    else accumulate_values<true,false>(l,kh,length,s0,s1,att_out+h*HD);
                 }
             }
         });
@@ -982,6 +1044,12 @@ struct Engine {
             std::vector<float> att_chunk(size_t(B) * A), proj_chunk(size_t(B) * D);
             std::vector<float> mlp_chunk(c.hada);
 
+            std::vector<float> chunk_cos(size_t(B)*HD/2), chunk_sin(size_t(B)*HD/2);
+            for (int b=0;b<B;++b) for (int j=0;j<HD/2;++j) {
+                float a=(start_pos+b)/rope_divisor[j];
+                chunk_cos[size_t(b)*(HD/2)+j]=std::cos(a);
+                chunk_sin[size_t(b)*(HD/2)+j]=std::sin(a);
+            }
             // 3. Process layers
             for (int l = 0; l < c.layers; ++l) {
                 int ti = 1 + 14 * l;
@@ -1040,8 +1108,7 @@ struct Engine {
                     for (int h = 0; h < KV; ++h) rms(kb + h * HD, kb + h * HD, HD, dense(ti + 5));
 
                     for (int j = 0; j < HD / 2; ++j) {
-                        float a = pos / rope_divisor[j];
-                        float co = std::cos(a), si = std::sin(a);
+                        float co = chunk_cos[size_t(b)*(HD/2)+j], si = chunk_sin[size_t(b)*(HD/2)+j];
                         for (int h = 0; h < H; ++h) {
                             float qa = qb[h * HD + j], qb_val = qb[h * HD + j + HD / 2];
                             qb[h * HD + j] = qa * co - qb_val * si;

@@ -148,6 +148,50 @@ struct SdotCQ {
         return value;
     }
 
+    // Two prompt tokens share packed-weight loads and centroid lookup. Integer
+    // accumulators and group scaling have the same order as two row() calls.
+#ifdef __aarch64__
+    __attribute__((target("arch=armv8.2-a+dotprod")))
+#endif
+    void row_pair(int r, const Prepared& x0, const Prepared& x1, float& out0, float& out1) const {
+        out0 = out1 = 0;
+        for (int g = 0; g < groups; ++g) {
+            const auto* p = packed + size_t(r)*rowbytes + g*group*bits/8;
+            const auto* u = x0.q.data() + g*group;
+            const auto* v = x1.q.data() + g*group;
+#ifdef __aarch64__
+            const auto cb = vld1q_s8(centroids);
+            auto a0=vdupq_n_s32(0), b0=a0, c0=a0, d0=a0;
+            auto a1=a0, b1=a0, c1=a0, d1=a0;
+            for (int i=0; i<group; i+=64) {
+                int8x16_t w0,w1,w2,w3;
+                if (bits == 2) {
+                    const auto pv=vld1q_u8(p+i/4), mask=vdupq_n_u8(3);
+                    w0=vqtbl1q_s8(cb,vandq_u8(pv,mask));
+                    w1=vqtbl1q_s8(cb,vandq_u8(vshrq_n_u8(pv,2),mask));
+                    w2=vqtbl1q_s8(cb,vandq_u8(vshrq_n_u8(pv,4),mask));
+                    w3=vqtbl1q_s8(cb,vshrq_n_u8(pv,6));
+                } else {
+                    const auto lo=vld1q_u8(p+i/2), hi=vld1q_u8(p+i/2+16), mask=vdupq_n_u8(15);
+                    w0=vqtbl1q_s8(cb,vandq_u8(lo,mask)); w1=vqtbl1q_s8(cb,vshrq_n_u8(lo,4));
+                    w2=vqtbl1q_s8(cb,vandq_u8(hi,mask)); w3=vqtbl1q_s8(cb,vshrq_n_u8(hi,4));
+                }
+                a0=vdotq_s32(a0,w0,vld1q_s8(u+i)); a1=vdotq_s32(a1,w0,vld1q_s8(v+i));
+                b0=vdotq_s32(b0,w1,vld1q_s8(u+i+16)); b1=vdotq_s32(b1,w1,vld1q_s8(v+i+16));
+                c0=vdotq_s32(c0,w2,vld1q_s8(u+i+32)); c1=vdotq_s32(c1,w2,vld1q_s8(v+i+32));
+                d0=vdotq_s32(d0,w3,vld1q_s8(u+i+48)); d1=vdotq_s32(d1,w3,vld1q_s8(v+i+48));
+            }
+            int32_t v0=vaddvq_s32(vaddq_s32(vaddq_s32(a0,b0),vaddq_s32(c0,d0)));
+            int32_t v1=vaddvq_s32(vaddq_s32(vaddq_s32(a1,b1),vaddq_s32(c1,d1)));
+#else
+            int32_t v0=dot_group(p,u), v1=dot_group(p,v);
+#endif
+            float norm=norm_scales[size_t(r)*groups+g];
+            out0 += float(v0)*norm*x0.scales[g];
+            out1 += float(v1)*norm*x1.scales[g];
+        }
+    }
+
 #ifdef __aarch64__
     __attribute__((target("arch=armv8.2-a+dotprod")))
 #endif

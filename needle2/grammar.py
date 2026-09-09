@@ -290,9 +290,30 @@ class ToolGrammar:
 class NativeGrammarDFA:
     """Validated token DFA; 0=open, 1=exact candidates, 4=terminal.
 
-    Tool grammars use an open state only before <tool_call>. Arrays are owned
-    and read-only; decode revalidates them before exposing pointers to C++.
+    Tool grammars use an open state only before <tool_call>. Construction
+    validates the complete graph. Immutable byte storage and frozen fields let
+    decode reuse that validation, checking only the engine vocabulary bound.
     """
+
+    _scalars = ("num_states", "initial_state", "eos_id", "stop_id", "tool_start_id", "tool_end_id")
+    _arrays = ("state_types", "fallback_next_states", "candidate_offsets", "candidate_tokens", "next_states")
+    __slots__ = _scalars + _arrays + ("_frozen", "_max_token")
+
+    def __setattr__(self, name, value):
+        if getattr(self, "_frozen", False):
+            raise AttributeError("NativeGrammarDFA is immutable")
+        object.__setattr__(self, name, value)
+
+    def __delattr__(self, name):
+        raise AttributeError("NativeGrammarDFA is immutable")
+
+    def __getattribute__(self, name):
+        value = object.__getattribute__(self, name)
+        if name in NativeGrammarDFA._arrays:
+            # Each caller gets independent shape/dtype metadata over bytes;
+            # neither setflags(write=True) nor changing .base can mutate data.
+            return np.frombuffer(value, dtype=np.int32)
+        return value
 
     def __init__(self, num_states, initial_state, eos_id, stop_id, tool_start_id,
                  tool_end_id, state_types, fallback_next_states, candidate_offsets,
@@ -310,15 +331,17 @@ class NativeGrammarDFA:
             if array.ndim != 1 or (array.size and (array.dtype.kind not in "iu" or
                     np.any(array < np.iinfo(np.int32).min) or np.any(array > np.iinfo(np.int32).max))):
                 raise ValueError(f"{name} must be a one-dimensional int32 array")
-            array = np.array(array, dtype=np.int32, copy=True)
-            array.flags.writeable = False
-            setattr(self, name, array)
+            setattr(self, name, np.asarray(array, dtype=np.int32).tobytes())
         self.validate()
+        self._max_token = max(self.eos_id, self.stop_id, self.tool_start_id, self.tool_end_id,
+                              int(self.candidate_tokens.max()) if len(self.candidate_tokens) else -1)
+        self._frozen = True
 
     def validate(self, vocab_size=None):
-        import ctypes as ct
-        from .native import _DFAStateDesc
-
+        if getattr(self, "_frozen", False):
+            if vocab_size is not None and self._max_token >= vocab_size:
+                raise ValueError("DFA token outside vocabulary")
+            return
         n = self.num_states
         if not 0 < n <= 4098 or not 0 <= self.initial_state < n:
             raise ValueError("invalid DFA state count or initial state")
@@ -346,11 +369,20 @@ class NativeGrammarDFA:
             raise ValueError("invalid DFA special token")
         if vocab_size is not None and (any(t >= vocab_size for t in special) or np.any(self.candidate_tokens >= vocab_size)):
             raise ValueError("DFA token outside vocabulary")
-        self._desc = _DFAStateDesc()
-        for name in ("num_states", "initial_state", "eos_id", "stop_id", "tool_start_id", "tool_end_id"):
-            setattr(self._desc, name, getattr(self, name))
-        for name in ("state_types", "fallback_next_states", "candidate_offsets", "candidate_tokens", "next_states"):
-            setattr(self._desc, name, getattr(self, name).ctypes.data_as(ct.POINTER(ct.c_int)))
+
+    @property
+    def _desc(self):
+        import ctypes as ct
+        from .native import _DFAStateDesc
+
+        # Return a fresh ABI descriptor: mutating a previously returned ctypes
+        # structure must not poison the validated object used by later calls.
+        desc = _DFAStateDesc()
+        for name in self._scalars:
+            setattr(desc, name, getattr(self, name))
+        for name in self._arrays:
+            setattr(desc, name, getattr(self, name).ctypes.data_as(ct.POINTER(ct.c_int)))
+        return desc
 
 
 def compile_tool_dfa(tools: list[dict], tokenizer) -> NativeGrammarDFA:

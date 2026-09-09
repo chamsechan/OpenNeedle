@@ -131,3 +131,12 @@ OMP_WAIT_POLICY=PASSIVE OPENBLAS_NUM_THREADS=1 python scripts/profile_native.py 
 ```
 
 插桩构建不覆盖生产库。报告对嵌套 Engram 投影做扣除，输出互斥阶段、剩余开销、head 投影行数、step 次数和最终保留的 KV 长度。插桩本身会增加计时成本，应用性能使用 [backend_comparison.json](../reports/backend_comparison.json)。
+
+
+## Prefill 与 attention 数据复用
+
+Native SDOT prefill 将相邻两个 prompt token 的投影配对，同一次 packed 权重加载与码本查找供两个独立 INT32 累加器使用；奇数尾 token 保留单 token 内核。输入量化、group 缩放及累加顺序不变，既有 Prepared 缓冲区在批量投影间复用。每个 prompt 块的 RoPE 三角函数只计算一次，供所有层读取。
+
+Attention 在固定模型结构下复用 GQA head 工作列表，并按绝对位置缓存 KV 槽位映射；重置 prefix/window 状态时使映射失效。ARM NEON 的 V 累加使用 32 维寄存器分块，避免每个上下文 token 都读写输出缓冲区。FP32/INT8 KV 以及配对/未配对 head 分别实例化；尾部维度和非 NEON 平台保留通用路径。固定 prefix sink、滑窗可见范围和逐维 token 累加顺序保持不变。
+
+`tests/test_optimized_attention_prefill.py` 覆盖 GQA 比例 3、32/38 维 head、CQ2/CQ4、奇数 prompt、滑窗回绕、prefix 恢复及 1/4 线程，并对照逐 token 路径和独立 PyTorch FP32 参考。性能提升取决于模型形状、CPU 和上下文长度；这些数据复用优化不消除 SDOT 或 INT8 KV 原有的量化误差。
