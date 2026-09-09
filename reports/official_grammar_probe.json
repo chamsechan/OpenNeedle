@@ -1,0 +1,91 @@
+{
+  "note": "Initialization acceptance only; does not prove enforcement of each schema keyword.",
+  "cases": [
+    {
+      "name": "primitive",
+      "init": "accepted",
+      "schema": {
+        "type": "integer"
+      }
+    },
+    {
+      "name": "range",
+      "init": "accepted",
+      "schema": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 3
+      }
+    },
+    {
+      "name": "pattern",
+      "init": "accepted",
+      "schema": {
+        "type": "string",
+        "pattern": "^[a-z]+$"
+      }
+    },
+    {
+      "name": "enum",
+      "init": "accepted",
+      "schema": {
+        "type": "string",
+        "enum": [
+          "on",
+          "off"
+        ]
+      }
+    },
+    {
+      "name": "array",
+      "init": "accepted",
+      "schema": {
+        "type": "array",
+        "items": {
+          "type": "integer"
+        },
+        "minItems": 1,
+        "maxItems": 3
+      }
+    },
+    {
+      "name": "union",
+      "init": "accepted",
+      "schema": {
+        "type": [
+          "string",
+          "null"
+        ]
+      }
+    },
+    {
+      "name": "anyof",
+      "init": "accepted",
+      "schema": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "integer"
+          }
+        ]
+      }
+    },
+    {
+      "name": "nested",
+      "init": "accepted",
+      "schema": {
+        "type": "object",
+        "properties": {
+          "x": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "x"
+        ]
+      }
+    }
+  ]
+}

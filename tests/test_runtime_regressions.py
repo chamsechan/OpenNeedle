@@ -206,7 +206,7 @@ def test_retrieval_rejects_invalid_k_before_loading(k):
 
 
 @pytest.mark.skipif(not Path('artifacts/official/needle2.cact').is_file(), reason='model absent')
-def test_generate_dfa_and_size_fallback_have_identical_tokens(monkeypatch):
+def test_native_generation_ignores_python_dfa_compiler(monkeypatch):
     from needle2.inference import generate
     from needle2.grammar import GrammarTooLarge
     tools = [{'name': 'sum_numbers', 'description': 'Sum numbers', 'parameters': {'type': 'object',
@@ -217,6 +217,7 @@ def test_generate_dfa_and_size_fallback_have_identical_tokens(monkeypatch):
     monkeypatch.setattr('needle2.grammar.compile_tool_dfa', too_large)
     fallback = generate('artifacts/official/needle2.cact', 'Sum the numbers 1 and 2.', **kwargs)
     assert actual['grammar_backend'] == 'native_dfa'
-    assert fallback['grammar_backend'] == 'python_regex'
+    assert fallback['grammar_backend'] == 'native_dfa'
+    assert fallback['grammar_compiler'] == 'cpp'
     assert actual['function_calls'] == [{'name': 'sum_numbers', 'arguments': {'numbers': [1, 2]}}]
     assert actual['token_ids'] == fallback['token_ids']

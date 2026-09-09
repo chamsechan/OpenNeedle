@@ -372,3 +372,4 @@ void needle2_cq_rows(void *handle,const int64_t *ids,float*y,int count) {
 
 #include "sdot.cpp"
 #include "engine.cpp"
+#include "frontend.cpp"

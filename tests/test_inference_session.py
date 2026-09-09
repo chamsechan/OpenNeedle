@@ -41,7 +41,7 @@ def test_session_reuses_resources_and_invalidates_prefix(kv):
 
 
 @requires_model
-def test_fallback_grammar_resets_between_requests(monkeypatch):
+def test_native_grammar_does_not_use_python_fallback(monkeypatch):
     from needle2.grammar import GrammarTooLarge
     def too_large(*args, **kwargs):
         raise GrammarTooLarge('forced fallback')
@@ -51,8 +51,9 @@ def test_fallback_grammar_resets_between_requests(monkeypatch):
     session.generate('Add 7 and 4.', tools=TOOLS, max_new_tokens=64)
     again = session.generate('Add 2 and 3.', tools=TOOLS, max_new_tokens=64)
     assert again['token_ids'] == first['token_ids']
-    assert again['grammar_backend'] == 'python_regex'
-    assert again['native_decode_call_seconds'] is None
+    assert again['grammar_backend'] == 'native_dfa'
+    assert again['grammar_compiler'] == 'cpp'
+    assert again['native_decode_call_seconds'] is not None
 
 
 @pytest.mark.parametrize('value', [-1, 1.2, True])
@@ -104,10 +105,10 @@ def test_cached_prefix_tokenization_matches_full_text():
 def test_failed_decode_does_not_contaminate_next_request():
     session = InferenceSession(MODEL, threads=2)
     expected = session.generate('Add 2 and 3.', tools=TOOLS, max_new_tokens=32)
-    def fail_after_step(token, **kwargs):
-        session.engine.step(token)
+    def fail_after_step(logits, **kwargs):
+        session.engine.step(int(logits.argmax()))
         raise RuntimeError('injected decode failure')
-    with patch.object(session.engine, 'decode', side_effect=fail_after_step):
+    with patch.object(session.engine, 'decode_from_logits', side_effect=fail_after_step):
         with pytest.raises(RuntimeError, match='injected'):
             session.generate('Add 9 and 1.', tools=TOOLS, max_new_tokens=32)
     assert session.generate('Add 2 and 3.', tools=TOOLS, max_new_tokens=32)['token_ids'] == expected['token_ids']

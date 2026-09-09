@@ -61,9 +61,9 @@ The resulting `function_calls`:
 
 The initial native invocation automatically compiles and caches the C++ kernel without requiring official closed-source libraries; you can also compile ahead of time with `python -m needle2 build-native`. See the [Build Guide](docs/build.md) for CMake builds and precompiled library deployment. Tool execution is handled by your application.
 
-Add `--matmul sdot --kv-cache int8` to select the approximate mode used in the performance table; omit these options for the FP32 defaults. Use `--matmul sdot` alone to retain FP32 KV. Native-only installation needs NumPy and regex; install `pip install -e '.[torch]'` for the PyTorch backend, conversion or training. Adjust thread count to fit the target CPU.
+Add `--matmul sdot --kv-cache int8` to select the approximate mode used in the performance table; omit these options for the FP32 defaults. Use `--matmul sdot` alone to retain FP32 KV. Native-only installation needs NumPy; install `pip install -e '.[torch]'` for the PyTorch backend, conversion or training. Adjust thread count to fit the target CPU.
 
-For repeated requests, create one `needle2.inference.InferenceSession` and call its `generate()` method. It reuses the model, tokenizer, tool grammar and native tool-prefix cache. The module-level `generate()` remains a one-shot convenience API. See [session usage and timing](docs/python-runtime.md).
+For repeated requests, create one `needle2.inference.InferenceSession` and call its `generate()` method. It reuses the model, tokenizer, tool grammar and native tool-prefix cache. Tokenizer BPE, tool-schema compilation and constrained decoding run in C++; Python grammar is only a reference/PyTorch path. The module-level `generate()` remains a one-shot convenience API. See [session usage and timing](docs/python-runtime.md) and [native frontend / official compatibility boundaries](docs/native-frontend.md).
 
 <a id="模型转换"></a>
 ## Model Conversion

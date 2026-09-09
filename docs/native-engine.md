@@ -152,3 +152,8 @@ ARM64 的 INT8 KV attention 在 64 维双 head 场景下使用固定维度点积
 ## mHC 解码投影合并
 
 mHC 三组权重在 Python 装载层展开为 FP32。解码时两行点积共享输入加载，三组投影合并为一次线程池任务；总矩阵元素少于 32768 时保持串行。每行保留原点积归约结构，Sinkhorn 与 prefill 不变；CQ 描述符回退到原来的独立投影。实现与数值、性能验证见 [mHC 优化报告](mhc-optimization.md)。
+
+
+## 原生文本与 schema 前端
+
+默认 native 会话使用 C++ tokenizer、工具 JSON/schema 编译器和首 token 选择；Python 只适配数据与句柄。组件 ABI、算法、资源预算及与官方库的兼容边界见 [原生前端技术说明](native-frontend.md)。Python DFA 编译器仍用于参考测试，native 模式不再自动回退到 Python regex；编译超限或不支持的约束会明确报错。

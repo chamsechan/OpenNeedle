@@ -615,6 +615,11 @@ class NativeEngine:
             logits = self.step(token)
         return output
 
+    def decode_from_logits(self, logits, max_new_tokens=128, grammar=None):
+        """Native frontend selects the first token and runs compiled grammar decoding."""
+        from .frontend import decode_native
+        return decode_native(self, logits, max_new_tokens, grammar)
+
     def decode(self, first_token: int, max_new_tokens: int = 128, grammar_dfa=None) -> list[int]:
         """Decode autoregressively in C++ until eos, max_new_tokens, or DFA terminal state."""
         if not isinstance(max_new_tokens, (int, np.integer)) or not 0 <= max_new_tokens <= np.iinfo(np.int32).max:

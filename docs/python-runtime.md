@@ -1,6 +1,8 @@
 # Python 运行时与常驻会话
 
-native 模式的矩阵投影、attention、mHC、KV 管理和完整 DFA 解码循环都在 C++。Python 保留部署文件加载、tokenizer、提示词、schema 编译、调用接口及结果解析。文件数量不能代表解码开销。
+当前版本进一步将 tokenizer 与 grammar 编译迁入 C++；见 [原生前端技术说明](native-frontend.md)。本文末尾性能表是 `0988b81` 会话优化时的历史数据，不代表后续前端版本。
+
+native 模式的矩阵投影、attention、mHC、KV 管理和完整 DFA 解码循环都在 C++。Python 保留部署文件加载、提示词、调用接口及结果解析；native tokenizer、schema 编译和首 token 选择均在 C++。文件数量不能代表解码开销。
 
 ## 持续服务入口
 
@@ -20,7 +22,7 @@ print(second['function_calls'], second['prefix_cache_hit'])
 print(session.setup_seconds, second['request_seconds'])
 ```
 
-模型、tokenizer 和引擎在构造时建立。会话只保留最近一组工具的 grammar/DFA 和一个原生前缀快照，避免随请求数增长的会话级缓存。grammar 的状态每次重置，但复用编译结果和词表索引。底层 DFA 编译器另外保留既有、最多 8 项的全局 LRU。
+模型、tokenizer 和引擎在构造时建立。会话只保留最近一组工具的 grammar/DFA 和一个原生前缀快照，避免随请求数增长的会话级缓存。原生 grammar 是可复用的不可变状态表，每次 decode 使用独立状态游标；Python 参考编译器的最多 8 项全局 LRU 不参与 native 路径。
 
 当 system/tools 的前缀 token 相同，恢复快照后只 prefill query 后缀；变化时重建前缀。不带 tools 的请求重置完整状态，不复用之前的工具前缀。每个请求都是独立的单轮输入，不自动积累对话历史。固定工具前缀的分词结果也复用：仅在 `</tools>` 是独立特殊 token、且不被其它特殊 token 包含时分段；该边界会结束 BPE 段，后缀编码显式关闭额外 dummy prefix。其它 tokenizer 形状回退为整段分词。KV 缓存匹配仍以实际前缀 token 为准。模型 SHA-256 在会话初始化时计算一次，不再为每个响应重新哈希模型。
 
@@ -37,8 +39,8 @@ print(session.setup_seconds, second['request_seconds'])
 | `prepare_seconds` | 提示词、分词、检索、grammar 准备与重置 |
 | `prefix_restore_seconds` | native 重置或恢复前缀 |
 | `prefill_seconds` | 本次实际前向的 token；首次包括工具前缀，命中时仅后缀 |
-| `native_decode_call_seconds` | `engine.decode()` 的调用墙钟时间，包含 Python 包装、FFI 与输出复制，不是纯 C++ 内核计时；回退/PyTorch 路径为 null |
-| `decode_seconds` | 包含首 token 选择的整个解码阶段 |
+| `native_decode_call_seconds` | `engine.decode_from_logits()` 的调用墙钟时间，包含 Python 包装、FFI 与输出复制，不是纯 C++ 内核计时；PyTorch 路径为 null |
+| `decode_seconds` | 包含首 token 选择的整个解码阶段（native 中首 token 也由 C++ 选择） |
 | `parse_seconds` | token 解码、响应解析及结果字段构造 |
 | 单次入口的 `setup_seconds` / `total_seconds` | 临时会话初始化 / 整个单次函数耗时 |
 
@@ -47,18 +49,18 @@ print(session.setup_seconds, second['request_seconds'])
 ## Python 清理范围
 
 - 单次入口与常驻入口共用生成实现，移除原来 native 分支中的重复引擎构造。
-- grammar 增加显式 reset，清除重复的逐请求词表索引构建。
+- 参考/PyTorch grammar 使用显式 reset；native grammar 状态表由 C++ 编译和持有，解码不重复构建词表索引。
 - 缓存特殊 token 边界之前的工具前缀分词结果，移除每次重复运行的固定前缀 BPE；模型哈希移到初始化阶段。
-- 默认依赖只保留 NumPy 和 regex；PyTorch、safetensors 通过 `pip install -e '.[torch]'` 安装，测试依赖包含它们。
+- 默认依赖只保留 NumPy；PyTorch、safetensors、regex 通过 `pip install -e '.[torch]'` 安装，测试依赖包含它们。
 - `model.py`、`qat.py`、`convert.py` 等保留为训练、转换和参考验证功能，native 推理不会导入它们。研究/benchmark 脚本不属于运行时包。
-- Python grammar 循环保留为 DFA 超限时的精确回退，不能直接删除或换成无约束生成。
+- Python grammar 只用于参考/PyTorch；native 已迁入 C++，超限明确报错，不再自动回退，也不静默切换为无约束生成。
 - 底层 `NativeEngine.generate()` 保留自定义 EOS/不指定 EOS 的原有行为，区别于默认在 EOS/stop 结束的 `decode()`；没有强行合并而改变停止语义。
 
-本次没有把分词器、加载器全部翻译成 C++。需要继续迁移时，应根据完整请求阶段计时选择热点。
+后续已将分词器与 schema 编译迁入 C++；部署归档加载与业务响应组装仍由 Python 协调。
 
 ## 验证与复现
 
-`tests/test_inference_session.py` 覆盖重复请求的隔离、工具/system 切换、无工具请求、零长度、grammar 回退重置、异常恢复、PyTorch 后端和 Torch prefill，以及禁止导入 torch/safetensors 时运行 native 推理。分段分词测试覆盖有/无 dummy prefix、特殊 token、中文和 Unicode。
+`tests/test_inference_session.py` 覆盖重复请求的隔离、工具/system 切换、无工具请求、零长度、原生 grammar 不调用 Python 回退、异常恢复、PyTorch 后端和 Torch prefill，以及禁止导入 torch/safetensors 时运行 native 推理。分段分词测试覆盖有/无 dummy prefix、特殊 token、中文和 Unicode。
 
 完整套件 225 项测试、4 个 subtest 通过；随后补充 Torch prefill 兼容分支及对应测试，相关 15 项测试再次通过。在全新 venv 中执行默认安装，仅安装 NumPy、regex 和本包，未安装 torch/safetensors，重复真实工具调用及前缀复用验证通过。源码哈希、安装依赖与验证状态见 [验证清单](../reports/session_validation.json)。
 

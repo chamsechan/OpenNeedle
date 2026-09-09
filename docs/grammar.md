@@ -1,3 +1,7 @@
+# 当前 native 前端
+
+默认 native 推理的 tokenizer、schema 编译与约束解码均在 C++；接口及支持边界见 [原生前端](native-frontend.md)。下文的 Python regex/token DFA 描述保留为参考实现；native 超限时不再自动回退到 Python。
+
 # 独立工具调用 grammar
 
 `needle2.grammar.ToolGrammar` 使用 `regex` 的 partial matching，在 `<tool_call>` 之后按照工具 schema 筛选每一个候选 token。候选按 logits 从大到小尝试；只有能延伸为合法 JSON 前缀的 token 可以输出。`<tool_call>` 之前保持原始贪心选择，完整 JSON 数组之后允许 `</tool_call>`。

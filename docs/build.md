@@ -1,7 +1,7 @@
 # 编译原生引擎
 
 OpenNeedle 的原生计算核心使用 **C++17 + OpenMP**，通过 C ABI 供 Python 调用。
-`pip install -e .` 或安装当前 wheel 会安装源码及 NumPy、regex；PyTorch 和 safetensors 改为 `.[torch]` 可选依赖，`.[test]` 包含测试所需的 PyTorch 依赖。默认在首次调用原生后端时编译，
+`pip install -e .` 或安装当前 wheel 会安装源码及 NumPy；PyTorch、safetensors 和 regex 是 `.[torch]` 可选依赖，`.[test]` 包含测试所需的 PyTorch 依赖。默认在首次调用原生后端时编译，
 后续进程复用缓存。纯 PyTorch 后端和模型转换不需要编译本项目的 C++ 内核。
 
 | 方式 | 适用场景 | 产物 |

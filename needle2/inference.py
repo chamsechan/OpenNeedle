@@ -81,7 +81,11 @@ class InferenceSession:
         archive_path = model_path if model_path.is_file() else model_path/'source.cact'
         self.archive = Archive.load(archive_path)
         self.model_sha256 = self.archive.sha256
-        self.tokenizer = RefTokenizer(parse_tokenizer_blob(self.archive.tensors['tokenizer'].blob))
+        if backend == 'native':
+            from .frontend import NativeTokenizer
+            self.tokenizer = NativeTokenizer(self.archive.tensors['tokenizer'].blob)
+        else:
+            self.tokenizer = RefTokenizer(parse_tokenizer_blob(self.archive.tensors['tokenizer'].blob))
         self.backend, self.threads = backend, threads
         self.quant_activations, self.prefill_backend = quant_activations, prefill_backend
         self.matmul, self.kv_cache = matmul, kv_cache
@@ -148,20 +152,21 @@ class InferenceSession:
         grammar=None
         grammar_dfa=None
         if tools is not None and constrain:
-            from .grammar import ToolGrammar, compile_tool_dfa, GrammarTooLarge
-            key = json.dumps(tools, ensure_ascii=False, separators=(',', ':'))
+            key = json.dumps(tools, ensure_ascii=False, allow_nan=False, separators=(',', ':'))
             if key != self._grammar_key:
-                new_grammar = ToolGrammar(tools, tokenizer)
-                new_dfa = None
                 if backend == 'native':
-                    try:
-                        new_dfa = compile_tool_dfa(tools, tokenizer)
-                    except GrammarTooLarge:
-                        pass  # Retain exact Python grammar constraints on fallback.
+                    from .frontend import CompiledGrammar
+                    new_grammar = CompiledGrammar(tokenizer, key)
+                    new_dfa = new_grammar
+                else:
+                    from .grammar import ToolGrammar
+                    new_grammar = ToolGrammar(tools, tokenizer)
+                    new_dfa = None
                 self._grammar, self._dfa = new_grammar, new_dfa
                 self._grammar_key = key
             grammar, grammar_dfa = self._grammar, self._dfa
-            grammar.reset()
+            if backend != 'native':
+                grammar.reset()
         prepare_s = time.perf_counter() - request_started
         restore_s = 0.0
         prefix_hit = False
@@ -214,34 +219,25 @@ class InferenceSession:
         if cap == 0:
             decode_wall = 0.0
         elif backend=='native' and (grammar_dfa is not None or grammar is None):
-            first_token=grammar.select(logits) if grammar is not None else int(np.argmax(logits))
             native_start = time.perf_counter()
-            output=engine.decode(first_token,max_new_tokens=cap,grammar_dfa=grammar_dfa)
+            output=engine.decode_from_logits(logits,max_new_tokens=cap,grammar=grammar_dfa)
             native_decode_s = time.perf_counter() - native_start
             decode_wall=time.perf_counter()-decode_started
             decode_steps=max(0,len(output)-1)
             decode_s=decode_wall
         else:
-            candidates = None
             for i in range(cap):
-                if candidates is not None:
-                    token = grammar.select_candidate(candidates, logits) if grammar is not None else int(np.argmax(logits))
-                else:
-                    token = grammar.select(logits) if grammar is not None else int(np.argmax(logits))
-                if grammar is not None:grammar.accept(token)
+                token = grammar.select(logits) if grammar is not None else int(np.argmax(logits))
+                if grammar is not None:
+                    grammar.accept(token)
                 output.append(token)
-                if token in (1,5) or (grammar is not None and grammar.finished) or i==cap-1: break
-                candidates = grammar.candidate_tokens() if (grammar is not None and backend == 'native') else None
-                start=time.perf_counter()
-                if candidates is not None and len(candidates) == 1:
-                    engine.step(token, compute_logits=False)
-                    logits = np.array([0.0], dtype=np.float32)
-                elif candidates is not None:
-                    logits = engine.step_candidates(token, candidates)
-                else:
-                    logits = consume([token])
-                decode_s+=time.perf_counter()-start; decode_steps+=1
-            decode_wall=time.perf_counter()-decode_started
+                if token in (1, 5) or (grammar is not None and grammar.finished) or i == cap-1:
+                    break
+                start = time.perf_counter()
+                logits = consume([token])
+                decode_s += time.perf_counter()-start
+                decode_steps += 1
+            decode_wall = time.perf_counter()-decode_started
         parse_started = time.perf_counter()
         decoded=tokenizer.decode(output)
         result=parse_response(decoded) if tools is not None else dict(text=decoded)
@@ -258,7 +254,9 @@ class InferenceSession:
                       retrieval_enabled=retrieval_performed,
                       retrieved_tools=[t['name'] for t in tools] if (retrieval_performed and tools is not None) else None,
                       prefix_tokens=prefix_len,prefill_backend=prefill_backend if backend=='native' else 'torch')
-        result.update(prepare_seconds=prepare_s, prefix_restore_seconds=restore_s,
+        result.update(tokenizer_backend='cpp' if backend == 'native' else 'python',
+                      grammar_compiler='cpp' if grammar_dfa is not None else 'python' if grammar is not None else None,
+                      prepare_seconds=prepare_s, prefix_restore_seconds=restore_s,
                       prefix_cache_hit=prefix_hit, prefill_tokens=prefill_tokens,
                       native_decode_call_seconds=native_decode_s,
                       parse_seconds=time.perf_counter()-parse_started)
