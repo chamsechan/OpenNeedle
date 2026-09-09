@@ -24,3 +24,13 @@ def test_public_prompt_and_parse():
     assert r['function_calls']==[{'name':'f','arguments':{}}]
     assert r['reasoning']=='reason'
     assert parse_response('<tool_call>{bad}</tool_call>')['parse_error']
+
+
+@pytest.mark.parametrize('dummy', [False, True])
+def test_special_token_boundary_can_be_encoded_without_second_dummy(dummy):
+    tok = RefTokenizer(dict(pieces=['?', '▁', 'a', 'b', 'ab', '</tools>'],
+                            scores=[0, 0, 0, 0, 1, 0], types=[1, 0, 0, 0, 0, 3],
+                            add_dummy_prefix=dummy, byte_fallback=False, unk_id=0))
+    prefix = 'ab ab</tools>'
+    for suffix in ['', 'ab', ' ab', '\n中文', '</tools>ab']:
+        assert tok.encode(prefix + suffix) == tok.encode(prefix) + tok.encode(suffix, add_dummy_prefix=False)

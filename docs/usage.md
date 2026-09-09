@@ -2,6 +2,8 @@
 
 本文介绍 Python 模型、训练、前缀复用、批量 prefill、probe heads 与可选参考验证。安装、双向转换和最小推理示例见[项目首页](../README.md)。所有命令均从项目根目录运行；Python 包和命令行模块仍名为 `needle2`。
 
+默认安装仅包含 native 推理依赖；使用本文的 PyTorch、转换或训练功能前运行 `python -m pip install -e '.[torch]'`。重复请求优先使用 [InferenceSession 常驻会话](python-runtime.md)，避免每次重建模型、tokenizer、grammar 和工具前缀。
+
 ## FP16 master 转换与量化导出
 
 微调可从官方 FP16 master 开始，使用匹配的部署文件提供模型结构与量化元数据：

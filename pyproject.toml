@@ -8,10 +8,11 @@ version = "0.1.0"
 description = "OpenNeedle: independent Needle 2 CQ archive conversion and PyTorch/CPU inference"
 license = {file = "LICENSE"}
 requires-python = ">=3.10"
-dependencies = ["numpy>=1.24", "torch>=2.2", "safetensors>=0.4", "regex>=2024.5.15"]
+dependencies = ["numpy>=1.24", "regex>=2024.5.15"]
 
 [project.optional-dependencies]
-test = ["pytest>=8", "sentencepiece"]
+torch = ["torch>=2.2", "safetensors>=0.4"]
+test = ["pytest>=8", "sentencepiece", "torch>=2.2", "safetensors>=0.4"]
 reference = ["jax", "flax", "sentencepiece"]
 
 [project.scripts]

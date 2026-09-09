@@ -1,0 +1,37 @@
+{
+  "baseline": "2664107",
+  "source_sha256": {
+    "needle2/inference.py": "582e2a93cc75413c0ee23ee42d82847b70d91cd1ecd5acc556e02f23f22dd5bb",
+    "needle2/grammar.py": "adedd1ed23cf6527e1d8f385c6ec72587074df50e851990478560852fcb9fbc9",
+    "needle2/tokenizer.py": "69d082d255d23e8be48751dce1a8aefa89fcfaeeb0430f071e5ee090b65b134f",
+    "pyproject.toml": "61a2f33acc955bfc33606869d0af0ae79f4bad3ae5121a9d3f92552440a9f35a",
+    "needle2/csrc/engine.cpp": "aa6ab45b8ee1371b44b6fb6108a0ae3287a3e57238f3a9b3c84b48b4cbaaa2cf"
+  },
+  "full_suite": "225 passed, 4 subtests passed before the Torch-prefill compatibility guard",
+  "final_targeted_suite": "15 passed including the new Torch-prefill compatibility test",
+  "minimal_install": "Fresh venv: default editable installation, no torch or safetensors; repeated real native tool call and prefix reuse passed",
+  "minimal_packages": [
+    {
+      "name": "needle2-open",
+      "version": "0.1.0",
+      "editable_project_location": "/home/ubuntu/project/needle2"
+    },
+    {
+      "name": "numpy",
+      "version": "2.5.3"
+    },
+    {
+      "name": "pip",
+      "version": "24.0"
+    },
+    {
+      "name": "regex",
+      "version": "2026.9.3"
+    }
+  ],
+  "request_validation": "19 cases x 3 measured pairs; old one-shot and current session tokens identical and expected calls matched; current one-shot also checked",
+  "report_sha256": {
+    "reports/session_benchmark.json": "9ff05f6cdf5db9ddf797f868c39302613744225e43b4b753d1cd48364b32249c",
+    "reports/session_benchmark_initial.json": "52e864928f1dca71eaaa2f916e15e25c15cc7face382f6b9f33091648a980016"
+  }
+}

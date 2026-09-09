@@ -180,9 +180,7 @@ class ToolGrammar:
         self.start_id = tokenizer.p2id.get("<tool_call>", 10)
         self.end_id = tokenizer.p2id.get("</tool_call>", 11)
         self.eos_id = 1
-        self.prefix = b""
-        self.active = False
-        self.finished = False
+        self.reset()
         self._pieces = []
         self._by_lead = [[] for _ in range(256)]
         for tok_id, (piece, kind) in enumerate(zip(tokenizer.pieces, tokenizer.types)):
@@ -197,6 +195,12 @@ class ToolGrammar:
                     self._by_lead[p[0]].append(tok_id)
             else:
                 self._pieces.append(None)
+
+    def reset(self):
+        """Start a new request while retaining compiled grammar and token tables."""
+        self.prefix = b""
+        self.active = False
+        self.finished = False
 
     @property
     def json_complete(self):

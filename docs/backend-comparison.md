@@ -1,5 +1,7 @@
 # CPU 性能与测量方法
 
+Python 完整入口新增了模型/grammar/前缀复用与分词缓存，测量边界及常驻会话结果见 [Python 运行时说明](python-runtime.md)。该结果包含初始化与 Python 准备工作，不能与下列解码 TPS 直接比较。
+
 最新固定 64 维 QK 优化在已含 mHC 优化的基线上，Basic decode TPS 455.36 → 473.15（+3.9%），Expanded 366.73 → 393.63（+7.3%）；请求耗时分别减少 5.0% 和 6.9%。见 [attention 实现与验证](attention-optimization.md)。两轮实验测量时间不同，不能直接叠加收益，也不能据此重算与官方的速度比。
 
 此前 mHC 投影优化的独立同轮对照见 [mHC 优化报告](mhc-optimization.md)：Expanded decode TPS 334.2 → 366.0（+9.5%），请求耗时 86.83 → 82.24 ms。

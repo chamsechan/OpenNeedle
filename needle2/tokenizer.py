@@ -69,11 +69,12 @@ class RefTokenizer:
                 ids.append(self.unk_id)
         return ids
 
-    def encode(self, text):
+    def encode(self, text, *, add_dummy_prefix=None):
+        """Encode text; disable the dummy prefix only after a special-token boundary."""
         if not text:
             return []
         esc = text.replace(" ", _SP_META_SPACE)
-        if self.add_dummy:
+        if (self.add_dummy if add_dummy_prefix is None else add_dummy_prefix):
             esc = _SP_META_SPACE + esc
         ids, buf, i, n = [], [], 0, len(esc)
         while i < n:
@@ -101,4 +102,3 @@ class RefTokenizer:
         if self.add_dummy and text.startswith(" "):
             text = text[1:]
         return text
-
