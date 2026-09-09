@@ -113,4 +113,4 @@ NEEDLE2_NATIVE_LIBRARY="$PWD/build/native/libneedle2_native.so" \
 
 Python 的自动构建路径使用当前所选编译器的 SDK，不另外注入 Command Line Tools 的 libc++ 头文件。使用 Apple Clang 时先安装 `brew install libomp`，供编译器查找 OpenMP 头文件。
 
-如果已安装的 PyTorch 包含 `torch/lib/libomp.dylib`，自动构建和 profiling 会链接这份运行库并记录其 rpath，使 PyTorch 与 OpenNeedle 共用 OpenMP。没有这份文件时使用环境或 Homebrew 的 libomp。不要通过允许重复 OpenMP 运行库的环境开关掩盖冲突。移动 Python 环境后应重新构建原生库。
+如果已安装的 PyTorch 包含 `torch/lib/libomp.dylib`，自动构建和 profiling 会链接这份运行库并记录其 rpath，使 PyTorch 与 OpenNeedle 共用 OpenMP。生成库中的 OpenMP 依赖会改写到实际安装位置，再进行 ad-hoc 签名，以兼容 wheel 中遗留的绝对 install ID；不会修改 PyTorch 自身的库。没有这份文件时使用环境或 Homebrew 的 libomp。不要通过允许重复 OpenMP 运行库的环境开关掩盖冲突。移动 Python 环境后应重新构建原生库。

@@ -62,13 +62,20 @@ def test_macos_uses_compiler_sdk_and_keeps_openmp(monkeypatch, tmp_path):
 
     def compile_stub(command, **kwargs):
         commands.append(command)
-        Path(command[command.index("-o") + 1]).write_bytes(b"compiled fixture")
-        return SimpleNamespace(returncode=0, stderr="")
+        if command[0] == "otool":
+            return SimpleNamespace(returncode=0, stderr="", stdout=command[-1]+"\n/opt/llvm-openmp/lib/libomp.dylib\n")
+        if "-o" in command:
+            Path(command[command.index("-o") + 1]).write_bytes(b"compiled fixture")
+        return SimpleNamespace(returncode=0, stderr="", stdout="")
 
     monkeypatch.setattr(native.subprocess, "run", compile_stub)
     result = native.build_native()
     assert result.suffix == ".dylib" and result.read_bytes() == b"compiled fixture"
-    command, = commands
+    command = commands[0]
+    assert [c[0] for c in commands[1:]] == ["otool", "install_name_tool", "codesign"]
+    assert commands[2][1:3] == ["-change", "/opt/llvm-openmp/lib/libomp.dylib"]
+    assert commands[2][-1] == command[command.index("-o") + 1]
+    assert commands[3][-1] == commands[2][-1]
     assert not any("CommandLineTools/SDKs" in arg or arg.startswith("-isystem") for arg in command)
     assert "-Xpreprocessor" in command and "-fopenmp" in command
     assert f"-I{tmp_path / 'include'}" in command and "-lomp" in command
@@ -96,3 +103,19 @@ def test_macos_reuses_torch_openmp_runtime(monkeypatch, tmp_path):
     # A PyTorch distribution without bundled libomp still uses the installed runtime.
     runtime.unlink()
     assert f"-L{tmp_path / 'lib'}" in native._darwin_openmp_flags()
+
+
+def test_macos_link_rewrite_failure_does_not_sign(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+    runtime = tmp_path / "libomp.dylib"
+    runtime.touch()
+    commands = []
+    def run(command, **kwargs):
+        commands.append(command)
+        if command[0] == "otool":
+            return SimpleNamespace(returncode=0, stderr="", stdout=str(runtime)+"\n@rpath/libomp.dylib\n")
+        return SimpleNamespace(returncode=1, stderr="cannot rewrite library")
+    monkeypatch.setattr(native.subprocess, "run", run)
+    with pytest.raises(RuntimeError, match="cannot rewrite"):
+        native._darwin_fix_openmp_link(tmp_path / "output.dylib", [f"-L{tmp_path}"])
+    assert [c[0] for c in commands] == ["otool", "install_name_tool"]

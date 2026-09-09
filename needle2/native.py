@@ -42,8 +42,34 @@ def _darwin_openmp_flags() -> list[str]:
             if torch_lib is not None and (torch_lib / "libomp.dylib").is_file():
                 lib = torch_lib
             return ["-Xpreprocessor", "-fopenmp", f"-I{inc}", f"-L{lib}",
-                    "-lomp", f"-Wl,-rpath,{lib}"]
+                    "-lomp", f"-Wl,-rpath,{lib}", "-Wl,-headerpad_max_install_names"]
     return ["-fopenmp"]
+
+
+def _darwin_fix_openmp_link(target: Path, flags: list[str]) -> None:
+    """Normalize a wheel runtime's possibly non-relocatable Mach-O install ID.
+
+    Only modify our generated library, never the PyTorch/Homebrew runtime.
+    ARM64 Mach-O requires a fresh ad-hoc signature after changing load commands.
+    """
+    directory = next((Path(flag[2:]) for flag in flags if flag.startswith("-L")), None)
+    if directory is None or not (directory / "libomp.dylib").is_file():
+        return
+    runtime = (directory / "libomp.dylib").absolute()
+
+    def run(command):
+        result = subprocess.run(command, capture_output=True, text=True)
+        if result.returncode:
+            raise RuntimeError(f"macOS OpenMP linkage failed ({command[0]}):\n{result.stderr}")
+        return result.stdout
+
+    lines = run(["otool", "-D", str(runtime)]).splitlines()
+    if len(lines) < 2 or not lines[1].strip():
+        raise RuntimeError("macOS OpenMP runtime has no Mach-O install ID")
+    install_id = lines[1].strip()
+    if install_id != str(runtime):
+        run(["install_name_tool", "-change", install_id, str(runtime), str(target)])
+        run(["codesign", "--force", "--sign", "-", str(target)])
 
 
 @functools.lru_cache(maxsize=1)
@@ -87,6 +113,8 @@ def build_native() -> Path:
                 ) from exc
             if result.returncode:
                 raise RuntimeError(f"Native CQ compilation failed:\n{result.stderr}")
+            if platform.system() == "Darwin":
+                _darwin_fix_openmp_link(Path(temporary), flags)
             os.replace(temporary, target)
         finally:
             Path(temporary).unlink(missing_ok=True)

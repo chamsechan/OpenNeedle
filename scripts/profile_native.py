@@ -296,6 +296,9 @@ extern "C" void needle2_profile_reset() {
         str(dest / 'cq.cpp'), '-o', str(libpath)
     ]
     subprocess.run(compile_cmd, check=True)
+    if platform.system() == 'Darwin':
+        from needle2.native import _darwin_fix_openmp_link
+        _darwin_fix_openmp_link(libpath, flags)
 
     import numpy as np
     import needle2.native as native
