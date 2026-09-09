@@ -6,7 +6,7 @@
   <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-static-dark.svg">
   <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/openeedle-hero-static.svg">
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-dark.svg">
-  <img src="docs/assets/openeedle-hero-light.svg" width="1200" alt="OpenNeedle packed CPU inference. Expanded decode throughput: official 493.70 token/s (earlier run), OpenNeedle SDOT + INT8 KV 327.40 token/s. Timing definitions differ.">
+  <img src="docs/assets/openeedle-hero-light.svg" width="1200" alt="OpenNeedle packed CPU inference. Expanded decode throughput: official 493.70 token/s (earlier run), OpenNeedle SDOT + INT8 KV 402.38 token/s. Timing definitions differ.">
 </picture>
 
 **Open-source CPU inference engine and PyTorch toolchain for Needle 2.**
@@ -17,19 +17,20 @@ Supports direct inference on CQ2/CQ4 compressed weights, bidirectional PyTorch c
 
 ## Current Performance
 
-4-core ARM Neoverse-N1, 4 threads, **SDOT + INT8 KV**, same official release weights. Values are medians; basic and expanded suites contain 3 and 16 distinct requests.
+4-core ARM Neoverse-N1, 4 threads, **SDOT + INT8 KV**, official release weights, C++ tokenizer and grammar compiler. Latest recorded native results use 5 repeats per case across 3 basic and 16 expanded requests, with a persistent `InferenceSession` and warm tool-prefix/grammar caches.
 
-| Metric | Official 2.0.4¹ | OpenNeedle | OpenNeedle relative to official |
-|---|---:|---:|---|
-| Basic warm request compute | 45.1 ms | **60.3 ms** | 33.6% more time |
-| Expanded warm request compute | 439.1 ms | **87.4 ms** | 80.1% less time |
-| Expanded query prefill | Not exposed | **32.3 ms** | Not directly comparable |
-| Expanded decode throughput | 493.7 token/s | **327.4 token/s** | 33.7% lower throughput |
-| Tool-call quality | 13/15 (86.7%) | 13/15 (86.7%) | Same score on this sample |
+| Metric (median) | Basic | Expanded |
+|---|---:|---:|
+| Full warm request wall time | **62.86 ms** | **76.70 ms** |
+| Query prefill | **23.61 ms** | **29.92 ms** |
+| Decode throughput | **488.16 token/s** | **402.38 token/s** |
+| Request preparation | **0.21 ms** | **0.26 ms** |
 
-¹ Official measurements are from an earlier run on the same host (5 repeats/case); OpenNeedle measurements use 9 repeats/case. **They are not from a single interleaved official/native run.** Official TPS is self-reported, with different internal work and timing boundaries. Lower expanded request time does not establish a faster decoder kernel. Warm compute excludes model/prefix/DFA initialization; native query tokenization and final parsing are also outside the timer. See [Methodology, raw samples and reproduction](docs/backend-comparison.md).
+The earlier official 2.0.4 run reported **493.70 token/s** for expanded decode; the latest native measurement is numerically **81.5%** of that value. **These are not an interleaved official/native comparison, and timing definitions differ.** Official TPS is self-reported; this ratio does not establish relative kernel speed. Native full warm request wall time includes preparation, prefix restoration, query prefill, decode and result parsing, but excludes session/model initialization and first grammar/prefix construction. Columns are independent medians.
 
-**FP32 remains the default. SDOT and INT8 KV are optional approximations.** All four native configurations retain expected quality outputs and pass the test suite (**194 tests + 4 subtests**). This does not mean the four configurations, or the official logits, are identical. Full BFCL has not been evaluated. See [validation](docs/results.md) and [grammar coverage](docs/grammar.md).
+Source: [latest raw samples](reports/frontend_benchmark.json), [frontend implementation and benchmark](docs/native-frontend.md), and [measurement methodology / historical official baseline](docs/backend-comparison.md). First-request preparation was 21.50 ms (basic) and 97.80 ms (expanded), each a single observation in an initialized session, not a cold model-load measurement.
+
+**FP32 remains the default. SDOT and INT8 KV are optional approximations.** All 19 benchmark cases produced the expected calls, with identical token sequences before and after the C++ frontend migration. The frontend regression run passed **248 tests + 4 subtests**. This does not establish equality with official logits or full BFCL quality. Historical quality results and supported schema limits are in [validation](docs/results.md) and [grammar coverage](docs/grammar.md).
 
 <a id="快速开始"></a>
 ## Quickstart
@@ -90,11 +91,11 @@ See the [Usage Guide](docs/usage.md) for FP16 master conversion, Python API, and
 
 The C++ engine shares one Hadamard input transform across Q/K/V/gate projections, reads packed CQ weights directly, and uses NEON FMA or optional SDOT integer dot products. SDOT computes four output rows together to reuse activation loads; ordinary matrix operations with fewer than 128 output rows run serially. Weights retain their packed row layout. KV defaults to FP32, with an optional INT8 cache that stores per-head scales and adds quantization error.
 
-Fixed tool prefixes can be reused through the [NativeEngine prefix-cache API](docs/native-engine.md#固定-tools-前缀复用). Native tool decoding compiles schema and UTF-8 constraints into a token DFA, projects only candidate rows, and skips the LM head for a single candidate. Large grammars fall back to the Python schema gate. The four-row kernel is checked against single-row SDOT arithmetic across CQ2/CQ4, padding, tail rows, and 1/2/4 threads.
+Fixed tool prefixes can be reused through the [NativeEngine prefix-cache API](docs/native-engine.md#固定-tools-前缀复用). Native tool decoding compiles schema and UTF-8 constraints into a token DFA, projects only candidate rows, and skips the LM head for a single candidate. Unsupported schemas or grammars exceeding native compilation limits return an error; there is no Python fallback in the native session path. The four-row kernel is checked against single-row SDOT arithmetic across CQ2/CQ4, padding, tail rows, and 1/2/4 threads.
 
 The C++ engine validates an immutable DFA once and reuses it across requests, while retaining vocabulary and raw C ABI checks. Attention reuses GQA work lists and KV slot mappings, accumulating V in 32-dimension NEON register tiles. Batched SDOT prefill shares packed-weight decoding between adjacent tokens and computes RoPE trigonometry once per chunk for all layers. These implementations preserve existing quantization and per-dimension accumulation order; [implementation details](docs/native-engine.md#prefill-与-attention-数据复用).
 
-Dense mHC decode projections now share input loads between pairs of rows and use one thread-pool dispatch. ARM64 INT8-KV attention specializes the 64-dimensional paired QK path while keeping FP32 queries and the original reduction order. Separate request benchmarks and numerical validation are documented in the [mHC report](docs/mhc-optimization.md) and [attention report](docs/attention-optimization.md); these measurements do not update the historical official-engine comparison above.
+Dense mHC decode projections now share input loads between pairs of rows and use one thread-pool dispatch. ARM64 INT8-KV attention specializes the 64-dimensional paired QK path while keeping FP32 queries and the original reduction order. Separate request benchmarks and numerical validation are documented in the [mHC report](docs/mhc-optimization.md) and [attention report](docs/attention-optimization.md); these separate optimization experiments should not be combined into a cumulative speedup estimate.
 
 Model architecture and quantization follow pinned [Needle source](https://github.com/cactus-compute/needle/tree/53df049c4a1a82fca1027b81f9ff21336dfb0861) and [release weights](https://huggingface.co/Cactus-Compute/needle2/tree/32e9e3a93b205f786929697446ae669cf0a84579). See the [Technical Reference](docs/research.md) for the architecture, CQ format, Arm intrinsics and Cactus kernel references; see the [Native Engine](docs/native-engine.md) for execution details and numerical limits.
 

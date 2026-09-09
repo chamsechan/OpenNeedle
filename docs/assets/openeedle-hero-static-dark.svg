@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500" role="img" aria-labelledby="title desc">
 <title id="title">OpenNeedle — packed CPU inference and measured decode throughput</title>
-<desc id="desc">Conceptual packed projection data flow. Expanded suite on a 4-core ARM Neoverse-N1 CPU: official 493.70, OpenNeedle SDOT plus INT8 KV 327.40 tokens per second. Sixteen queries, nine repeats for OpenNeedle; official is from an earlier five-repeat run. Timing definitions differ; SDOT and INT8 KV add quantization error. Motion is illustrative.</desc>
-<metadata>{&quot;source&quot;: &quot;reports/performance_f4f9b38.json&quot;, &quot;sha256&quot;: &quot;d7ba51de298a6e3a697bf0a1a08e25bd00e4790d7abd2162b1c82cbb8a058718&quot;, &quot;theme&quot;: &quot;dark&quot;, &quot;static&quot;: true}</metadata>
+<desc id="desc">Conceptual packed projection data flow. Expanded suite on a 4-core ARM Neoverse-N1 CPU: official 493.70, OpenNeedle SDOT plus INT8 KV 402.38 tokens per second. Sixteen queries, five repeats for OpenNeedle; official is from an earlier five-repeat run. Timing definitions differ; SDOT and INT8 KV add quantization error. Motion is illustrative.</desc>
+<metadata>{&quot;source&quot;: &quot;reports/frontend_benchmark.json&quot;, &quot;sha256&quot;: &quot;7d5fa8f44dd4b7c1ea45020120f709cb156fb88a612b39849c8afde836316f02&quot;, &quot;official_source&quot;: &quot;reports/performance_f4f9b38.json&quot;, &quot;official_sha256&quot;: &quot;d7ba51de298a6e3a697bf0a1a08e25bd00e4790d7abd2162b1c82cbb8a058718&quot;, &quot;theme&quot;: &quot;dark&quot;, &quot;static&quot;: true}</metadata>
 <style>text{font-family:Inter,"Segoe UI",Arial,sans-serif}.mono{font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace}.overline{letter-spacing:2.2px}.flow{stroke-dasharray:5 18;stroke-linecap:round;animation:travel 2.6s linear infinite}.phase2{animation-delay:-1.3s}.phase3{animation-duration:1.8s}.spark{animation:shimmer 3.4s ease-in-out infinite}.spark2{animation-delay:-1.7s}@keyframes travel{to{stroke-dashoffset:-92}}@keyframes shimmer{0%,100%{opacity:.38}50%{opacity:1}}@media(prefers-reduced-motion:reduce){.flow,.spark{animation:none!important}.flow{stroke-dasharray:5 18;opacity:.7}}.flow,.spark{animation:none!important}</style>
 <defs><pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".7" fill="#294e3c"/></pattern></defs>
 <rect x="0.5" y="0.5" width="1199" height="499" rx="20" fill="#0c1815" stroke="#294437" />
@@ -109,13 +109,13 @@
 <rect x="751" y="180" width="394" height="5" rx="2" fill="#20382c" />
 <rect x="751" y="180" width="394.0" height="5" rx="2" fill="#a8b9ae" data-backend="official" data-value="493.7"/>
 <text x="751" y="265" fill="#edf6ef" font-size="14" font-weight="550" >OpenNeedle (SDOT + INT8 KV)*</text>
-<text x="1145" y="267" fill="#7cebb7" font-size="25" font-weight="600" text-anchor="end" class="mono" letter-spacing="-.8">327.40</text>
+<text x="1145" y="267" fill="#7cebb7" font-size="25" font-weight="600" text-anchor="end" class="mono" letter-spacing="-.8">402.38</text>
 <rect x="751" y="280" width="394" height="5" rx="2" fill="#20382c" />
-<rect x="751" y="280" width="261.281" height="5" rx="2" fill="#7cebb7" data-backend="optimized" data-value="327.397228376"/>
+<rect x="751" y="280" width="321.12" height="5" rx="2" fill="#7cebb7" data-backend="optimized" data-value="402.378506834"/>
 <path d="M751 365H1145" fill="none" stroke="#294437" stroke-width="1" />
-<text x="751" y="415" fill="#7cebb7" font-size="36" font-weight="600" letter-spacing="-1.5">66%</text>
+<text x="751" y="415" fill="#7cebb7" font-size="36" font-weight="600" letter-spacing="-1.5">82%</text>
 <text x="855" y="403" fill="#edf6ef" font-size="14" font-weight="500" >Decode throughput vs official</text>
-<text x="855" y="425" fill="#a3b8ac" font-size="10.5" font-weight="400" >327.4 vs 493.7 token/s · 4-core ARM</text>
+<text x="855" y="425" fill="#a3b8ac" font-size="10.5" font-weight="400" >402.4 vs 493.7 token/s · 4-core ARM</text>
 <text x="751" y="458" fill="#a3b8ac" font-size="11" font-weight="400" >* SDOT + INT8 KV. † Earlier run; timing definitions differ.</text>
-<text x="751" y="476" fill="#a3b8ac" font-size="10" font-weight="400" >16 queries · native 9 repeats · official 5 (self-reported TPS)</text>
+<text x="751" y="476" fill="#a3b8ac" font-size="10" font-weight="400" >16 queries · native 5 repeats · official 5 (self-reported TPS)</text>
 </svg>

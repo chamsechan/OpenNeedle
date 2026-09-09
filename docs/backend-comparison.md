@@ -1,8 +1,26 @@
 # CPU 性能与测量方法
 
+## 最新 C++ 前端结果
+
+README 和 SVG 使用 [frontend_benchmark.json](../reports/frontend_benchmark.json) 的 `cpp` 热请求样本：4 核 ARM Neoverse-N1、4 线程、SDOT＋INT8 KV，Basic 3 例、Expanded 16 例，每例 5 次。复现：`python scripts/benchmark_frontend.py`（与旧 Python 前端交错，双方使用相同的当前神经网络引擎；不会重测官方）。
+
+| 中位数 | Basic | Expanded |
+|---|---:|---:|
+| 完整热请求墙钟 ms | 62.86 | 76.70 |
+| Query prefill ms | 23.61 | 29.92 |
+| Decode token/s | 488.16 | 402.38 |
+| Prepare ms | 0.21 | 0.26 |
+
+完整热请求取各行 `outputs.cpp.wall_ms` 的中位数；其余指标取 `outputs.cpp.result` 对应字段的中位数，秒转换为毫秒。完整请求包含准备、前缀恢复和解析，不包含会话初始化及首次 grammar/前缀构建，因此与下方历史“请求计算”口径不同。各项独立取中位数，不能直接相加。
+
+SVG 的官方 493.70 token/s 仍来自下方历史官方记录，未重新测量。402.38 / 493.70 ≈ 81.5% 仅为跨轮、不同计时边界下的数值比例，不是同口径内核速度比。更多首次准备和兼容性细节见 [原生前端说明](native-frontend.md)。
+
+## 历史优化与官方对照
+
+
 Python 完整入口新增了模型/grammar/前缀复用与分词缓存，测量边界及常驻会话结果见 [Python 运行时说明](python-runtime.md)。该结果包含初始化与 Python 准备工作，不能与下列解码 TPS 直接比较。
 
-最新固定 64 维 QK 优化在已含 mHC 优化的基线上，Basic decode TPS 455.36 → 473.15（+3.9%），Expanded 366.73 → 393.63（+7.3%）；请求耗时分别减少 5.0% 和 6.9%。见 [attention 实现与验证](attention-optimization.md)。两轮实验测量时间不同，不能直接叠加收益，也不能据此重算与官方的速度比。
+此前固定 64 维 QK 优化在已含 mHC 优化的基线上，Basic decode TPS 455.36 → 473.15（+3.9%），Expanded 366.73 → 393.63（+7.3%）；请求耗时分别减少 5.0% 和 6.9%。见 [attention 实现与验证](attention-optimization.md)。两轮实验测量时间不同，不能直接叠加收益，也不能据此重算与官方的速度比。
 
 此前 mHC 投影优化的独立同轮对照见 [mHC 优化报告](mhc-optimization.md)：Expanded decode TPS 334.2 → 366.0（+9.5%），请求耗时 86.83 → 82.24 ms。
 
