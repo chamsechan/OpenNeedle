@@ -1,8 +1,58 @@
-# OpenNeedle 高级使用手册
+# 使用指南
 
-本文介绍 Python 模型、训练、前缀复用、批量 prefill、probe heads 与可选参考验证。安装、双向转换和最小推理示例见[项目首页](../README.md)。所有命令均从项目根目录运行；Python 包和命令行模块仍名为 `needle2`。
+安装和最小推理示例见[项目首页](../README_zh.md)。所有命令从仓库根目录运行，Python 包及命令仍名为 `needle2`。默认 native 依赖仅为 NumPy；转换、PyTorch 推理、微调和 QAT 需要 `python -m pip install -e '.[torch]'`。
 
-默认安装仅包含 native 推理依赖；使用本文的 PyTorch、转换或训练功能前运行 `python -m pip install -e '.[torch]'`。重复请求优先使用 [InferenceSession 常驻会话](python-runtime.md)，避免每次重建模型、tokenizer、grammar 和工具前缀。
+## 持续服务入口
+
+```python
+import json
+from pathlib import Path
+from needle2.inference import InferenceSession
+
+session = InferenceSession(
+    'artifacts/official/needle2.cact', threads=4,
+    matmul='sdot', kv_cache='int8',
+)
+tools = json.loads(Path('examples/tools.json').read_text())
+first = session.generate('Turn on the kitchen light.', tools=tools)
+second = session.generate('Set a timer for 5 minutes.', tools=tools)
+print(second['function_calls'], second['prefix_cache_hit'])
+print(session.setup_seconds, second['request_seconds'])
+```
+
+模型、tokenizer 和引擎在构造时建立。会话只保留最近一组工具的 grammar/DFA 和一个原生前缀快照，避免随请求数增长的会话级缓存。原生 grammar 是可复用的不可变状态表，每次 decode 使用独立状态游标；Python 参考编译器的最多 8 项全局 LRU 不参与 native 路径。
+
+当 system/tools 的前缀 token 相同，恢复快照后只 prefill query 后缀；变化时重建前缀。不带 tools 的请求重置完整状态，不复用之前的工具前缀。每个请求都是独立的单轮输入，不自动积累对话历史。固定工具前缀的分词结果也复用：仅在 `</tools>` 是独立特殊 token、且不被其它特殊 token 包含时分段；该边界会结束 BPE 段，后缀编码显式关闭额外 dummy prefix。其它 tokenizer 形状回退为整段分词。KV 缓存匹配仍以实际前缀 token 为准。模型 SHA-256 在会话初始化时计算一次，不再为每个响应重新哈希模型。
+
+同一会话的请求用锁串行执行；并发流应使用独立会话。不要在请求执行期间直接修改其底层 engine 或配置属性。异常不会将失败请求的生成状态带入下一次请求，下一次仍先重置/恢复缓存。会话保留模型及一个前缀快照占用的内存，使用结束后释放会话引用即可。
+
+模块级 `generate(model_path, prompt, ...)` 保留原参数，创建临时会话并调用相同实现；CLI 继续使用它。常驻服务应显式保存会话，而不是重复调用这个单次入口。PyTorch 后端也可复用模型，但目前每次建立自己的请求 cache，不复用工具前缀。native 引擎选择 `prefill_backend="torch"` 时同样每次从空 cache 做完整 prefill，再导入 native cache；只复用模型、分词和 grammar，避免破坏 Torch prefill 的位置要求。检索功能仍走原来的工具排序接口，检索 encoder/未提供的工具 embedding 暂未增加跨请求缓存。
+
+## 计时含义
+
+| 字段 | 范围 |
+|---|---|
+| `session.setup_seconds` | 归档、tokenizer、引擎/模型初始化，可能包含首次原生库编译 |
+| `request_seconds` | 会话取得锁后到响应构造完成，含 Python 准备及解析，不含排队等待或会话初始化 |
+| `prepare_seconds` | 提示词、分词、检索、grammar 准备与重置 |
+| `prefix_restore_seconds` | native 重置或恢复前缀 |
+| `prefill_seconds` | 本次实际前向的 token；首次包括工具前缀，命中时仅后缀 |
+| `native_decode_call_seconds` | `engine.decode_from_logits()` 的调用墙钟时间，包含 Python 包装、FFI 与输出复制，不是纯 C++ 内核计时；PyTorch 路径为 null |
+| `decode_seconds` | 包含首 token 选择的整个解码阶段（native 中首 token 也由 C++ 选择） |
+| `parse_seconds` | token 解码、响应解析及结果字段构造 |
+| 单次入口的 `setup_seconds` / `total_seconds` | 临时会话初始化 / 整个单次函数耗时 |
+
+`prefill_tokens` 是实际处理数，`prompt_tokens` 是完整输入数；命中缓存后不能用完整 prompt token 数计算 prefill TPS。已有 `decode_tokens_per_second` 仍以生成 token 数减一除以 decode 时间。零生成长度返回空 token 列表，不调用解码循环。
+
+## 模型转换
+
+```bash
+python -m needle2 to-torch artifacts/official/needle2.cact artifacts/pytorch
+python -m needle2 quantize artifacts/pytorch artifacts/roundtrip.cact
+python -m needle2 inspect artifacts/roundtrip.cact
+```
+
+保留转换目录中的 `weights.safetensors`、`config.json` 和 `source.cact`。未修改张量保留原始压缩字节，修改后的张量重新量化；支持相同 Needle 2 架构。
 
 ## FP16 master 转换与量化导出
 
@@ -16,8 +66,7 @@ python -m needle2 quantize artifacts/pytorch_master artifacts/from_master.cact
 
 转换目录中的 `weights.safetensors`、`config.json` 和 `source.cact` 应一并保留。
 部署 `.cact` 反量化后的数值保留原有量化误差；FP16 master 入口用于保留发布的
-浮点权重精度。也可使用独立脚本 [convert_to_pytorch.py](../scripts/convert_to_pytorch.py)
-与 [quantize_to_cact.py](../scripts/quantize_to_cact.py)。
+浮点权重精度。转换统一使用 `python -m needle2 to-torch` 和 `quantize`。
 
 ## 加载、增量推理与保存 PyTorch 模型
 
@@ -51,7 +100,7 @@ with torch.inference_mode():
 print(logits.shape, cache.position)
 ```
 
-`NeedleCache` 保存各层 KV、绝对位置、滑动窗口及 Engram 短历史。批量输入可传 `attention_mask`；固定前缀可传 `sink_mask`，形状为 `[batch, current_time]` 或 `[batch, total_time]`。底层 `model.generate()` 是 greedy token 生成，工具 schema 约束由上层推理接口提供，详见 [grammar 说明](grammar.md)。
+`NeedleCache` 保存各层 KV、绝对位置、滑动窗口及 Engram 短历史。批量输入可传 `attention_mask`；固定前缀可传 `sink_mask`，形状为 `[batch, current_time]` 或 `[batch, total_time]`。底层 `model.generate()` 是 greedy token 生成，工具 schema 约束由上层推理接口提供，详见 [grammar 说明](architecture.md)。
 
 `save_torch_weights()` 更新一个**已有 canonical checkpoint 目录**中的权重，保留其 `config.json` 和 `source.cact`。保存到新目录前应先复制 checkpoint；它不是创建任意空目录的通用 `save_pretrained()`。以下片段沿用上面的 `model`、`checkpoint`：
 
@@ -195,7 +244,7 @@ for ids in requests:
 
 快照保存 prefix KV、token 历史和 Engram raw-v 环，恢复不重新执行前缀模型计算。任何 `reset()` 都会使快照失效，包括设置相同 `prefix_len`；当前 `generate()` 内部也调用 `reset()`，因此复用快照时使用上述 `prefill()` / `step()` 组合。同一个实例不能并发处理多个请求。
 
-快照在运行时缓存之外增加约 `2 × layers × prefix_len × kv_heads × head_dim × 4` 字节的 KV 内存。当前模型约为 54 KiB/token；190-token 前缀约增加 10 MiB，再加约 40 KiB Engram 环和少量历史数据。恢复包含内存复制，应用测速应计入这一耗时。完整状态规则见[原生引擎说明](native-engine.md)。
+快照在运行时缓存之外增加约 `2 × layers × prefix_len × kv_heads × head_dim × 4` 字节的 KV 内存。当前模型约为 54 KiB/token；190-token 前缀约增加 10 MiB，再加约 40 KiB Engram 环和少量历史数据。恢复包含内存复制，应用测速应计入这一耗时。完整状态规则见[原生引擎说明](architecture.md)。
 
 ## PyTorch 批量 prefill 与 native decode
 
@@ -228,7 +277,7 @@ engine.release_prefill_model()
 
 此例展示 prefill 和 decode 的衔接；完整工具生成可接入上一节的 `ToolGrammar` 循环。PyTorch prefill 只接受 `reset()` 后的初始 prompt，并保留一份约 175 MB 的 FP32 权重供后续请求复用。`release_prefill_model()` 释放这份引用，已导入的 native 状态仍可继续使用；下次调用 PyTorch prefill 会重新加载。
 
-可显式设置 `NativeEngine(..., matmul="sdot")` 使用 ARM DotProd 近似 decode，但其 PyTorch prefill 仍为 FP32。SDOT 会额外舍入旋转后的激活及 centroid，不能与 `activation_bits=8` 组合。能力检测、精度边界及内存说明见[原生引擎说明](native-engine.md)，线程选择见[同轮后端对比](backend-comparison.md)。
+可显式设置 `NativeEngine(..., matmul="sdot")` 使用 ARM DotProd 近似 decode，但其 PyTorch prefill 仍为 FP32。SDOT 会额外舍入旋转后的激活及 centroid，不能与 `activation_bits=8` 组合。能力检测、精度边界及内存说明见[原生引擎说明](architecture.md)，线程选择见[同轮后端对比](benchmark.md)。
 
 ## Retrieval 与 confidence probe heads
 
@@ -280,7 +329,7 @@ print(embedding.shape, confidence_logit)
 python -m pip install -e '.[reference,test]'
 ```
 
-当前工作区已包含锁定的 `third_party/needle`。若在新环境中没有该源码，可在一个新目录检出相同 commit，再通过 `--upstream` 指定路径：
+上游源码不随仓库分发。在新目录检出固定 commit，再通过 `--upstream` 指定路径：
 
 ```bash
 git clone --filter=blob:none https://github.com/cactus-compute/needle.git \
@@ -304,28 +353,4 @@ python scripts/validate.py --output artifacts/reports/reproduced/validation.json
 python scripts/validate_sdot.py --output artifacts/reports/reproduced/sdot_model_error.json
 ```
 
-SDOT 验证需要支持 DotProd 的 Linux ARM64 CPU，输出是近似误差诊断。与官方库的转换回归、工具质量和性能比较涉及显式加载官方二进制，应按各脚本 `--help` 选择模型、库路径和输出文件。协议与既有结果见[实测报告](results.md)和[同轮后端对比](backend-comparison.md)；技术依据见[技术参考](research.md)。
-
-## 当前工作区产物
-
-下列文件已在本次工作区生成。Git 源码包和 pip wheel 不包含这些大型模型文件；在新机器上仍需按[项目首页](../README.md)准备模型。
-
-| 路径 | 用途 |
-|---|---|
-| `artifacts/official/needle2.cact` | 锁定 Hugging Face revision 的官方发布模型 |
-| `artifacts/official/checkpoints/needle2.pkl` | 官方 FP16 master checkpoint |
-| `artifacts/official/config.json` | 官方模型配置 |
-| `artifacts/official/tokenizer/` | 官方 tokenizer 文件 |
-| `artifacts/official/LICENSE` | 官方模型许可 |
-| `artifacts/pytorch/weights.safetensors` | 从部署权重反量化得到的 FP32 PyTorch 参数 |
-| `artifacts/pytorch_master/weights.safetensors` | 从官方训练 checkpoint 转换得到的 FP32 master 参数 |
-| 两个 PyTorch 目录内的 `config.json`、`source.cact` | 导出所需的几何信息、来源指纹、码本、tokenizer 与原始部署数据 |
-| `artifacts/roundtrip.cact` | 未改动的 PyTorch 权重往返结果，与官方文件逐字节一致 |
-| `artifacts/from_master.cact` | 由 master 独立量化得到的官方兼容模型 |
-| `artifacts/official/linux-arm64/` | 已下载的官方命令行程序、头文件及静态库，仅作显式基线使用 |
-| `artifacts/official/python/` | 官方 Python wheel、共享库与对应来源记录，仅作显式基线使用 |
-| `artifacts/wheels/needle2_open-0.1.0-py3-none-any.whl` | 可安装包，包含原生引擎 C++ 源码 |
-| `artifacts/needle2-open-source.tar.gz` | 源码、脚本、测试、文档与报告归档，不含大型模型 |
-| `reports/` | 性能与验证总结；原始记录见 Git 历史 |
-
-模型 revision 为 `32e9e3a93b205f786929697446ae669cf0a84579`；源码依据为 `53df049c4a1a82fca1027b81f9ff21336dfb0861`。这些已有文件名沿用构建时的包名；项目展示名为 OpenNeedle。许可及来源归属见 [NOTICE](../NOTICE)。
+SDOT 验证需要支持 DotProd 的 Linux ARM64 CPU，输出是近似误差诊断。与官方库的转换回归、工具质量和性能比较涉及显式加载官方二进制，应按各脚本 `--help` 选择模型、库路径和输出文件。协议与既有结果见[实测报告](benchmark.md)和[同轮后端对比](benchmark.md)；技术依据见[技术参考](reference.md)。

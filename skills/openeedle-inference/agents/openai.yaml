@@ -1,4 +1,0 @@
-interface:
-  display_name: "OpenNeedle 推理"
-  short_description: "Set up and run OpenNeedle CPU inference"
-  default_prompt: "使用 $openeedle-inference 在当前项目跑通工具调用推理。"

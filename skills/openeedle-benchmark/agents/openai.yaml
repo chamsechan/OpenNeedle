@@ -1,4 +1,0 @@
-interface:
-  display_name: "OpenNeedle 性能对比"
-  short_description: "Compare official, native and PyTorch speed"
-  default_prompt: "使用 $openeedle-benchmark 对比当前机器上的推理速度和精度。"

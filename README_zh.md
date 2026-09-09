@@ -2,39 +2,13 @@
 
 [English](README.md) | **中文**
 
-<picture>
-  <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-static-dark.svg?v=1208e5cc0928">
-  <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/openeedle-hero-static.svg?v=ae7e6ff3a6de">
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-dark.svg?v=3e33026698da">
-  <img src="docs/assets/openeedle-hero-light.svg?v=b4e782a7d2aa" width="1200" alt="OpenNeedle 压缩 CPU 推理。扩展解码吞吐：官方 493.70 token/s（较早测量）、OpenNeedle SDOT＋INT8 KV 402.38 token/s。计时口径不同。">
-</picture>
+**面向 Needle 2 压缩权重的开源 C++ CPU 推理引擎。**
 
-**面向 Needle 2 的开源 CPU 推理引擎与 PyTorch 工具链。**
-
-支持 CQ2/CQ4 压缩权重直接推理、PyTorch 双向转换、微调与 QAT。独立 C++ 引擎提供 FP32 和 ARM SDOT 路径，支持前缀缓存与工具调用约束解码。
-
-[快速开始](#快速开始) · [模型转换](#模型转换) · [编译指南](docs/build.md) · [Agent Skills](#agent-skills) · [文档](#文档)
-
-## 当前性能
-
-4 核 ARM Neoverse-N1，4 线程，**SDOT＋INT8 KV**，官方发布权重，使用 C++ tokenizer 和 grammar 编译器。最新原生测速使用常驻 `InferenceSession`，工具前缀及 grammar 缓存已预热；基础和扩展集分别含 3、16 个独立请求，每例测量 5 次。
-
-| 指标（中位数） | 基础 | 扩展 |
-|---|---:|---:|
-| 完整热请求墙钟耗时 | **62.86 ms** | **76.70 ms** |
-| Query prefill | **23.61 ms** | **29.92 ms** |
-| 解码吞吐 | **488.16 token/s** | **402.38 token/s** |
-| 请求准备 | **0.21 ms** | **0.26 ms** |
-
-官方 2.0.4 较早一轮扩展解码自报 **493.70 token/s**，最新原生测量值在数值上为其 **81.5%**。**两者并非同轮交错测速，且计时口径不同**，这个比例不能证明内核的相对速度。原生完整热请求包括准备、前缀恢复、query prefill、decode 和结果解析，不含会话/模型初始化及首次 grammar/前缀构建。各列独立取中位数。
-
-数据来源：[测量总结](reports/README.md)、[C++ 前端实现与测速](docs/native-frontend.md)、[计时方法及历史官方基线](docs/backend-comparison.md)。基础与扩展的首次请求准备分别为 21.50 ms、97.80 ms，均为已初始化会话中的单次观测，不代表模型冷启动耗时。
-
-**默认仍为 FP32；SDOT 与 INT8 KV 均为可选近似模式。** 19 个测速用例全部调用正确，C++ 前端迁移前后 token 序列完全一致；前端回归测试通过 **248 项测试及 4 个子测试**。这不表示与官方 logits 相同，完整 BFCL 尚未评估。历史质量结果及 schema 支持边界见 [精度验证](docs/results.md) 与 [grammar 支持范围](docs/grammar.md)。
+核心位于 [`needle2/csrc/`](needle2/csrc/)，直接对 CQ2/CQ4 packed 权重计算，支持 FP32、可选 ARM SDOT、前缀缓存和工具调用约束解码。Tokenizer、schema 编译和解码循环在 C++ 中执行；Python 提供模型加载、会话、CLI 和可选的转换/训练工具。
 
 ## 快速开始
 
-需要 **Python ≥ 3.10、C++17 编译器及 OpenMP**；已实测 Linux ARM64。SDOT 额外要求 CPU 支持 DotProd。
+需要 Python ≥ 3.10、C++17 编译器和 OpenMP。默认安装仅依赖 NumPy；已实测 Linux ARM64。SDOT 额外要求 CPU 支持 DotProd，平台说明见[编译指南](docs/build.md)。
 
 ```bash
 git clone https://github.com/chamsechan/OpenNeedle.git
@@ -42,15 +16,11 @@ cd OpenNeedle
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e .
-
-# 下载固定版本的官方模型
 python scripts/download_official.py
 
-# 运行工具调用推理
 python -m needle2 run artifacts/official/needle2.cact \
   --tools examples/tools.json \
-  --prompt 'Turn on the kitchen light.' \
-  --backend native --threads 4
+  --prompt 'Turn on the kitchen light.' --threads 4
 ```
 
 输出中的 `function_calls`：
@@ -59,55 +29,56 @@ python -m needle2 run artifacts/official/needle2.cact \
 [{"name": "set_light", "arguments": {"room": "kitchen", "on": true}}]
 ```
 
-首次原生调用自动编译并缓存 C++ 内核，无需官方闭源库；可用 `python -m needle2 build-native` 提前编译。CMake 和预编译部署见 [编译指南](docs/build.md)。工具执行由应用接入。
+首次调用自动编译并缓存原生库，也可用 `python -m needle2 build-native` 提前编译。重复请求复用 `needle2.inference.InferenceSession`，用法见[使用指南](docs/usage.md#持续服务入口)。应用负责执行返回的工具调用。
 
-添加 `--matmul sdot --kv-cache int8` 使用性能表中的近似模式；省略这两个选项则使用默认 FP32。仅添加 `--matmul sdot` 会保留 FP32 KV；改用 `--backend torch` 运行 PyTorch 参考后端。线程数按目标 CPU 调整。
+默认使用 FP32。添加 `--matmul sdot --kv-cache int8` 可启用两项近似模式；它们会增加量化误差。原生 schema 编译不支持的约束或超出预算时明确报错，支持范围见[引擎架构](docs/architecture.md#grammar-编译和执行)。
 
-原生安装仅需 NumPy；PyTorch 后端、转换或训练需额外安装 `pip install -e '.[torch]'`。重复请求请复用 `needle2.inference.InferenceSession`；tokenizer BPE、工具 schema 编译和约束解码均在 C++ 中执行。详见 [会话用法与计时](docs/python-runtime.md) 和 [原生前端及官方兼容边界](docs/native-frontend.md)。
+## C++ 构建与接入
 
-## 模型转换
+Linux 下独立构建共享库：
 
 ```bash
-# 官方部署权重 → PyTorch FP32
+cmake -S . -B build/native -DCMAKE_BUILD_TYPE=Release
+cmake --build build/native --parallel 4
+export NEEDLE2_NATIVE_LIBRARY="$PWD/build/native/libneedle2_native.so"
+```
+
+Python 随后的调用加载该库。完整部署步骤见[编译指南](docs/build.md)，组件接口见 [`frontend.h`](needle2/csrc/frontend.h) 和 [C 示例](examples/native_frontend.c)。当前 C ABI 提供 tokenizer/grammar 组件，完整模型加载和请求仍通过 Python 会话协调。
+
+## 性能与验证
+
+以下为已发布测量：4 核 ARM Neoverse-N1、4 线程、SDOT＋INT8 KV；常驻会话预热后，每例测量 5 次。
+
+| 中位数 | Basic（3 个请求） | Expanded（16 个请求） |
+|---|---:|---:|
+| 完整热请求耗时 | 62.86 ms | 76.70 ms |
+| Decode 吞吐 | 488.16 token/s | 402.38 token/s |
+
+热请求不含模型初始化及首次 grammar/前缀构建；两行是不同计时范围。19 个用例调用正确，前端迁移前后完整 token 一致，不代表广泛真实请求准确率。完整 BFCL 尚未评估。数值误差、历史官方对照和复现方法集中在[基准与验证](docs/benchmark.md)。
+
+## 可选 Python 工具
+
+```bash
+python -m pip install -e '.[torch]'
 python -m needle2 to-torch artifacts/official/needle2.cact artifacts/pytorch
-
-# PyTorch → 官方兼容的 CQ2/CQ4 部署文件
 python -m needle2 quantize artifacts/pytorch artifacts/roundtrip.cact
-
-# 检查结构、位宽与哈希
 python -m needle2 inspect artifacts/roundtrip.cact
 ```
 
-转换目录中的 `weights.safetensors`、`config.json`、`source.cact` 应完整保留。未修改张量保留原始压缩字节，修改后的张量重新量化。转换器支持相同 Needle 2 架构。
+保留转换目录中的 `weights.safetensors`、`config.json` 和 `source.cact`；未修改张量保留原始压缩字节，修改后的张量重新量化。PyTorch 推理、微调、QAT 和检索接口见[使用指南](docs/usage.md)。
 
-FP16 master 转换、Python API 与微调/QAT 见 [使用指南](docs/usage.md)。
+## 项目结构
 
-## 实现与参考
-
-C++ 引擎在 Q/K/V/gate 投影间共享一次 Hadamard 输入变换，直接读取 packed CQ 权重，使用 NEON FMA 或可选 SDOT 整数点积。SDOT 同时计算四个输出行以复用激活加载；普通矩阵运算的输出行数少于 128 时串行执行。权重保持原有压缩行布局，KV 默认使用 FP32，可选按 head 保存尺度的 INT8 缓存；INT8 会引入额外量化误差。
-
-固定工具前缀通过 [NativeEngine 前缀缓存 API](docs/native-engine.md#固定-tools-前缀复用) 复用。native 工具解码将 schema 与 UTF-8 约束编译成 token DFA，只投影合法候选行，单候选时跳过 LM head；不支持的 schema 或超过原生编译限制的 grammar 会明确报错，原生会话路径不回退 Python。四行内核与单行 SDOT 的逐元素一致测试覆盖 CQ2/CQ4、padding、尾行及 1/2/4 线程。
-
-C++ 引擎在构造时完整验证不可变 DFA，后续请求复用验证结果，同时保留词表检查和原始 C ABI 检查。Attention 复用 GQA 工作列表、KV 槽位映射，并在 32 维 NEON 寄存器分块中累加 V。SDOT prefill 让相邻 token 共享权重解包，每块的 RoPE 三角函数仅计算一次、供所有层复用。这些实现保持既有量化规则和逐维累加顺序；详见 [实现细节](docs/native-engine.md#prefill-与-attention-数据复用)。
-
-模型架构与量化依据固定版本的 [Needle 源码](https://github.com/cactus-compute/needle/tree/53df049c4a1a82fca1027b81f9ff21336dfb0861) 和 [发布权重](https://huggingface.co/Cactus-Compute/needle2/tree/32e9e3a93b205f786929697446ae669cf0a84579)。架构、CQ 格式、Arm 指令与 Cactus 内核参考见 [技术参考](docs/research.md)；执行细节和数值边界见 [原生引擎](docs/native-engine.md)。
-
-## Agent Skills
-
-提供 [安装推理](skills/openeedle-inference/SKILL.md)、[模型转换](skills/openeedle-convert/SKILL.md)、[微调/QAT](skills/openeedle-finetune/SKILL.md)、[性能对比](skills/openeedle-benchmark/SKILL.md) 四个 skills，安装与调用方式见 [Skills 指南](skills/README.md)。
-
-也可直接让助手执行：“读取 `skills/openeedle-inference/SKILL.md`，用我的工具 schema 跑通推理。”
-
-## 文档
-
-| 文档 | 内容 |
+| 路径 | 内容 |
 |---|---|
-| [使用指南](docs/usage.md) | 转换、Python API、训练/QAT 与前缀缓存 |
-| [编译指南](docs/build.md) | 自动编译、CMake 与预编译部署 |
-| [原生引擎](docs/native-engine.md) | 内核布局、优化策略与平台能力 |
-| [性能对比](docs/backend-comparison.md) · [精度验证](docs/results.md) | 测量方法、结果与复现命令 |
-| [技术参考](docs/research.md) | 模型架构、量化格式、版本与参考文献 |
+| [`needle2/csrc/`](needle2/csrc/) | C++ 计算、tokenizer 和 grammar |
+| [`needle2/`](needle2/) | Python 绑定、会话与可选模型工具 |
+| [`tests/`](tests/) · [`benchmarks/`](benchmarks/) | 回归测试与可复现用例 |
+| [`examples/`](examples/) · [`scripts/`](scripts/README.md) | 接入示例、下载、验证与测速 |
+| [`docs/`](docs/) | [编译](docs/build.md)、[使用](docs/usage.md)、[架构](docs/architecture.md)、[基准](docs/benchmark.md)、[技术参考](docs/reference.md) |
+
+安装 `.[test]` 后运行 `python -m pytest -q`。模型、构建缓存和原始测量写入被 Git 忽略的目录，不随源码交付。
 
 ## 许可证
 
-源码采用 [Apache-2.0](LICENSE)，上游归因见 [NOTICE](NOTICE)。官方模型与基线库单独下载，遵循各自的上游许可。
+源码采用 [Apache-2.0](LICENSE)，上游归因见 [NOTICE](NOTICE)。模型与官方比较库单独下载，遵循各自许可。独立推理不调用官方闭源库。

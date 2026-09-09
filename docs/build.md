@@ -25,7 +25,7 @@ sudo apt-get install -y build-essential cmake
 
 自动编译只需要支持 C++17 和 OpenMP 的编译器，不需要 CMake。
 CMake 构建要求 CMake ≥ 3.16；构建共享库本身不依赖 Python、PyTorch 或模型文件。
-从 Python 使用时，仍需按[快速开始](../README.md#快速开始)安装项目依赖。
+从 Python 使用时，仍需按[快速开始](../README_zh.md#快速开始)安装项目依赖。
 
 ## 提前编译到运行时缓存
 
@@ -86,9 +86,10 @@ Linux 下可用 `ldd build/native/libneedle2_native.so` 检查动态依赖。
 
 ## 构建组织与验证
 
-编译入口为 `needle2/csrc/cq.cpp`，它直接包含 `sdot.cpp` 与 `engine.cpp`，
-因此 CMake 只将 `cq.cpp` 作为编译单元。三者共同生成一个共享库。
-Python 层负责 CACT 加载、tokenizer 与 grammar，产物是计算库。
+编译入口为 `needle2/csrc/cq.cpp`，它直接包含 `sdot.cpp`、`engine.cpp` 与 `frontend.cpp`，
+因此 CMake 只将 `cq.cpp` 作为编译单元。四个源文件共同生成一个共享库。
+C++ 负责计算、tokenizer 与 grammar；Python 负责 CACT 加载、会话和响应组装。
+安装的 `frontend.h` 提供前端组件 ABI，尚不是完整模型加载与推理 CLI。
 
 自动构建使用 `-O3 -DNDEBUG -std=c++17 -fPIC -shared -pthread -fopenmp`。
 CMake 通过 [C++ 编译特性](https://cmake.org/cmake/help/latest/command/target_compile_features.html)
@@ -107,7 +108,7 @@ NEEDLE2_NATIVE_LIBRARY="$PWD/build/native/libneedle2_native.so" \
 
 编译器缺失时检查 `CXX`；OpenMP 检测失败时安装所选编译器对应的 OpenMP 开发库。
 共享库加载失败时检查 `ldd`、CPU 架构及 Python/库源码版本。
-数值模式与平台能力说明见[原生引擎文档](native-engine.md)。
+数值模式与平台能力说明见[原生引擎文档](architecture.md)。
 
 ## macOS 自动编译
 

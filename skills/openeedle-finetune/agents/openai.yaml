@@ -1,4 +1,0 @@
-interface:
-  display_name: "OpenNeedle 微调与 QAT"
-  short_description: "Fine-tune Needle 2 and export CQ weights"
-  default_prompt: "使用 $openeedle-finetune 处理训练数据、微调并验证部署模型。"

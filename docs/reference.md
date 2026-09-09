@@ -1,6 +1,6 @@
 # Needle 2 / CQ2.2 技术参考
 
-本文说明发布模型的架构、CQ 文件格式、独立 CPU 引擎的执行方式及其公开依据。性能与质量分别见 [性能对比](backend-comparison.md) 和 [验证结果](results.md)。
+本文说明发布模型的架构、CQ 文件格式、独立 CPU 引擎的执行方式及其公开依据。性能、质量与复现见[基准与验证](benchmark.md)。
 
 ## 1. 研究对象与版本
 
@@ -89,7 +89,7 @@ P      = sinkhorn_logspace(A, 20)
 X_new  = P @ X + h_post[:,None] * delta[None,:]
 ```
 
-`pre_off` 为选中 lane +4，其余 -4；`post_off` 为选中 lane 0，其余 -4。**锁定的官方 JAX 源码**中，Sinkhorn 每次先行归一化再列归一化，通过减 `logsumexp` 执行 20 次，最后 exp。每层不是简单 softmax routing，亦不能少算一次迭代而称精确等价。本项目 native 优化版保留 20 次行列归一化，通常在正数域用 SIMD 执行，遇到高动态范围则退回 log-space；浮点求值次序不同，具体见 [原生引擎说明](native-engine.md)。
+`pre_off` 为选中 lane +4，其余 -4；`post_off` 为选中 lane 0，其余 -4。**锁定的官方 JAX 源码**中，Sinkhorn 每次先行归一化再列归一化，通过减 `logsumexp` 执行 20 次，最后 exp。每层不是简单 softmax routing，亦不能少算一次迭代而称精确等价。本项目 native 优化版保留 20 次行列归一化，通常在正数域用 SIMD 执行，遇到高动态范围则退回 log-space；浮点求值次序不同，具体见 [原生引擎说明](architecture.md)。
 
 ### 3.4 训练附加分支与 probe heads
 
@@ -167,7 +167,7 @@ norm、Hadamard diagonals、gate 和 probe heads 保留 FP16；`mhc_phi*` 使用
 
 另一个细节是 `configure_deploy(kv_bits>=8)` 将内部 `KV_BITS` 置为 0，不模拟 KV8 舍入；只有低于 8 bit 时才通过 CQ fake quant 模拟 KV。故公开 JAX 参考无法单独证明生产 int8 KV 和全部舍入行为完全相同。相关代码见 [`decode.py`](https://github.com/cactus-compute/needle/blob/53df049c4a1a82fca1027b81f9ff21336dfb0861/needle/model/decode.py) 和 [`quantize.py`](https://github.com/cactus-compute/needle/blob/53df049c4a1a82fca1027b81f9ff21336dfb0861/needle/model/quantize.py)。
 
-验证覆盖文件往返、独立 Hadamard/CQ 数值 oracle、逐层 hidden/logits、滑动 KV 与固定 sinks、Engram 历史，以及工具调用 JSON。四行 SDOT 另外与单行内核做逐元素完全一致检查。具体数值、数据范围和复现命令见 [验证结果](results.md)。
+验证覆盖文件往返、独立 Hadamard/CQ 数值 oracle、逐层 hidden/logits、滑动 KV 与固定 sinks、Engram 历史，以及工具调用 JSON。四行 SDOT 另外与单行内核做逐元素完全一致检查。具体数值、数据范围和复现命令见 [验证结果](benchmark.md)。
 
 ## 6. CPU 推理执行方式
 
@@ -187,7 +187,7 @@ dot(w_hat, x) = n_store * dot(codebook[q], H x)
 
 OpenNeedle 的 `SdotCQ::row4` 在现有行主序 packed CQ2/CQ4 权重上同时计算四个输出行。每个 group 的激活向量只加载一次，供四组独立 INT32 累加器使用；group 点积再按各行 norm 与激活 scale 转回 FP32 并累加。尾行使用单行内核。该实现不重排磁盘或内存中的权重，也不创建整模型 INT8/dense 副本。
 
-`row4` 与单行 SDOT 保持相同的码本量化、激活量化和逐 group 求和公式。CQ2/CQ4、group64/128、padding、尾行及不同线程数的逐元素对照见 [四行内核测试](../tests/test_sdot_row4.py)。相对于 FP32 的 SDOT 舍入误差仍存在，见 [精度结果](results.md)。
+`row4` 与单行 SDOT 保持相同的码本量化、激活量化和逐 group 求和公式。CQ2/CQ4、group64/128、padding、尾行及不同线程数的逐元素对照见 [四行内核测试](../tests/test_sdot_row4.py)。相对于 FP32 的 SDOT 舍入误差仍存在，见 [精度结果](benchmark.md)。
 
 矩阵 `multiply` 与普通引擎 `linear` 仅在输出行数至少 128 且线程数大于 1 时进入并行区域；融合 QKVG 按四行工作单元划分任务。OpenMP 等待策略由调用方和运行时决定，库导入不修改进程环境。
 
@@ -220,3 +220,18 @@ OpenNeedle 的 `SdotCQ::row4` 在现有行主序 packed CQ2/CQ4 权重上同时�
 | [LUT-GEMM: Quantized Matrix Multiplication based on LUTs for Efficient Inference in Large-Scale Generative Language Models](https://arxiv.org/abs/2206.09557) | 不完整反量化、查表累加和内存带宽的优化思路 | 其 GPU benchmark 能代表此处小模型 CPU 的速度 |
 
 公开 JAX 架构和导出格式定义模型与权重布局；生产库的全部整数舍入、grammar 候选投影和校准行为未由这些参考完整定义。独立实现的验证范围以源码对照、数值测试和工具调用结果为准。
+
+## 优化记录
+
+当前有效实现的计算路径与数值边界集中在[引擎架构](architecture.md)。以下链接固定到实验记录，保留依据而不在主分支重复维护逐轮报告。
+
+| 工作 | 结论 | 历史记录 |
+|---|---|---|
+| mHC 解码投影 | FP32 成对点积共享输入，三个投影合并调度；小矩阵串行 | [mHC 实验](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/docs/mhc-optimization.md) |
+| 固定 64 维 QK | 固定维度帮助编译器展开原 FP32 Q × INT8 K 路径，没有新增 Q 量化 | [QK 实验](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/docs/attention-optimization.md) |
+| Attention 调查 | 区分 norm/RoPE/gate 与 attention 核心，公开参考不等于闭源实现 | [调查](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/docs/attention-research.md) |
+| 大候选投影、attention 串行化、唯一候选链 | 未确认稳定请求收益或当前工作负载缺少机会，未进入默认实现 | [解码实验](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/docs/decode-experiments.md) |
+| 常驻 Python 会话 | 复用模型、工具分词、grammar 与前缀，减少完整请求重复工作 | [会话实验](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/docs/python-runtime.md) |
+| C++ tokenizer 与 grammar | 原生编译和解码；保留 Python 元数据视图与独立参考测试 | [前端实验](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/docs/native-frontend.md) |
+
+各轮有不同基线与计时范围，收益不能叠加。数值逐位一致指相对各自实验基线，不消除 SDOT/INT8 KV 原有误差。历史复现须在对应提交的独立 checkout 中运行；当前回归测试继续保留在 `tests/`。

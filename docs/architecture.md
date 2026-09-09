@@ -1,6 +1,6 @@
-# Native CPU 引擎
+# 引擎架构与接口
 
-`needle2/csrc/cq.cpp`、`engine.cpp` 与 `sdot.cpp` 是基于公开 CACT 格式和公开模型计算图独立实现的 C++17 代码，不链接或执行官方 `libneedle.a` / `libneedle.so`。首次使用由 `CXX` 指定的编译器编译（默认 `c++`，需支持 OpenMP），共享库按源码哈希缓存到 `~/.cache/needle2`；可用 `NEEDLE2_NATIVE_CACHE` 指定缓存目录。安装 wheel 会包含源码。
+`needle2/csrc/cq.cpp`、`engine.cpp`、`sdot.cpp` 与 `frontend.cpp` 是基于公开 CACT 格式和公开模型计算图独立实现的 C++17 代码，不链接或执行官方 `libneedle.a` / `libneedle.so`。首次使用由 `CXX` 指定的编译器编译（默认 `c++`，需支持 OpenMP），共享库按源码哈希缓存到 `~/.cache/needle2`；可用 `NEEDLE2_NATIVE_CACHE` 指定缓存目录。安装 wheel 会包含源码。
 
 可用 `python -m needle2 build-native` 提前构建并检查能力，或使用 CMake 生成共享库，
 通过 `NEEDLE2_NATIVE_LIBRARY` 指定预编译产物。完整步骤见[编译指南](build.md)。
@@ -107,7 +107,7 @@ if sdot_available():
 
 此模式**增加量化误差**：分别将 Hadamard 后的输入按组缩放到 INT8，并将 Lloyd-Max centroid 缩放到 INT8；与公开 `activation_bits=8` 的量化位置不同，因此两者组合会明确报错。默认仍为 `matmul="fp32"`。可单独调用 `NativeCQ.linear_sdot(x, threads=2)` 检查某个矩阵的速度及误差。
 
-独立整数 oracle 已覆盖 CQ2/CQ4、64/128 分组、非整组输入、零输入、one-hot 和多 batch；小型完整模型验证使用独立的近似误差预算，不能套用 FP32 的容差。原始单核实验的 q_proj 相对 L2 误差约 0.57%、LM head 约 0.25%，这不是整模型质量承诺。完整模型的质量和吞吐应以 `reports` 下对应 `matmul` 的最终报告为准。
+独立整数 oracle 已覆盖 CQ2/CQ4、64/128 分组、非整组输入、零输入、one-hot 和多 batch；小型完整模型验证使用独立的近似误差预算，不能套用 FP32 的容差。原始单核实验的 q_proj 相对 L2 误差约 0.57%、LM head 约 0.25%，这不是整模型质量承诺。完整模型的质量、吞吐和测量配置见[基准与验证](benchmark.md)。
 
 `prefill(..., backend="torch")` 在 SDOT 模式下仍使用 FP32 PyTorch 完成初始 prompt，之后切换到 SDOT decode。此路径和完全 native SDOT prefill 的舍入过程不同。
 
@@ -115,11 +115,11 @@ if sdot_available():
 
 `SdotCQ::row4` 同时计算四个 CQ2/CQ4 输出行，在每个 group 内复用激活向量加载，各行独立完成 INT32 点积和 FP32 缩放累加。权重保持行主序 packed 布局；不满四行的尾部使用单行内核。融合 QKVG 也按四行工作单元分配输出区间。
 
-普通 `linear` 与单矩阵 `multiply` 在输出行数少于 128 时串行执行，避免小任务的线程协调成本。线程数通过 `threads` 指定；库不设置全局 `OMP_WAIT_POLICY`。性能报告使用的等待策略和线程环境见 [测量条件](backend-comparison.md)。
+普通 `linear` 与单矩阵 `multiply` 在输出行数少于 128 时串行执行，避免小任务的线程协调成本。线程数通过 `threads` 指定；库不设置全局 `OMP_WAIT_POLICY`。性能报告使用的等待策略和线程环境见 [测量条件](benchmark.md)。
 
 四行实现与单行 SDOT 使用相同量化规则及逐 group 累加公式。[test_sdot_row4.py](../tests/test_sdot_row4.py) 对 CQ2/CQ4、group64/128、9/129 行、129 列 padding、1/2/4 线程，以及随机、零和 one-hot 输入做逐元素完全一致检查。这说明四行计算不额外改变 SDOT 数值，不代表 SDOT 与 FP32 等价。
 
-指令定义见 [Arm NEON Intrinsics Reference](https://arm-software.github.io/acle/neon_intrinsics/advsimd.html)；公开 Cactus 的交错 CQ GEMV 与本实现的布局区别见 [技术参考](research.md#62-sdot-四行计算与公开内核参考)。
+指令定义见 [Arm NEON Intrinsics Reference](https://arm-software.github.io/acle/neon_intrinsics/advsimd.html)；公开 Cactus 的交错 CQ GEMV 与本实现的布局区别见 [技术参考](reference.md#62-sdot-四行计算与公开内核参考)。
 
 ## 分阶段 profiling
 
@@ -130,7 +130,7 @@ OMP_WAIT_POLICY=PASSIVE OPENBLAS_NUM_THREADS=1 python scripts/profile_native.py 
   --threads 1 --matmul sdot --tokens 64 --output artifacts/reports/native_profile.json
 ```
 
-插桩构建不覆盖生产库。报告对嵌套 Engram 投影做扣除，输出互斥阶段、剩余开销、head 投影行数、step 次数和最终保留的 KV 长度。插桩本身会增加计时成本，应用性能见 [最新测量及计时边界](backend-comparison.md)。
+插桩构建不覆盖生产库。报告对嵌套 Engram 投影做扣除，输出互斥阶段、剩余开销、head 投影行数、step 次数和最终保留的 KV 长度。插桩本身会增加计时成本，应用性能见 [最新测量及计时边界](benchmark.md)。
 
 
 ## Prefill 与 attention 数据复用
@@ -143,17 +143,87 @@ Attention 在固定模型结构下复用 GQA head 工作列表，并按绝对位
 
 ## 固定 64 维 QK 路径
 
-attention 阶段的真实请求细分、官方公开资料与整数 QK 路径证据见 [attention 优化调查](attention-research.md)。
+attention 阶段的真实请求细分、官方公开资料与整数 QK 路径证据见 [attention 优化调查](reference.md#优化记录)。
 
-ARM64 的 INT8 KV attention 在 64 维双 head 场景下使用固定维度点积，让编译器展开原浮点 QK 循环；没有新增 Q 量化。真实请求性能及数值验证见 [attention 优化报告](attention-optimization.md)。
+ARM64 的 INT8 KV attention 在 64 维双 head 场景下使用固定维度点积，让编译器展开原浮点 QK 循环；没有新增 Q 量化。真实请求性能及数值验证见 [attention 优化报告](reference.md#优化记录)。
 
 该分支在遍历上下文前判断 head 维度和配对条件，固定调用现有 `dot_pair_i8_f32(..., 64, ...)`。每个 head 的两个累加器、最终归约，以及 K scale、attention scale 的两次乘法保持原顺序。decode 和 prefill 共享此分支；其它维度、未配对 head、FP32 KV 和非 ARM64 使用原通用路径。该实现不改变线程数、KV 槽位顺序或缓存布局。
 
 ## mHC 解码投影合并
 
-mHC 三组权重在 Python 装载层展开为 FP32。解码时两行点积共享输入加载，三组投影合并为一次线程池任务；总矩阵元素少于 32768 时保持串行。每行保留原点积归约结构，Sinkhorn 与 prefill 不变；CQ 描述符回退到原来的独立投影。实现与数值、性能验证见 [mHC 优化报告](mhc-optimization.md)。
+mHC 三组权重在 Python 装载层展开为 FP32。解码时两行点积共享输入加载，三组投影合并为一次线程池任务；总矩阵元素少于 32768 时保持串行。每行保留原点积归约结构，Sinkhorn 与 prefill 不变；CQ 描述符回退到原来的独立投影。实现与数值、性能验证见 [mHC 优化报告](reference.md#优化记录)。
+
 
 
 ## 原生文本与 schema 前端
 
-默认 native 会话使用 C++ tokenizer、工具 JSON/schema 编译器和首 token 选择；Python 只适配数据与句柄。组件 ABI、算法、资源预算及与官方库的兼容边界见 [原生前端技术说明](native-frontend.md)。Python DFA 编译器仍用于参考测试，native 模式不再自动回退到 Python regex；编译超限或不支持的约束会明确报错。
+默认 native 会话在 C++ 中完成 BPE 分词、schema 编译、首 token 选择和约束解码。Python 负责模型归档加载、提示词、会话与结果组装。编译超限或不支持的 schema 明确报错，不回退 Python。
+
+## 与官方的关系
+
+官方发布的 `needle.h` 暴露 `needle_load(cact, n)`、`needle_init(system, tools_json, index)`、`needle_complete(input, limit, out, capacity)` 和 `needle_reset()`，其 tokenizer/grammar 编译属于原生库内部职责。[官方技术说明](https://cactuscompute.com/needle)同样明确列出这一设计。
+
+本次对齐的是**原生职责与数据边界**：tokenizer 从发布模型内嵌数据构建，工具 schema 以 JSON 传入 C++，约束状态由原生引擎执行，不要求 Python 编译 DFA。OpenNeedle 继续采用实例句柄，公开符号使用 `needle2_*`；没有冒充官方全局 ABI 的可直接替换实现，也没有复制其闭源 Matcher。
+
+官方二进制包含 `Matcher::feed(char)`、`Frame`、`Branch`、`feed_schema_all` 等符号；本实现使用独立的 NFA → UTF-8 字节 DFA → token DFA 编译流程，不能声称内部算法与官方完全相同。
+
+[官方初始化探测](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/official_grammar_probe.json)显示官方会接受 range、pattern、type union、anyOf 等 schema。[生成探测](https://github.com/chamsechan/OpenNeedle/blob/e096870b4b45b979b9714a172666233ffd99ab48/reports/official_grammar_behavior.json)中 union 和 anyOf 成功生成，已补入本原生编译器；范围、pattern、数组边界冲突样例出现截断，不能仅凭这些失败反推完整约束语义。探测固定使用本项目已下载的官方 2.0.4 库，不代表所有版本。
+
+**尚未完全兼容的边界：** 当前不实现 pattern、数值 minimum/maximum、$ref 等全部 JSON Schema 关键字，遇到未实现字段明确报错；type union/anyOf 的组合也受本实现的关键字校验约束。对象键依照 schema 声明顺序，工具调用外层依照 name、arguments 顺序。不能据此宣称支持官方全部 schema 或逐 token 产品输出一致。
+
+## Tokenizer
+
+`Tokenizer` 在 C++ 中读取 `.cact` 内嵌 tokenizer blob，包括词片、score、类型、字节回退和 dummy-prefix 标志。UTF-8 字符边界、`▁` 空格替换、用户定义特殊 token 及字节回退沿用公开参考规则。
+
+BPE 使用带版本标记的相邻链表与优先队列。合并优先级为 score，平分时选原始位置最靠左的一对；过期队列项丢弃，每次只更新相邻候选，避免 Python 全段反复扫描。decode 在 C++ 中处理字节 token、跳过控制/unknown token、替换非法 UTF-8 并恢复空格。长度显式传递，支持嵌入 NUL。
+
+`NativeTokenizer` 保留 Python metadata 视图以兼容现有 `p2id/pieces/types` 调用，实际 encode/decode 不执行 Python BPE。`RefTokenizer` 留作独立参考，PyTorch 后端仍可使用。
+
+## Grammar 编译和执行
+
+1. 原生 JSON parser 保留 object 属性顺序，处理字符串转义和 Unicode surrogate pair，拒绝非法 UTF-8、重复键及尾随垃圾。
+2. schema 编译为 Thompson NFA，支持闭合对象、required/optional 字段、嵌套数组及 minItems/maxItems、字符串、整数、number、boolean、null、标量 enum、type union、anyOf。
+3. 合成 UTF-8 验证状态，拒绝 overlong 编码、surrogate code point 和超出 U+10FFFF 的字节序列。
+4. 通过 tokenizer 字节 trie 生成 token 转移；反向可达性剔除无法完成工具调用的状态，支持没有完整字节回退的词表。
+5. C++ 拥有连续 DFA 表，复用既有候选投影与解码循环。首 token 直接从 prefill logits 在 C++ 选择。
+
+保留确定的编译预算：schema 深度 32、JSON 深度 64、NFA/字节 DFA 各 20,000 状态、token DFA 4,096 状态、4,000,000 条 token 转移；数组显式长度界限最多 1,024。超过预算明确报错。这些是本实现的资源边界，不是已确认的官方限制。
+
+Python 的 `grammar.py` 和 `_grammar_dfa.py` 保留用于参考、测试以及 PyTorch 路径。默认 native 会话不导入它们；因此默认 Python 安装仅需 NumPy，regex 与 PyTorch/safetensors 一起放入可选依赖。
+
+## C ABI 与所有权
+
+接口声明见 [frontend.h](../needle2/csrc/frontend.h)，实现见 [frontend.cpp](../needle2/csrc/frontend.cpp)。通过 CMake 安装时头文件位于 `include/needle2/`。
+
+| 接口 | 职责 |
+|---|---|
+| `needle2_tokenizer_create/free` | 从模型 tokenizer blob 构造/释放 tokenizer |
+| `needle2_tokenizer_encode/decode` | UTF-8 文本与 token 转换 |
+| `needle2_grammar_compile/free` | 从工具 JSON 构造/释放原生 DFA |
+| `needle2_engine_decode_compiled` | 首 token 选择与后续约束解码，复用已有 engine |
+| `needle2_frontend_error` | 获取本线程最近一次错误 |
+
+输入缓冲区仅在调用期间借用，tokenizer 和 grammar 复制持久状态。编译后的 grammar 不依赖 tokenizer 的生命周期。encode/decode 返回所需长度；容量不足时不写入、不截断，调用方扩容后重试。decode 输出以返回长度界定，不保证末尾 NUL。相同 engine 的解码必须串行；不同实例互不共享 grammar 状态。
+
+该 ABI 是前端组件接口。模型加载、prompt 渲染、前缀复用和最终业务响应组装仍由现有 `InferenceSession` 协调，尚未提供官方 `needle_load/init/complete` 的二进制兼容整包替代品。
+
+
+## Python 参考与兼容接口
+
+`grammar.py`、`_grammar_dfa.py` 和 `RefTokenizer` 用于独立参考、测试与 PyTorch 后端。Python grammar 支持的子集比原生前端小，不支持 type union/anyOf；以各自实现的初始化校验为准。
+
+旧的 `NativeEngine.decode(..., grammar_dfa=dfa)` 接收 Python `NativeGrammarDFA`。它在构造时验证并冻结 DFA，热请求检查词表边界；默认 `InferenceSession` 使用 C++ `CompiledGrammar` 和 `decode_from_logits()`。两条接口不能混用句柄，也没有超限自动回退。
+
+候选投影只计算合法 token；单候选时可以跳过 LM head。公开 `step_candidates` 的单候选分数 `[0.0]` 是占位值，多个候选返回真实分数，`return_hidden=True` 返回分数和 hidden。非法候选必须在推进模型前拒绝。
+
+## 组件示例与验证
+
+[独立 C 示例](../examples/native_frontend.c)接收从归档导出的 tokenizer blob，演示 tokenizer 和 grammar 组件 ABI；它不加载神经网络模型。编译时包含 `needle2/csrc` 并链接 `libneedle2_native.so`。模型加载和完整请求仍通过 Python 会话接入，见[使用指南](usage.md)。
+
+```bash
+OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1 python -m pytest -q \
+  tests/test_native_frontend.py tests/test_inference_session.py \
+  tests/test_dfa_equivalence.py
+```
+
+原生前端测试覆盖 tokenizer 与参考实现对照、schema 候选集合、UTF-8、非法输入、容量不足和句柄生命周期。历史测量与原始证据见[基准与验证](benchmark.md)。

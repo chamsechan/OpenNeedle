@@ -1,4 +1,0 @@
-interface:
-  display_name: "OpenNeedle 模型转换"
-  short_description: "Convert PyTorch and CQ2/CQ4 checkpoints"
-  default_prompt: "使用 $openeedle-convert 转换模型并验证量化导出结果。"
