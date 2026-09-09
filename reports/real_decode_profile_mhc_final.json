@@ -1,0 +1,1076 @@
+{
+  "variant": "mhc_final",
+  "threads": 4,
+  "matmul": "sdot",
+  "kv_cache": "int8",
+  "results": {
+    "basic": {
+      "prefix_tokens": 177,
+      "rows": [
+        {
+          "id": "light_on",
+          "rep": 1,
+          "decode_ms": 46.8284950038651,
+          "steps": 20,
+          "prepare_calls": 1180,
+          "stages_ms": {
+            "input_engram": 1.264811,
+            "mhc_pre_and_input_norm": 5.469009,
+            "qkvg": 9.280125000000007,
+            "attention_norm_rope_kv_gate": 12.502122999999997,
+            "out_projection_mlp": 8.492076999999998,
+            "sinkhorn_residual_hidden": 9.045100999999995,
+            "final_norm_open_lm_head": 0.012319999999999998,
+            "candidate_projection": 0.42624500000000004
+          },
+          "unattributed_ms": 0.336684003865102
+        },
+        {
+          "id": "light_on",
+          "rep": 2,
+          "decode_ms": 43.5608629923081,
+          "steps": 20,
+          "prepare_calls": 1180,
+          "stages_ms": {
+            "input_engram": 1.313374,
+            "mhc_pre_and_input_norm": 4.1782429999999975,
+            "qkvg": 8.793045000000006,
+            "attention_norm_rope_kv_gate": 11.873513999999997,
+            "out_projection_mlp": 7.759146000000004,
+            "sinkhorn_residual_hidden": 8.909454000000004,
+            "final_norm_open_lm_head": 0.012119999999999999,
+            "candidate_projection": 0.42936399999999997
+          },
+          "unattributed_ms": 0.2926029923080904
+        },
+        {
+          "id": "light_on",
+          "rep": 3,
+          "decode_ms": 43.85518599883653,
+          "steps": 20,
+          "prepare_calls": 1180,
+          "stages_ms": {
+            "input_engram": 1.2197340000000003,
+            "mhc_pre_and_input_norm": 4.212521000000004,
+            "qkvg": 8.918198,
+            "attention_norm_rope_kv_gate": 11.956643999999999,
+            "out_projection_mlp": 7.952678999999997,
+            "sinkhorn_residual_hidden": 8.820720999999997,
+            "final_norm_open_lm_head": 0.011279999999999997,
+            "candidate_projection": 0.415363
+          },
+          "unattributed_ms": 0.34804599883653253
+        },
+        {
+          "id": "timer_5",
+          "rep": 1,
+          "decode_ms": 31.374344005598687,
+          "steps": 14,
+          "prepare_calls": 826,
+          "stages_ms": {
+            "input_engram": 0.9367680000000002,
+            "mhc_pre_and_input_norm": 2.893261000000001,
+            "qkvg": 6.551540999999995,
+            "attention_norm_rope_kv_gate": 8.268047000000006,
+            "out_projection_mlp": 6.1344170000000044,
+            "sinkhorn_residual_hidden": 6.251506000000002,
+            "final_norm_open_lm_head": 0.00768,
+            "candidate_projection": 0.08224100000000001
+          },
+          "unattributed_ms": 0.24888300559867815
+        },
+        {
+          "id": "timer_5",
+          "rep": 2,
+          "decode_ms": 30.322613994940184,
+          "steps": 14,
+          "prepare_calls": 826,
+          "stages_ms": {
+            "input_engram": 0.951968,
+            "mhc_pre_and_input_norm": 2.9971500000000013,
+            "qkvg": 6.143738999999995,
+            "attention_norm_rope_kv_gate": 8.234002000000004,
+            "out_projection_mlp": 5.281407000000001,
+            "sinkhorn_residual_hidden": 6.37858399999999,
+            "final_norm_open_lm_head": 0.0086,
+            "candidate_projection": 0.078761
+          },
+          "unattributed_ms": 0.2484029949401929
+        },
+        {
+          "id": "timer_5",
+          "rep": 3,
+          "decode_ms": 44.65195300872438,
+          "steps": 14,
+          "prepare_calls": 826,
+          "stages_ms": {
+            "input_engram": 3.5521499999999997,
+            "mhc_pre_and_input_norm": 5.163016000000002,
+            "qkvg": 8.748286000000002,
+            "attention_norm_rope_kv_gate": 12.625490999999986,
+            "out_projection_mlp": 7.841024,
+            "sinkhorn_residual_hidden": 6.384182999999993,
+            "final_norm_open_lm_head": 0.00804,
+            "candidate_projection": 0.07728099999999999
+          },
+          "unattributed_ms": 0.2524820087243853
+        },
+        {
+          "id": "volume_30",
+          "rep": 1,
+          "decode_ms": 32.51955499581527,
+          "steps": 15,
+          "prepare_calls": 885,
+          "stages_ms": {
+            "input_engram": 0.909011,
+            "mhc_pre_and_input_norm": 3.3765119999999986,
+            "qkvg": 6.787596999999997,
+            "attention_norm_rope_kv_gate": 8.688757000000003,
+            "out_projection_mlp": 5.7036580000000034,
+            "sinkhorn_residual_hidden": 6.705577999999994,
+            "final_norm_open_lm_head": 0.008559999999999998,
+            "candidate_projection": 0.08276
+          },
+          "unattributed_ms": 0.2571219958152753
+        },
+        {
+          "id": "volume_30",
+          "rep": 2,
+          "decode_ms": 34.71269700094126,
+          "steps": 15,
+          "prepare_calls": 885,
+          "stages_ms": {
+            "input_engram": 0.925006,
+            "mhc_pre_and_input_norm": 3.6335680000000004,
+            "qkvg": 7.273545000000001,
+            "attention_norm_rope_kv_gate": 9.805497000000011,
+            "out_projection_mlp": 6.027420999999994,
+            "sinkhorn_residual_hidden": 6.7230169999999925,
+            "final_norm_open_lm_head": 0.009879999999999998,
+            "candidate_projection": 0.083521
+          },
+          "unattributed_ms": 0.2312420009412648
+        },
+        {
+          "id": "volume_30",
+          "rep": 3,
+          "decode_ms": 32.44175399595406,
+          "steps": 15,
+          "prepare_calls": 885,
+          "stages_ms": {
+            "input_engram": 0.955246,
+            "mhc_pre_and_input_norm": 3.1289149999999992,
+            "qkvg": 6.599975000000001,
+            "attention_norm_rope_kv_gate": 8.744966000000003,
+            "out_projection_mlp": 5.893498000000004,
+            "sinkhorn_residual_hidden": 6.767547999999997,
+            "final_norm_open_lm_head": 0.010640999999999998,
+            "candidate_projection": 0.08472299999999999
+          },
+          "unattributed_ms": 0.2562419959540563
+        }
+      ],
+      "ms_per_token": {
+        "input_engram": 0.0818235918367347,
+        "mhc_pre_and_input_norm": 0.23845030612244902,
+        "qkvg": 0.47004116326530615,
+        "attention_norm_rope_kv_gate": 0.6306057210884354,
+        "out_projection_mlp": 0.4155464421768708,
+        "sinkhorn_residual_hidden": 0.4488822585034012,
+        "final_norm_open_lm_head": 0.0006062653061224489,
+        "candidate_projection": 0.011974551020408163
+      },
+      "prepare_calls_per_token": 59.0,
+      "decode_ms_per_token": 2.314744632632541
+    },
+    "expanded": {
+      "prefix_tokens": 418,
+      "rows": [
+        {
+          "id": "light_kitchen_on",
+          "rep": 1,
+          "decode_ms": 53.54375900060404,
+          "steps": 20,
+          "prepare_calls": 1180,
+          "stages_ms": {
+            "input_engram": 1.3239319999999999,
+            "mhc_pre_and_input_norm": 4.797763000000002,
+            "qkvg": 9.609137999999994,
+            "attention_norm_rope_kv_gate": 20.160072999999993,
+            "out_projection_mlp": 7.716594999999996,
+            "sinkhorn_residual_hidden": 8.908969000000006,
+            "final_norm_open_lm_head": 0.01104,
+            "candidate_projection": 0.44356399999999996
+          },
+          "unattributed_ms": 0.5726850006040536
+        },
+        {
+          "id": "light_kitchen_on",
+          "rep": 2,
+          "decode_ms": 65.78351800271776,
+          "steps": 20,
+          "prepare_calls": 1180,
+          "stages_ms": {
+            "input_engram": 2.597866,
+            "mhc_pre_and_input_norm": 7.381557000000008,
+            "qkvg": 11.941824000000002,
+            "attention_norm_rope_kv_gate": 23.227424999999993,
+            "out_projection_mlp": 10.646307999999994,
+            "sinkhorn_residual_hidden": 8.977130000000006,
+            "final_norm_open_lm_head": 0.010759999999999997,
+            "candidate_projection": 0.460923
+          },
+          "unattributed_ms": 0.5397250027177449
+        },
+        {
+          "id": "light_kitchen_on",
+          "rep": 3,
+          "decode_ms": 54.11860499589238,
+          "steps": 20,
+          "prepare_calls": 1180,
+          "stages_ms": {
+            "input_engram": 1.29225,
+            "mhc_pre_and_input_norm": 4.849735000000006,
+            "qkvg": 9.218568000000008,
+            "attention_norm_rope_kv_gate": 20.371798999999985,
+            "out_projection_mlp": 8.078235,
+            "sinkhorn_residual_hidden": 9.348324999999996,
+            "final_norm_open_lm_head": 0.010601000000000001,
+            "candidate_projection": 0.43876599999999993
+          },
+          "unattributed_ms": 0.5103259958923871
+        },
+        {
+          "id": "light_bedroom_off",
+          "rep": 1,
+          "decode_ms": 50.65397100406699,
+          "steps": 19,
+          "prepare_calls": 1121,
+          "stages_ms": {
+            "input_engram": 1.302331,
+            "mhc_pre_and_input_norm": 4.2658760000000004,
+            "qkvg": 8.551606000000005,
+            "attention_norm_rope_kv_gate": 19.574167999999982,
+            "out_projection_mlp": 7.532549999999993,
+            "sinkhorn_residual_hidden": 8.488191,
+            "final_norm_open_lm_head": 0.01336,
+            "candidate_projection": 0.409964
+          },
+          "unattributed_ms": 0.5159250040670074
+        },
+        {
+          "id": "light_bedroom_off",
+          "rep": 2,
+          "decode_ms": 50.79505199682899,
+          "steps": 19,
+          "prepare_calls": 1121,
+          "stages_ms": {
+            "input_engram": 1.216173,
+            "mhc_pre_and_input_norm": 4.341402999999998,
+            "qkvg": 8.788243,
+            "attention_norm_rope_kv_gate": 19.327387000000016,
+            "out_projection_mlp": 7.687756000000002,
+            "sinkhorn_residual_hidden": 8.556160000000004,
+            "final_norm_open_lm_head": 0.009879999999999998,
+            "candidate_projection": 0.34660399999999997
+          },
+          "unattributed_ms": 0.5214459968289731
+        },
+        {
+          "id": "light_bedroom_off",
+          "rep": 3,
+          "decode_ms": 52.65415100438986,
+          "steps": 19,
+          "prepare_calls": 1121,
+          "stages_ms": {
+            "input_engram": 1.199016,
+            "mhc_pre_and_input_norm": 4.454328999999997,
+            "qkvg": 8.758475999999998,
+            "attention_norm_rope_kv_gate": 20.59036000000001,
+            "out_projection_mlp": 8.193397000000001,
+            "sinkhorn_residual_hidden": 8.568804000000004,
+            "final_norm_open_lm_head": 0.011680999999999997,
+            "candidate_projection": 0.355843
+          },
+          "unattributed_ms": 0.5222450043898448
+        },
+        {
+          "id": "timer_5min",
+          "rep": 1,
+          "decode_ms": 37.16559999156743,
+          "steps": 14,
+          "prepare_calls": 826,
+          "stages_ms": {
+            "input_engram": 0.9424109999999999,
+            "mhc_pre_and_input_norm": 3.047956999999999,
+            "qkvg": 6.321063999999998,
+            "attention_norm_rope_kv_gate": 14.322369000000004,
+            "out_projection_mlp": 5.7189749999999995,
+            "sinkhorn_residual_hidden": 6.2615789999999985,
+            "final_norm_open_lm_head": 0.007360000000000001,
+            "candidate_projection": 0.091202
+          },
+          "unattributed_ms": 0.4526829915674355
+        },
+        {
+          "id": "timer_5min",
+          "rep": 2,
+          "decode_ms": 37.95556799741462,
+          "steps": 14,
+          "prepare_calls": 826,
+          "stages_ms": {
+            "input_engram": 0.8938510000000001,
+            "mhc_pre_and_input_norm": 3.380629999999999,
+            "qkvg": 6.758627000000003,
+            "attention_norm_rope_kv_gate": 14.569391000000003,
+            "out_projection_mlp": 5.6226100000000026,
+            "sinkhorn_residual_hidden": 6.184015000000003,
+            "final_norm_open_lm_head": 0.009,
+            "candidate_projection": 0.08856
+          },
+          "unattributed_ms": 0.4488839974146117
+        },
+        {
+          "id": "timer_5min",
+          "rep": 3,
+          "decode_ms": 36.863317000097595,
+          "steps": 14,
+          "prepare_calls": 826,
+          "stages_ms": {
+            "input_engram": 0.9662080000000001,
+            "mhc_pre_and_input_norm": 3.1893139999999987,
+            "qkvg": 6.448507,
+            "attention_norm_rope_kv_gate": 13.942725,
+            "out_projection_mlp": 5.474975999999999,
+            "sinkhorn_residual_hidden": 6.303063999999998,
+            "final_norm_open_lm_head": 0.00732,
+            "candidate_projection": 0.0864
+          },
+          "unattributed_ms": 0.44480300009760043
+        },
+        {
+          "id": "timer_15min",
+          "rep": 1,
+          "decode_ms": 37.55560399440583,
+          "steps": 14,
+          "prepare_calls": 826,
+          "stages_ms": {
+            "input_engram": 1.04649,
+            "mhc_pre_and_input_norm": 3.1633420000000005,
+            "qkvg": 6.6973410000000015,
+            "attention_norm_rope_kv_gate": 14.125059999999996,
+            "out_projection_mlp": 5.702374000000002,
+            "sinkhorn_residual_hidden": 6.280631000000003,
+            "final_norm_open_lm_head": 0.0072000000000000015,
+            "candidate_projection": 0.08512199999999999
+          },
+          "unattributed_ms": 0.4480439944058219
+        },
+        {
+          "id": "timer_15min",
+          "rep": 2,
+          "decode_ms": 52.61607099964749,
+          "steps": 14,
+          "prepare_calls": 826,
+          "stages_ms": {
+            "input_engram": 1.12593,
+            "mhc_pre_and_input_norm": 6.457186000000005,
+            "qkvg": 9.943263999999987,
+            "attention_norm_rope_kv_gate": 19.129057000000028,
+            "out_projection_mlp": 9.031525000000006,
+            "sinkhorn_residual_hidden": 6.351140999999998,
+            "final_norm_open_lm_head": 0.008879999999999999,
+            "candidate_projection": 0.088122
+          },
+          "unattributed_ms": 0.48096599964746645
+        },
+        {
+          "id": "timer_15min",
+          "rep": 3,
+          "decode_ms": 36.97919799014926,
+          "steps": 14,
+          "prepare_calls": 826,
+          "stages_ms": {
+            "input_engram": 0.890851,
+            "mhc_pre_and_input_norm": 3.0748359999999977,
+            "qkvg": 6.363735999999995,
+            "attention_norm_rope_kv_gate": 13.862498999999996,
+            "out_projection_mlp": 5.745131000000007,
+            "sinkhorn_residual_hidden": 6.441939999999997,
+            "final_norm_open_lm_head": 0.00892,
+            "candidate_projection": 0.092481
+          },
+          "unattributed_ms": 0.4988039901492698
+        },
+        {
+          "id": "volume_30pct",
+          "rep": 1,
+          "decode_ms": 39.992307996726595,
+          "steps": 15,
+          "prepare_calls": 885,
+          "stages_ms": {
+            "input_engram": 0.940687,
+            "mhc_pre_and_input_norm": 3.5321540000000016,
+            "qkvg": 6.924070000000007,
+            "attention_norm_rope_kv_gate": 15.124833999999996,
+            "out_projection_mlp": 6.1282159999999966,
+            "sinkhorn_residual_hidden": 6.768142000000002,
+            "final_norm_open_lm_head": 0.009119999999999998,
+            "candidate_projection": 0.08908
+          },
+          "unattributed_ms": 0.47600499672658714
+        },
+        {
+          "id": "volume_30pct",
+          "rep": 2,
+          "decode_ms": 42.05856799671892,
+          "steps": 15,
+          "prepare_calls": 885,
+          "stages_ms": {
+            "input_engram": 1.02489,
+            "mhc_pre_and_input_norm": 3.8004800000000025,
+            "qkvg": 7.084354000000005,
+            "attention_norm_rope_kv_gate": 16.384817,
+            "out_projection_mlp": 6.361387999999999,
+            "sinkhorn_residual_hidden": 6.826874999999997,
+            "final_norm_open_lm_head": 0.00912,
+            "candidate_projection": 0.09452
+          },
+          "unattributed_ms": 0.4721239967189135
+        },
+        {
+          "id": "volume_30pct",
+          "rep": 3,
+          "decode_ms": 39.29462099040393,
+          "steps": 15,
+          "prepare_calls": 885,
+          "stages_ms": {
+            "input_engram": 0.9672510000000002,
+            "mhc_pre_and_input_norm": 3.2614290000000006,
+            "qkvg": 6.825988999999998,
+            "attention_norm_rope_kv_gate": 14.89358799999999,
+            "out_projection_mlp": 5.947536000000002,
+            "sinkhorn_residual_hidden": 6.824103000000001,
+            "final_norm_open_lm_head": 0.00836,
+            "candidate_projection": 0.09388
+          },
+          "unattributed_ms": 0.47248499040393455
+        },
+        {
+          "id": "volume_80pct",
+          "rep": 1,
+          "decode_ms": 41.2403600057587,
+          "steps": 15,
+          "prepare_calls": 885,
+          "stages_ms": {
+            "input_engram": 1.017491,
+            "mhc_pre_and_input_norm": 3.7892320000000024,
+            "qkvg": 7.060472000000001,
+            "attention_norm_rope_kv_gate": 15.81783199999999,
+            "out_projection_mlp": 6.259382,
+            "sinkhorn_residual_hidden": 6.729185999999998,
+            "final_norm_open_lm_head": 0.00916,
+            "candidate_projection": 0.09796099999999999
+          },
+          "unattributed_ms": 0.45964400575871167
+        },
+        {
+          "id": "volume_80pct",
+          "rep": 2,
+          "decode_ms": 41.904927013092674,
+          "steps": 15,
+          "prepare_calls": 885,
+          "stages_ms": {
+            "input_engram": 1.004213,
+            "mhc_pre_and_input_norm": 3.6434710000000017,
+            "qkvg": 7.238581000000007,
+            "attention_norm_rope_kv_gate": 16.358056999999995,
+            "out_projection_mlp": 6.304053999999996,
+            "sinkhorn_residual_hidden": 6.774066000000005,
+            "final_norm_open_lm_head": 0.0102,
+            "candidate_projection": 0.09567999999999999
+          },
+          "unattributed_ms": 0.4766050130926658
+        },
+        {
+          "id": "volume_80pct",
+          "rep": 3,
+          "decode_ms": 43.63338300026953,
+          "steps": 15,
+          "prepare_calls": 885,
+          "stages_ms": {
+            "input_engram": 0.9871679999999998,
+            "mhc_pre_and_input_norm": 4.177991000000003,
+            "qkvg": 7.431476999999999,
+            "attention_norm_rope_kv_gate": 17.088426000000016,
+            "out_projection_mlp": 6.669731999999999,
+            "sinkhorn_residual_hidden": 6.718583999999997,
+            "final_norm_open_lm_head": 0.010520000000000002,
+            "candidate_projection": 0.09824000000000001
+          },
+          "unattributed_ms": 0.4512450002695232
+        },
+        {
+          "id": "weather_seattle",
+          "rep": 1,
+          "decode_ms": 50.37740799889434,
+          "steps": 18,
+          "prepare_calls": 1062,
+          "stages_ms": {
+            "input_engram": 1.1940509999999998,
+            "mhc_pre_and_input_norm": 4.758731999999995,
+            "qkvg": 8.603610000000005,
+            "attention_norm_rope_kv_gate": 18.966340000000006,
+            "out_projection_mlp": 7.613620000000001,
+            "sinkhorn_residual_hidden": 8.309405999999996,
+            "final_norm_open_lm_head": 0.010839999999999999,
+            "candidate_projection": 0.41908499999999993
+          },
+          "unattributed_ms": 0.5017239988943345
+        },
+        {
+          "id": "weather_seattle",
+          "rep": 2,
+          "decode_ms": 48.756153002614155,
+          "steps": 18,
+          "prepare_calls": 1062,
+          "stages_ms": {
+            "input_engram": 1.145533,
+            "mhc_pre_and_input_norm": 4.399563999999998,
+            "qkvg": 8.748033999999999,
+            "attention_norm_rope_kv_gate": 18.20374700000003,
+            "out_projection_mlp": 7.213711999999998,
+            "sinkhorn_residual_hidden": 8.077871999999996,
+            "final_norm_open_lm_head": 0.009959999999999997,
+            "candidate_projection": 0.42632499999999995
+          },
+          "unattributed_ms": 0.5314060026141405
+        },
+        {
+          "id": "weather_seattle",
+          "rep": 3,
+          "decode_ms": 50.19604699919,
+          "steps": 18,
+          "prepare_calls": 1062,
+          "stages_ms": {
+            "input_engram": 1.828219,
+            "mhc_pre_and_input_norm": 4.338215,
+            "qkvg": 8.451161999999998,
+            "attention_norm_rope_kv_gate": 19.28905800000001,
+            "out_projection_mlp": 7.186064000000003,
+            "sinkhorn_residual_hidden": 8.139598999999992,
+            "final_norm_open_lm_head": 0.010519999999999998,
+            "candidate_projection": 0.426925
+          },
+          "unattributed_ms": 0.5262849991899969
+        },
+        {
+          "id": "weather_paris",
+          "rep": 1,
+          "decode_ms": 50.51228999218438,
+          "steps": 18,
+          "prepare_calls": 1062,
+          "stages_ms": {
+            "input_engram": 1.1993340000000003,
+            "mhc_pre_and_input_norm": 4.557359000000004,
+            "qkvg": 8.556962000000008,
+            "attention_norm_rope_kv_gate": 19.60149900000002,
+            "out_projection_mlp": 7.564178000000003,
+            "sinkhorn_residual_hidden": 8.047667999999998,
+            "final_norm_open_lm_head": 0.01376,
+            "candidate_projection": 0.43552499999999994
+          },
+          "unattributed_ms": 0.5360049921843455
+        },
+        {
+          "id": "weather_paris",
+          "rep": 2,
+          "decode_ms": 50.66593199444469,
+          "steps": 18,
+          "prepare_calls": 1062,
+          "stages_ms": {
+            "input_engram": 1.273453,
+            "mhc_pre_and_input_norm": 4.4283999999999955,
+            "qkvg": 8.779241999999995,
+            "attention_norm_rope_kv_gate": 19.569435000000006,
+            "out_projection_mlp": 7.446946999999995,
+            "sinkhorn_residual_hidden": 8.077403999999992,
+            "final_norm_open_lm_head": 0.014240000000000001,
+            "candidate_projection": 0.5234449999999999
+          },
+          "unattributed_ms": 0.5533659944447038
+        },
+        {
+          "id": "weather_paris",
+          "rep": 3,
+          "decode_ms": 49.522360000992194,
+          "steps": 18,
+          "prepare_calls": 1062,
+          "stages_ms": {
+            "input_engram": 1.320691,
+            "mhc_pre_and_input_norm": 4.407442,
+            "qkvg": 8.426196999999997,
+            "attention_norm_rope_kv_gate": 19.019679999999997,
+            "out_projection_mlp": 7.379587999999999,
+            "sinkhorn_residual_hidden": 7.980632999999992,
+            "final_norm_open_lm_head": 0.011199999999999998,
+            "candidate_projection": 0.427245
+          },
+          "unattributed_ms": 0.5496840009922082
+        },
+        {
+          "id": "music_bohemian",
+          "rep": 1,
+          "decode_ms": 60.5981879925821,
+          "steps": 22,
+          "prepare_calls": 1298,
+          "stages_ms": {
+            "input_engram": 1.416929,
+            "mhc_pre_and_input_norm": 5.306769999999997,
+            "qkvg": 10.342457000000007,
+            "attention_norm_rope_kv_gate": 22.880955999999983,
+            "out_projection_mlp": 9.322968000000007,
+            "sinkhorn_residual_hidden": 9.916133,
+            "final_norm_open_lm_head": 0.015160000000000002,
+            "candidate_projection": 0.809009
+          },
+          "unattributed_ms": 0.5878059925821049
+        },
+        {
+          "id": "music_bohemian",
+          "rep": 2,
+          "decode_ms": 62.1706429956248,
+          "steps": 22,
+          "prepare_calls": 1298,
+          "stages_ms": {
+            "input_engram": 1.528174,
+            "mhc_pre_and_input_norm": 5.690381000000004,
+            "qkvg": 10.606957000000003,
+            "attention_norm_rope_kv_gate": 23.763343000000003,
+            "out_projection_mlp": 9.013316999999997,
+            "sinkhorn_residual_hidden": 10.107096000000004,
+            "final_norm_open_lm_head": 0.016320000000000005,
+            "candidate_projection": 0.865489
+          },
+          "unattributed_ms": 0.5795659956247903
+        },
+        {
+          "id": "music_bohemian",
+          "rep": 3,
+          "decode_ms": 61.798199007171206,
+          "steps": 22,
+          "prepare_calls": 1298,
+          "stages_ms": {
+            "input_engram": 1.5564980000000002,
+            "mhc_pre_and_input_norm": 5.677779000000002,
+            "qkvg": 10.413216000000004,
+            "attention_norm_rope_kv_gate": 23.308923000000014,
+            "out_projection_mlp": 9.448343000000001,
+            "sinkhorn_residual_hidden": 9.945787999999993,
+            "final_norm_open_lm_head": 0.01692,
+            "candidate_projection": 0.8674069999999999
+          },
+          "unattributed_ms": 0.5633250071711942
+        },
+        {
+          "id": "music_hotel_california",
+          "rep": 1,
+          "decode_ms": 52.00386499927845,
+          "steps": 19,
+          "prepare_calls": 1121,
+          "stages_ms": {
+            "input_engram": 1.23693,
+            "mhc_pre_and_input_norm": 4.505731999999997,
+            "qkvg": 8.947845000000001,
+            "attention_norm_rope_kv_gate": 19.574621000000004,
+            "out_projection_mlp": 8.018358999999997,
+            "sinkhorn_residual_hidden": 8.630043999999998,
+            "final_norm_open_lm_head": 0.012319999999999998,
+            "candidate_projection": 0.5357280000000001
+          },
+          "unattributed_ms": 0.5422859992784481
+        },
+        {
+          "id": "music_hotel_california",
+          "rep": 2,
+          "decode_ms": 52.70651099272072,
+          "steps": 19,
+          "prepare_calls": 1121,
+          "stages_ms": {
+            "input_engram": 1.238494,
+            "mhc_pre_and_input_norm": 4.8698519999999945,
+            "qkvg": 8.820136000000003,
+            "attention_norm_rope_kv_gate": 20.233261000000013,
+            "out_projection_mlp": 7.841558999999998,
+            "sinkhorn_residual_hidden": 8.57468,
+            "final_norm_open_lm_head": 0.014560000000000002,
+            "candidate_projection": 0.5341250000000001
+          },
+          "unattributed_ms": 0.5798439927207113
+        },
+        {
+          "id": "music_hotel_california",
+          "rep": 3,
+          "decode_ms": 55.40697700052988,
+          "steps": 19,
+          "prepare_calls": 1121,
+          "stages_ms": {
+            "input_engram": 1.2647709999999999,
+            "mhc_pre_and_input_norm": 5.494686999999998,
+            "qkvg": 9.510557,
+            "attention_norm_rope_kv_gate": 20.961988000000016,
+            "out_projection_mlp": 8.401851000000004,
+            "sinkhorn_residual_hidden": 8.635272000000002,
+            "final_norm_open_lm_head": 0.01404,
+            "candidate_projection": 0.552686
+          },
+          "unattributed_ms": 0.5711250005298609
+        },
+        {
+          "id": "thermostat_72",
+          "rep": 1,
+          "decode_ms": 48.54311099916231,
+          "steps": 17,
+          "prepare_calls": 1003,
+          "stages_ms": {
+            "input_engram": 1.1403299999999998,
+            "mhc_pre_and_input_norm": 4.313587999999996,
+            "qkvg": 8.397522999999996,
+            "attention_norm_rope_kv_gate": 19.16826800000001,
+            "out_projection_mlp": 7.231060000000006,
+            "sinkhorn_residual_hidden": 7.662294999999994,
+            "final_norm_open_lm_head": 0.013280000000000002,
+            "candidate_projection": 0.12416100000000001
+          },
+          "unattributed_ms": 0.49260599916230774
+        },
+        {
+          "id": "thermostat_72",
+          "rep": 2,
+          "decode_ms": 48.87295399385039,
+          "steps": 17,
+          "prepare_calls": 1003,
+          "stages_ms": {
+            "input_engram": 1.1546089999999998,
+            "mhc_pre_and_input_norm": 4.860850000000001,
+            "qkvg": 8.993968999999995,
+            "attention_norm_rope_kv_gate": 18.360091000000004,
+            "out_projection_mlp": 7.171826000000001,
+            "sinkhorn_residual_hidden": 7.696042000000001,
+            "final_norm_open_lm_head": 0.014841000000000003,
+            "candidate_projection": 0.120641
+          },
+          "unattributed_ms": 0.5000849938503933
+        },
+        {
+          "id": "thermostat_72",
+          "rep": 3,
+          "decode_ms": 48.10322599951178,
+          "steps": 17,
+          "prepare_calls": 1003,
+          "stages_ms": {
+            "input_engram": 1.250053,
+            "mhc_pre_and_input_norm": 4.462872,
+            "qkvg": 8.443399000000001,
+            "attention_norm_rope_kv_gate": 18.509829000000007,
+            "out_projection_mlp": 7.171152000000002,
+            "sinkhorn_residual_hidden": 7.623714999999995,
+            "final_norm_open_lm_head": 0.0148,
+            "candidate_projection": 0.12360099999999999
+          },
+          "unattributed_ms": 0.5038049995117717
+        },
+        {
+          "id": "thermostat_68",
+          "rep": 1,
+          "decode_ms": 47.60186199564487,
+          "steps": 17,
+          "prepare_calls": 1003,
+          "stages_ms": {
+            "input_engram": 1.348614,
+            "mhc_pre_and_input_norm": 4.5231239999999975,
+            "qkvg": 7.913435000000007,
+            "attention_norm_rope_kv_gate": 18.357985000000014,
+            "out_projection_mlp": 7.093709,
+            "sinkhorn_residual_hidden": 7.739028999999992,
+            "final_norm_open_lm_head": 0.015161000000000004,
+            "candidate_projection": 0.11924100000000003
+          },
+          "unattributed_ms": 0.4915639956448601
+        },
+        {
+          "id": "thermostat_68",
+          "rep": 2,
+          "decode_ms": 47.98622499220073,
+          "steps": 17,
+          "prepare_calls": 1003,
+          "stages_ms": {
+            "input_engram": 1.1536879999999996,
+            "mhc_pre_and_input_norm": 4.255771000000003,
+            "qkvg": 8.564167000000003,
+            "attention_norm_rope_kv_gate": 18.633173,
+            "out_projection_mlp": 7.017733000000004,
+            "sinkhorn_residual_hidden": 7.678366000000002,
+            "final_norm_open_lm_head": 0.013680000000000001,
+            "candidate_projection": 0.151122
+          },
+          "unattributed_ms": 0.5185249922007173
+        },
+        {
+          "id": "thermostat_68",
+          "rep": 3,
+          "decode_ms": 47.68366199277807,
+          "steps": 17,
+          "prepare_calls": 1003,
+          "stages_ms": {
+            "input_engram": 1.1755280000000004,
+            "mhc_pre_and_input_norm": 4.236922999999999,
+            "qkvg": 8.496680000000012,
+            "attention_norm_rope_kv_gate": 18.569940999999996,
+            "out_projection_mlp": 6.982825999999997,
+            "sinkhorn_residual_hidden": 7.5991589999999904,
+            "final_norm_open_lm_head": 0.013360000000000002,
+            "candidate_projection": 0.11524
+          },
+          "unattributed_ms": 0.4940049927780734
+        },
+        {
+          "id": "message_bob",
+          "rep": 1,
+          "decode_ms": 76.30549999885261,
+          "steps": 27,
+          "prepare_calls": 1593,
+          "stages_ms": {
+            "input_engram": 1.8200949999999996,
+            "mhc_pre_and_input_norm": 6.740108999999996,
+            "qkvg": 13.057166999999994,
+            "attention_norm_rope_kv_gate": 29.493446000000006,
+            "out_projection_mlp": 11.353424999999998,
+            "sinkhorn_residual_hidden": 12.018481000000001,
+            "final_norm_open_lm_head": 0.021241,
+            "candidate_projection": 1.1406899999999998
+          },
+          "unattributed_ms": 0.6608459988526079
+        },
+        {
+          "id": "message_bob",
+          "rep": 2,
+          "decode_ms": 78.31239899678621,
+          "steps": 27,
+          "prepare_calls": 1593,
+          "stages_ms": {
+            "input_engram": 1.801295,
+            "mhc_pre_and_input_norm": 6.808384999999999,
+            "qkvg": 13.785465000000011,
+            "attention_norm_rope_kv_gate": 30.24135800000003,
+            "out_projection_mlp": 11.703691999999988,
+            "sinkhorn_residual_hidden": 12.200946999999989,
+            "final_norm_open_lm_head": 0.02208,
+            "candidate_projection": 1.11189
+          },
+          "unattributed_ms": 0.6372869967862016
+        },
+        {
+          "id": "message_bob",
+          "rep": 3,
+          "decode_ms": 77.54287200805265,
+          "steps": 27,
+          "prepare_calls": 1593,
+          "stages_ms": {
+            "input_engram": 1.828821,
+            "mhc_pre_and_input_norm": 7.216438999999995,
+            "qkvg": 13.017646000000024,
+            "attention_norm_rope_kv_gate": 29.876302000000035,
+            "out_projection_mlp": 11.548120000000017,
+            "sinkhorn_residual_hidden": 12.086885999999998,
+            "final_norm_open_lm_head": 0.024080999999999998,
+            "candidate_projection": 1.299733
+          },
+          "unattributed_ms": 0.644844008052587
+        },
+        {
+          "id": "message_alice",
+          "rep": 1,
+          "decode_ms": 172.8226759878453,
+          "steps": 60,
+          "prepare_calls": 3540,
+          "stages_ms": {
+            "input_engram": 3.987565,
+            "mhc_pre_and_input_norm": 14.875584000000018,
+            "qkvg": 28.737189999999977,
+            "attention_norm_rope_kv_gate": 67.50150599999998,
+            "out_projection_mlp": 25.469943999999945,
+            "sinkhorn_residual_hidden": 27.40416500000006,
+            "final_norm_open_lm_head": 2.880546,
+            "candidate_projection": 1.1054100000000002
+          },
+          "unattributed_ms": 0.8607659878452978
+        },
+        {
+          "id": "message_alice",
+          "rep": 2,
+          "decode_ms": 175.21921900333837,
+          "steps": 60,
+          "prepare_calls": 3540,
+          "stages_ms": {
+            "input_engram": 3.997917000000001,
+            "mhc_pre_and_input_norm": 15.372936000000008,
+            "qkvg": 29.29408899999993,
+            "attention_norm_rope_kv_gate": 68.33341399999995,
+            "out_projection_mlp": 26.404693999999985,
+            "sinkhorn_residual_hidden": 26.984644000000117,
+            "final_norm_open_lm_head": 2.709225,
+            "candidate_projection": 1.270931
+          },
+          "unattributed_ms": 0.8513690033383909
+        },
+        {
+          "id": "message_alice",
+          "rep": 3,
+          "decode_ms": 175.10365799535066,
+          "steps": 60,
+          "prepare_calls": 3540,
+          "stages_ms": {
+            "input_engram": 3.9937229999999997,
+            "mhc_pre_and_input_norm": 15.016749999999975,
+            "qkvg": 28.40978799999999,
+            "attention_norm_rope_kv_gate": 67.785727,
+            "out_projection_mlp": 26.786022999999997,
+            "sinkhorn_residual_hidden": 27.28271000000005,
+            "final_norm_open_lm_head": 2.9350300000000016,
+            "candidate_projection": 1.978579
+          },
+          "unattributed_ms": 0.9153279953506512
+        },
+        {
+          "id": "brightness_50",
+          "rep": 1,
+          "decode_ms": 43.022256999392994,
+          "steps": 16,
+          "prepare_calls": 944,
+          "stages_ms": {
+            "input_engram": 1.0239690000000001,
+            "mhc_pre_and_input_norm": 3.856153999999998,
+            "qkvg": 7.501474000000003,
+            "attention_norm_rope_kv_gate": 16.398834000000015,
+            "out_projection_mlp": 6.4917479999999985,
+            "sinkhorn_residual_hidden": 7.1848329999999985,
+            "final_norm_open_lm_head": 0.010041,
+            "candidate_projection": 0.09912
+          },
+          "unattributed_ms": 0.4560839993929804
+        },
+        {
+          "id": "brightness_50",
+          "rep": 2,
+          "decode_ms": 43.91950600256678,
+          "steps": 16,
+          "prepare_calls": 944,
+          "stages_ms": {
+            "input_engram": 1.0480500000000001,
+            "mhc_pre_and_input_norm": 3.9953950000000016,
+            "qkvg": 7.730951999999994,
+            "attention_norm_rope_kv_gate": 16.711731,
+            "out_projection_mlp": 6.618336999999995,
+            "sinkhorn_residual_hidden": 7.191113999999994,
+            "final_norm_open_lm_head": 0.01152,
+            "candidate_projection": 0.12028099999999997
+          },
+          "unattributed_ms": 0.49212600256679195
+        },
+        {
+          "id": "brightness_50",
+          "rep": 3,
+          "decode_ms": 45.16879799484741,
+          "steps": 16,
+          "prepare_calls": 944,
+          "stages_ms": {
+            "input_engram": 1.1450099999999999,
+            "mhc_pre_and_input_norm": 3.9204350000000017,
+            "qkvg": 7.829667000000004,
+            "attention_norm_rope_kv_gate": 17.100101,
+            "out_projection_mlp": 7.304669000000002,
+            "sinkhorn_residual_hidden": 7.253468,
+            "final_norm_open_lm_head": 0.01168,
+            "candidate_projection": 0.10236400000000001
+          },
+          "unattributed_ms": 0.5014039948474078
+        },
+        {
+          "id": "brightness_100",
+          "rep": 1,
+          "decode_ms": 44.07186800381169,
+          "steps": 16,
+          "prepare_calls": 944,
+          "stages_ms": {
+            "input_engram": 1.111053,
+            "mhc_pre_and_input_norm": 3.899435,
+            "qkvg": 7.686988999999999,
+            "attention_norm_rope_kv_gate": 16.792567999999996,
+            "out_projection_mlp": 6.7075960000000014,
+            "sinkhorn_residual_hidden": 7.294741999999998,
+            "final_norm_open_lm_head": 0.012600000000000002,
+            "candidate_projection": 0.10171999999999999
+          },
+          "unattributed_ms": 0.46516500381169124
+        },
+        {
+          "id": "brightness_100",
+          "rep": 2,
+          "decode_ms": 44.60107200429775,
+          "steps": 16,
+          "prepare_calls": 944,
+          "stages_ms": {
+            "input_engram": 1.0840120000000002,
+            "mhc_pre_and_input_norm": 4.269963999999998,
+            "qkvg": 7.550463000000001,
+            "attention_norm_rope_kv_gate": 17.125559000000013,
+            "out_projection_mlp": 6.740638,
+            "sinkhorn_residual_hidden": 7.2234719999999975,
+            "final_norm_open_lm_head": 0.013640000000000003,
+            "candidate_projection": 0.10451999999999999
+          },
+          "unattributed_ms": 0.48880400429773374
+        },
+        {
+          "id": "brightness_100",
+          "rep": 3,
+          "decode_ms": 45.16287799924612,
+          "steps": 16,
+          "prepare_calls": 944,
+          "stages_ms": {
+            "input_engram": 1.124093,
+            "mhc_pre_and_input_norm": 4.061040999999997,
+            "qkvg": 7.7616049999999985,
+            "attention_norm_rope_kv_gate": 17.608155999999994,
+            "out_projection_mlp": 6.706672000000003,
+            "sinkhorn_residual_hidden": 7.3075849999999996,
+            "final_norm_open_lm_head": 0.01148,
+            "candidate_projection": 0.10420099999999999
+          },
+          "unattributed_ms": 0.47804499924612287
+        }
+      ],
+      "ms_per_token": {
+        "input_engram": 0.0694500621814475,
+        "mhc_pre_and_input_norm": 0.25456610907237515,
+        "qkvg": 0.48454982670744134,
+        "attention_norm_rope_kv_gate": 1.0813564801223243,
+        "out_projection_mlp": 0.42586657492354735,
+        "sinkhorn_residual_hidden": 0.4517677400611622,
+        "final_norm_open_lm_head": 0.009256481141692153,
+        "candidate_projection": 0.020054384301732925
+      },
+      "prepare_calls_per_token": 59.0,
+      "decode_ms_per_token": 2.8232078459984873
+    }
+  },
+  "baseline_revision": "32005c7818aa44bdd9a3f6750e9f92214c1b5931",
+  "library_sha256": "feda7db7c2e557cc76f08d3f924a44f12e1733ce311550f428010c6aa16348c7",
+  "instrumented_sources_sha256": {
+    "sdot.cpp": "127ae67301dcf0d3cd03dfd14fae8ef320117eda8f2df0dfbada321e62e70e3a",
+    "cq.cpp": "65bffa877c2912e28b4ab0354274cc4559488a8ceea6a22d0694d2ab0ad1677f",
+    "engine.cpp": "96660dc28bbb05ad00cb529cd60998cdd4bbd822bf76acdd5cfc9c710b7bd93b"
+  },
+  "measurement": "one warmup and three measured actual requests per case; stages additive; instrumented, not a speed benchmark"
+}

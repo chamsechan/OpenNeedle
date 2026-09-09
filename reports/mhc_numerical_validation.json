@@ -1,0 +1,12 @@
+{
+  "bitwise_equal": true,
+  "arrays_per_variant": 216,
+  "elements_per_variant": 1828304,
+  "coverage": "FP32/SDOT x FP32/INT8 KV x 1/4 threads; 280 steps with pinned prefix and window wrap; prefix restore; tiny two-lane archives with different mHC storage layouts (all dequantized by the loader)",
+  "library_sha256": {
+    "baseline": "f679efa280e0179577baf27c1e2ee5cfb9a6007505850547a00eccff0abc0b66",
+    "mhc_pair": "d499b177f471044f52fc21c3401bfd9725bd9c5eaed4c27678cc3949e0fd738d",
+    "mhc_parallel": "8db48e39fc128b95920b79416316d91dab3bdd12b86f8a033b1e264d6319cfde",
+    "mhc_final": "c7f4299d02d5ed6ed95aeb5acc69263455ae4dac80f85f0240ec62dfb2d9f023"
+  }
+}

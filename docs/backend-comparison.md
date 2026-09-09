@@ -1,6 +1,10 @@
 # CPU 性能与测量方法
 
-当前实测实现为 `f4f9b38`（2026-09-09），同轮原生基线为 `e809ffc`。硬件为 4 核 ARM Neoverse-N1，使用同一份官方 CACT。原始样本、配置、官方库/模型哈希和数值验证汇总保存在 [performance_f4f9b38.json](../reports/performance_f4f9b38.json)。
+最新固定 64 维 QK 优化在已含 mHC 优化的基线上，Basic decode TPS 455.36 → 473.15（+3.9%），Expanded 366.73 → 393.63（+7.3%）；请求耗时分别减少 5.0% 和 6.9%。见 [attention 实现与验证](attention-optimization.md)。两轮实验测量时间不同，不能直接叠加收益，也不能据此重算与官方的速度比。
+
+此前 mHC 投影优化的独立同轮对照见 [mHC 优化报告](mhc-optimization.md)：Expanded decode TPS 334.2 → 366.0（+9.5%），请求耗时 86.83 → 82.24 ms。
+
+以下历史实测实现为 `f4f9b38`（2026-09-09），同轮原生基线为 `e809ffc`。硬件为 4 核 ARM Neoverse-N1，使用同一份官方 CACT。原始样本、配置、官方库/模型哈希和数值验证汇总保存在 [performance_f4f9b38.json](../reports/performance_f4f9b38.json)。
 
 ## 官方与 OpenNeedle
 
@@ -59,7 +63,7 @@ OMP_WAIT_POLICY=PASSIVE OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
   python3 reports/published_f4f9b38/benchmark.py
 ```
 
-此文档提交的运行时代码与 `f4f9b38` 相同；脚本使用当前 checkout，以后在新运行时提交运行得到的是新提交的性能。脚本保存全部生成 token 和逐请求计时，并检查两个版本的输出相等、调用正确以及测量期间源码未变化。
+这组历史结果对应 `f4f9b38`；脚本使用当前 checkout，现在重跑得到的是后续优化代码的性能，不能标注为 `f4f9b38`。脚本保存全部生成 token 和逐请求计时，并检查两个版本的输出相等、调用正确以及测量期间源码未变化。
 
 如需重新进行官方、native 和 PyTorch 的同轮扩展集比较，可运行现有通用脚本。它会产生新的测量，不能把其结果当作上表历史记录：
 
@@ -72,3 +76,5 @@ OMP_WAIT_POLICY=PASSIVE OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 \
 ```
 
 先按 [官方下载脚本](../scripts/download_official.py) 准备权重和比较库。测试期间避免同时编译或运行其他 CPU 密集任务。首页 SVG 从已保存的数据生成，不会触发测速。
+
+早期大候选投影、attention 串行策略与唯一候选链的逐项实验见 [解码优化实验](decode-experiments.md)。这些候选未确认稳定的请求级加速，没有进入默认运行时；不涉及上述已采用的 mHC 和固定 64 维 QK 优化。

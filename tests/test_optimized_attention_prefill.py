@@ -9,7 +9,7 @@ from needle2.native import NativeEngine, sdot_available
 from needle2.quantize import quantize_matrix, codebook
 
 
-@pytest.mark.parametrize('head_dim', [32, 38])
+@pytest.mark.parametrize('head_dim', [32, 38, 64])
 @pytest.mark.parametrize('kv', ['fp32', 'int8'])
 def test_tiled_gqa_prefill_and_window_restore(head_dim, kv):
     torch.manual_seed(430)
@@ -30,7 +30,8 @@ def test_tiled_gqa_prefill_and_window_restore(head_dim, kv):
     meta = config.to_dict(); meta['hada_n'] = 64
     archive = SimpleNamespace(metadata=meta, tensors=records)
     tokens = np.random.default_rng(81).integers(1, 37, 79, dtype=np.int32)
-    # GQA ratio 3 exercises paired and unpaired heads; 38 exercises SIMD tails.
+    # GQA ratio 3 exercises paired and unpaired heads; 38 exercises SIMD tails,
+    # and 64 exercises the INT8-K fixed-dimension path across short and wrapped contexts.
     for mode in ['fp32'] + (['sdot'] if sdot_available() else []):
         incremental = NativeEngine(archive, threads=1, matmul=mode, kv_cache=kv)
         batched = NativeEngine(archive, threads=4, matmul=mode, kv_cache=kv)

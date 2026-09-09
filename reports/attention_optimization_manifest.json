@@ -1,0 +1,70 @@
+{
+  "platform": "Linux-6.17.0-1020-oracle-aarch64-with-glibc2.39",
+  "cpus": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "threads": 4,
+  "matmul": "sdot",
+  "kv_cache": "int8",
+  "warmups": 1,
+  "confirmation_repeats": 9,
+  "order": "serial interleaved persistent processes; rotating variant order",
+  "compiler": "c++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+  "compiler_flags": [
+    "-O3",
+    "-DNDEBUG",
+    "-std=c++17",
+    "-fPIC",
+    "-shared",
+    "-pthread",
+    "-fopenmp"
+  ],
+  "model_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+  "baseline": "Current workspace after mHC optimization, before attention change",
+  "selected": "attention_fixed64",
+  "tests": "31 passed, 4 subtests passed",
+  "numerical_validation": "216 arrays, 1828304 elements, raw bytes identical",
+  "micro_note": "Isolated generic/fixed64 dot timings are approximately equal; request-level gains are measured in the integrated engine. No separate QK speedup is claimed.",
+  "variants": {
+    "attention_before": {
+      "cq.cpp": "cf344c920e711b9b4ff1efa6276e1c1b25ccb565babe5f1b5984878b2af135df",
+      "engine.cpp": "edd4cf5f71ade6ba9bac140524370ea66fdfe563da83eabfb448b91ce43f2a63",
+      "lib.so": "b43a3418291d33ec239d92bcf647c3085f123e3b25cc98e2282a0a2f423e785c",
+      "sdot.cpp": "df1b6cafaca68547f21ec1b6d491e35f8d547771fd15cb26aa5f2febad097c81"
+    },
+    "attention_qk4": {
+      "cq.cpp": "cf344c920e711b9b4ff1efa6276e1c1b25ccb565babe5f1b5984878b2af135df",
+      "engine.cpp": "41c7cf719617c395f8840bdca268c53ca01ac330a52df8215cfa26dc38acebf4",
+      "lib.so": "76369dbc0bae5c45f9b7aeb33eec64058de06038ee461b6500b114ac87ac7ec4",
+      "sdot.cpp": "df1b6cafaca68547f21ec1b6d491e35f8d547771fd15cb26aa5f2febad097c81"
+    },
+    "attention_qk2": {
+      "cq.cpp": "cf344c920e711b9b4ff1efa6276e1c1b25ccb565babe5f1b5984878b2af135df",
+      "engine.cpp": "bd15a627e8559bb27945671b1a7b2d769aca52542c9fd01a4fe6a1bd373ed0bf",
+      "lib.so": "7f379939f50d64ea5a9f38f765434df3bb3db5a64877759d66f442b769f34308",
+      "sdot.cpp": "df1b6cafaca68547f21ec1b6d491e35f8d547771fd15cb26aa5f2febad097c81"
+    },
+    "attention_qk1": {
+      "cq.cpp": "cf344c920e711b9b4ff1efa6276e1c1b25ccb565babe5f1b5984878b2af135df",
+      "engine.cpp": "53ff51d56510a0b5af5bb8173816d85228fd62b75ab3688d81c9fbb1006bdd9a",
+      "lib.so": "35186649e68218d16e0f93a5ae0f462e00c10f41e027fe20439aaf570a123887",
+      "sdot.cpp": "df1b6cafaca68547f21ec1b6d491e35f8d547771fd15cb26aa5f2febad097c81"
+    },
+    "attention_fixed64": {
+      "cq.cpp": "cf344c920e711b9b4ff1efa6276e1c1b25ccb565babe5f1b5984878b2af135df",
+      "engine.cpp": "aa6ab45b8ee1371b44b6fb6108a0ae3287a3e57238f3a9b3c84b48b4cbaaa2cf",
+      "lib.so": "87f3d00df43a7148b94e9f6acf944d01a590e4515d33ed5050833c22185ba6ca",
+      "sdot.cpp": "df1b6cafaca68547f21ec1b6d491e35f8d547771fd15cb26aa5f2febad097c81"
+    }
+  },
+  "reports": {
+    "attention_qk_sizes.json": "5969d2b33bc5730baef8ba7ca7cfdb659998565af0fb4ae764f26c8432c532b0",
+    "attention_fixed64_confirmation.json": "4dec4820037e7cd4193ccdaad6bb809d1351668f15968465e6a86fdf3f61f325",
+    "attention_qk_micro.csv": "102044abe8aaedef937761e1387607b0a5f161d9d6168f092aa02fa5bb24a273",
+    "attention_numerical_validation.json": "877dcc321e7d8c0fc158a1a3f7d5223a871e2548c18ff916ed8c65cf798e1889",
+    "attention_qk_experiment.json": "2da3726c01aad4e675306fe42f8a034c2a51aad86556b17a46c0a7a00c3d4a26"
+  }
+}

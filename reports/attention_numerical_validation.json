@@ -1,0 +1,20 @@
+{
+  "bitwise_equal": true,
+  "arrays": 216,
+  "elements": 1828304,
+  "coverage": "Full-model FP32/SDOT x FP32/INT8 KV x 1/4 threads; 280 steps with pinned prefix, window wrap, prefix restore; tiny archives",
+  "variants": {
+    "attention_before": {
+      "cq.cpp": "cf344c920e711b9b4ff1efa6276e1c1b25ccb565babe5f1b5984878b2af135df",
+      "engine.cpp": "edd4cf5f71ade6ba9bac140524370ea66fdfe563da83eabfb448b91ce43f2a63",
+      "lib.so": "b43a3418291d33ec239d92bcf647c3085f123e3b25cc98e2282a0a2f423e785c",
+      "sdot.cpp": "df1b6cafaca68547f21ec1b6d491e35f8d547771fd15cb26aa5f2febad097c81"
+    },
+    "attention_fixed64": {
+      "cq.cpp": "cf344c920e711b9b4ff1efa6276e1c1b25ccb565babe5f1b5984878b2af135df",
+      "engine.cpp": "aa6ab45b8ee1371b44b6fb6108a0ae3287a3e57238f3a9b3c84b48b4cbaaa2cf",
+      "lib.so": "87f3d00df43a7148b94e9f6acf944d01a590e4515d33ed5050833c22185ba6ca",
+      "sdot.cpp": "df1b6cafaca68547f21ec1b6d491e35f8d547771fd15cb26aa5f2febad097c81"
+    }
+  }
+}

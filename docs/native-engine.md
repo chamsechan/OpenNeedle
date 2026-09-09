@@ -139,4 +139,16 @@ Native SDOT prefill 将相邻两个 prompt token 的投影配对，同一次 pac
 
 Attention 在固定模型结构下复用 GQA head 工作列表，并按绝对位置缓存 KV 槽位映射；重置 prefix/window 状态时使映射失效。ARM NEON 的 V 累加使用 32 维寄存器分块，避免每个上下文 token 都读写输出缓冲区。FP32/INT8 KV 以及配对/未配对 head 分别实例化；尾部维度和非 NEON 平台保留通用路径。固定 prefix sink、滑窗可见范围和逐维 token 累加顺序保持不变。
 
-`tests/test_optimized_attention_prefill.py` 覆盖 GQA 比例 3、32/38 维 head、CQ2/CQ4、奇数 prompt、滑窗回绕、prefix 恢复及 1/4 线程，并对照逐 token 路径和独立 PyTorch FP32 参考。性能提升取决于模型形状、CPU 和上下文长度；这些数据复用优化不消除 SDOT 或 INT8 KV 原有的量化误差。
+`tests/test_optimized_attention_prefill.py` 覆盖 GQA 比例 3、32/38/64 维 head、CQ2/CQ4、奇数 prompt、滑窗回绕、prefix 恢复及 1/4 线程，并对照逐 token 路径和独立 PyTorch FP32 参考。性能提升取决于模型形状、CPU 和上下文长度；这些数据复用优化不消除 SDOT 或 INT8 KV 原有的量化误差。
+
+## 固定 64 维 QK 路径
+
+attention 阶段的真实请求细分、官方公开资料与整数 QK 路径证据见 [attention 优化调查](attention-research.md)。
+
+ARM64 的 INT8 KV attention 在 64 维双 head 场景下使用固定维度点积，让编译器展开原浮点 QK 循环；没有新增 Q 量化。真实请求性能及数值验证见 [attention 优化报告](attention-optimization.md)。
+
+该分支在遍历上下文前判断 head 维度和配对条件，固定调用现有 `dot_pair_i8_f32(..., 64, ...)`。每个 head 的两个累加器、最终归约，以及 K scale、attention scale 的两次乘法保持原顺序。decode 和 prefill 共享此分支；其它维度、未配对 head、FP32 KV 和非 ARM64 使用原通用路径。该实现不改变线程数、KV 槽位顺序或缓存布局。
+
+## mHC 解码投影合并
+
+mHC 三组权重在 Python 装载层展开为 FP32。解码时两行点积共享输入加载，三组投影合并为一次线程池任务；总矩阵元素少于 32768 时保持串行。每行保留原点积归约结构，Sinkhorn 与 prefill 不变；CQ 描述符回退到原来的独立投影。实现与数值、性能验证见 [mHC 优化报告](mhc-optimization.md)。

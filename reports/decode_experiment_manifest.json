@@ -1,0 +1,84 @@
+{
+  "baseline": "32005c7818aa44bdd9a3f6750e9f92214c1b5931",
+  "platform": "Linux-6.17.0-1020-oracle-aarch64-with-glibc2.39",
+  "cpus": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "model_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+  "compiler": "c++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+  "request_threads": 4,
+  "request_repeats": 5,
+  "request_warmups": 1,
+  "request_backend": "sdot",
+  "request_kv_cache": "int8",
+  "request_order": "serial interleaved persistent processes; rotating variant order",
+  "micro_repeats": 31,
+  "micro_warmups": 5,
+  "micro_order": "separate serial processes, baseline then dense6144 then batch4",
+  "environment": {
+    "OPENBLAS_NUM_THREADS": "1",
+    "OMP_NUM_THREADS": "1",
+    "OMP_WAIT_POLICY": null
+  },
+  "libraries": {
+    "baseline": {
+      "library_sha256": "f679efa280e0179577baf27c1e2ee5cfb9a6007505850547a00eccff0abc0b66",
+      "sources": {
+        "cq.cpp": "cf344c920e711b9b4ff1efa6276e1c1b25ccb565babe5f1b5984878b2af135df",
+        "engine.cpp": "132f56f57d96ffeda0ee81840b99ee660b3d3b4cfbbf36f287b82965b66913c6",
+        "sdot.cpp": "df1b6cafaca68547f21ec1b6d491e35f8d547771fd15cb26aa5f2febad097c81"
+      }
+    },
+    "dense512": {
+      "library_sha256": "d82317211cd37454dd1abe9d47b7d1ab2a8257ff481d7c0f00179e6444ad076c",
+      "sources": {
+        "cq.cpp": "cf344c920e711b9b4ff1efa6276e1c1b25ccb565babe5f1b5984878b2af135df",
+        "engine.cpp": "e3fae95140c21757d39c32e5bd7165fb0baa9b730b79fafe1639f4b81d464bf6",
+        "sdot.cpp": "df1b6cafaca68547f21ec1b6d491e35f8d547771fd15cb26aa5f2febad097c81"
+      }
+    },
+    "batch4": {
+      "library_sha256": "a178013ad19499327d489f9394ad7795bd8ec8a09840ebff6bedf19880d858a9",
+      "sources": {
+        "cq.cpp": "cf344c920e711b9b4ff1efa6276e1c1b25ccb565babe5f1b5984878b2af135df",
+        "engine.cpp": "b6f55396322436a947b9872cbae74711bc44daf78941d8e9d1cb6b7a8c970109",
+        "sdot.cpp": "d70673e096e3f29cd54348b865ba8cd17550f77ea64e01c9668bd7a8df812c0f"
+      }
+    },
+    "dense6144": {
+      "library_sha256": "0e0099d52a41b4aad59a3da831fc740676688061c37c6a3c189be74e118980d0",
+      "sources": {
+        "cq.cpp": "cf344c920e711b9b4ff1efa6276e1c1b25ccb565babe5f1b5984878b2af135df",
+        "engine.cpp": "58a18e589766858818cb3a8a5fa9a4e9696be07e5f4608d4ba74c7bb53c57a45",
+        "sdot.cpp": "df1b6cafaca68547f21ec1b6d491e35f8d547771fd15cb26aa5f2febad097c81"
+      }
+    },
+    "dense6144_serial": {
+      "library_sha256": "985c5f1dc8c0b0c2f86d2e3f942ea01dce1a16bcde6818a31f5c9f392bba3bef",
+      "sources": {
+        "cq.cpp": "cf344c920e711b9b4ff1efa6276e1c1b25ccb565babe5f1b5984878b2af135df",
+        "engine.cpp": "db5dcda849e3f583946d79081718562f1b405a6c196ff9eff9a899f2ff1b2188",
+        "sdot.cpp": "df1b6cafaca68547f21ec1b6d491e35f8d547771fd15cb26aa5f2febad097c81"
+      }
+    },
+    "dense6144_short": {
+      "library_sha256": "b4b9d5d29611a409f9449c67cc8ecc90c7ddfb5236cc8f639d4d0a439b4b77a2",
+      "sources": {
+        "cq.cpp": "cf344c920e711b9b4ff1efa6276e1c1b25ccb565babe5f1b5984878b2af135df",
+        "engine.cpp": "4bb722ada5dbd85ce72bffc94e74e953a4e423225989729c9eb749a849d053ad",
+        "sdot.cpp": "df1b6cafaca68547f21ec1b6d491e35f8d547771fd15cb26aa5f2febad097c81"
+      }
+    },
+    "dense7680": {
+      "library_sha256": "c0847f5e4f389e0e88ba18040acc167893cfedc87595bf4aa6cb8177fd2d6c24",
+      "sources": {
+        "cq.cpp": "cf344c920e711b9b4ff1efa6276e1c1b25ccb565babe5f1b5984878b2af135df",
+        "engine.cpp": "3110d9d2fe835ef39da6da26d674bd1b56083eff95acfb8d7a268baeeda31088",
+        "sdot.cpp": "df1b6cafaca68547f21ec1b6d491e35f8d547771fd15cb26aa5f2febad097c81"
+      }
+    }
+  }
+}

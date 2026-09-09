@@ -89,6 +89,8 @@ Fixed tool prefixes can be reused through the [NativeEngine prefix-cache API](do
 
 The C++ engine validates an immutable DFA once and reuses it across requests, while retaining vocabulary and raw C ABI checks. Attention reuses GQA work lists and KV slot mappings, accumulating V in 32-dimension NEON register tiles. Batched SDOT prefill shares packed-weight decoding between adjacent tokens and computes RoPE trigonometry once per chunk for all layers. These implementations preserve existing quantization and per-dimension accumulation order; [implementation details](docs/native-engine.md#prefill-与-attention-数据复用).
 
+Dense mHC decode projections now share input loads between pairs of rows and use one thread-pool dispatch. ARM64 INT8-KV attention specializes the 64-dimensional paired QK path while keeping FP32 queries and the original reduction order. Separate request benchmarks and numerical validation are documented in the [mHC report](docs/mhc-optimization.md) and [attention report](docs/attention-optimization.md); these measurements do not update the historical official-engine comparison above.
+
 Model architecture and quantization follow pinned [Needle source](https://github.com/cactus-compute/needle/tree/53df049c4a1a82fca1027b81f9ff21336dfb0861) and [release weights](https://huggingface.co/Cactus-Compute/needle2/tree/32e9e3a93b205f786929697446ae669cf0a84579). See the [Technical Reference](docs/research.md) for the architecture, CQ format, Arm intrinsics and Cactus kernel references; see the [Native Engine](docs/native-engine.md) for execution details and numerical limits.
 
 ## Agent Skills

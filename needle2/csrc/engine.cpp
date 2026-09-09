@@ -526,6 +526,37 @@ struct Engine {
             for(int r=0;r<rows;++r)out[r]=dot_f32(w.data+size_t(first+r)*w.cols,in,w.cols);
         }
     }
+    void mhc_projections(int mh, int layer, const float* input) {
+        const TensorDesc* matrices[3] = {&t[mh+6], &t[mh+7], &t[mh+8]};
+        int rows[3] = {c.lanes, c.lanes, c.lanes*c.lanes};
+        float* outputs[3] = {hpre.data(), hpost.data(), hres.data()};
+        if (matrices[0]->cq || matrices[1]->cq || matrices[2]->cq) {
+            for (int m = 0; m < 3; ++m)
+                linear(mh+6+m, input, outputs[m], layer*rows[m], rows[m]);
+            return;
+        }
+        int blocks[3] = {(rows[0]+1)/2, (rows[1]+1)/2, (rows[2]+1)/2};
+        auto work = [&](int tid, int begin, int end) {
+            int offset = 0;
+            for (int m = 0; m < 3; ++m) {
+                int first = std::max(0, begin-offset), last = std::min(blocks[m], end-offset);
+                offset += blocks[m];
+                for (int b = first; b < last; ++b) {
+                    int r = 2*b, cols = matrices[m]->cols;
+                    const float* w = matrices[m]->data + size_t(layer*rows[m]+r)*cols;
+                    if (r+1 < rows[m]) dot_pair(w, w+cols, input, cols, outputs[m][r], outputs[m][r+1]);
+                    else outputs[m][r] = dot_f32(w, input, cols);
+                }
+            }
+        };
+        // Keep small geometries serial. The released four-lane model has
+        // 24 output rows of width 2048, enough work to share one dispatch.
+        int total_blocks = blocks[0]+blocks[1]+blocks[2];
+        int64_t work_size = 0;
+        for (int m = 0; m < 3; ++m) work_size += int64_t(rows[m])*matrices[m]->cols;
+        if (work_size >= 32768) parallel_for(total_blocks, work);
+        else work(0, 0, total_blocks);
+    }
     void attention_projections(int ti,const float*input) {
         if(sdot_enabled) {
             SdotCQ*matrices[4]={sdot[ti+1].get(),sdot[ti+2].get(),sdot[ti+3].get(),sdot[ti+6].get()};
@@ -899,7 +930,23 @@ struct Engine {
                 } else {
                     const auto*kc_i8=keys_i8.data()+size_t(l)*capacity*K;
                     const auto*ks=k_scales.data()+size_t(l)*capacity*KV;
-                    for(int s=0;s<length;++s) {
+                    int s=0;
+#ifdef __aarch64__
+                    // A constant head dimension lets the compiler unroll the
+                    // original dot product without changing its reduction order.
+                    if (count==2 && HD==64) {
+                        for (;s<length;++s) {
+                            int pos=attention_slots[s];
+                            dot_pair_i8_f32(q_in+h*HD,q_in+(h+1)*HD,
+                                kc_i8+pos*K+kh*HD,64,s0[s],s1[s]);
+                            float k_scale=ks[pos*KV+kh];
+                            s0[s]*=k_scale;s1[s]*=k_scale;
+                            s0[s]*=scale;max0=std::max(max0,s0[s]);
+                            s1[s]*=scale;max1=std::max(max1,s1[s]);
+                        }
+                    }
+#endif
+                    for(;s<length;++s) {
                         int pos=attention_slots[s];
                         float k_scale=ks[pos*KV+kh];
                         if(count==2) {
@@ -931,9 +978,7 @@ struct Engine {
         for(int l=0;l<c.layers;++l) {
             int ti=1+14*l;
             rms(x.data(),nx.data(),N*D);
-            linear(mh+6,nx.data(),hpre.data(),l*N,N);
-            linear(mh+7,nx.data(),hpost.data(),l*N,N);
-            linear(mh+8,nx.data(),hres.data(),l*N*N,N*N);
+            mhc_projections(mh, l, nx.data());
             for(int n=0;n<N;++n) {
                 hpre[n]=sigmoid(dense(mh)[l]*hpre[n]+dense(mh+3)[l*N+n]+(n==l%N?4:-4));
                 hpost[n]=2*sigmoid(dense(mh+1)[l]*hpost[n]+dense(mh+4)[l*N+n]+(n==l%N?0:-4));

@@ -1,0 +1,46 @@
+{
+  "baseline": "32005c7818aa44bdd9a3f6750e9f92214c1b5931",
+  "platform": "Linux-6.17.0-1020-oracle-aarch64-with-glibc2.39",
+  "cpus": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "threads": 4,
+  "matmul": "sdot",
+  "kv_cache": "int8",
+  "warmups": 1,
+  "initial_repeats": 5,
+  "confirmation_repeats": 9,
+  "order": "serial interleaved persistent processes; alternating variant order",
+  "compiler": "c++ (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0",
+  "compiler_flags": [
+    "-O3",
+    "-DNDEBUG",
+    "-std=c++17",
+    "-fPIC",
+    "-shared",
+    "-pthread",
+    "-fopenmp"
+  ],
+  "model_sha256": "b43aabfcaf1a6db6acf488076eab71d823c08697c7af4521fc1d174b60ede5ba",
+  "runtime_sources_sha256": {
+    "needle2/csrc/sdot.cpp": "df1b6cafaca68547f21ec1b6d491e35f8d547771fd15cb26aa5f2febad097c81",
+    "needle2/csrc/cq.cpp": "cf344c920e711b9b4ff1efa6276e1c1b25ccb565babe5f1b5984878b2af135df",
+    "needle2/csrc/engine.cpp": "edd4cf5f71ade6ba9bac140524370ea66fdfe563da83eabfb448b91ce43f2a63"
+  },
+  "reports_sha256": {
+    "reports/mhc_decode_experiment.json": "e8519adab6be2e93977483f980959bba96345a9dea9e00cbcf6e40c52980c66b",
+    "reports/mhc_decode_final.json": "e9d96f738255844f1b508565eaae2cfdfb0726ef05822a4e61e706910c4b7a7d",
+    "reports/mhc_numerical_validation.json": "736d69efd6e0aa306d094cdd923d92f5daa8fd33e6570920e5846ceeaf015ede"
+  },
+  "libraries_sha256": {
+    "baseline": "f679efa280e0179577baf27c1e2ee5cfb9a6007505850547a00eccff0abc0b66",
+    "mhc_pair": "d499b177f471044f52fc21c3401bfd9725bd9c5eaed4c27678cc3949e0fd738d",
+    "mhc_parallel": "8db48e39fc128b95920b79416316d91dab3bdd12b86f8a033b1e264d6319cfde",
+    "mhc_final": "c7f4299d02d5ed6ed95aeb5acc69263455ae4dac80f85f0240ec62dfb2d9f023"
+  },
+  "tests": "55 passed, 4 subtests passed",
+  "official_comparison": "No new official benchmark; internal timing boundaries remain unaligned"
+}

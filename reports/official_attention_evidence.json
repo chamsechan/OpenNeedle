@@ -1,0 +1,33 @@
+{
+  "library_path": "artifacts/official/linux-arm64/libneedle.a",
+  "library_sha256": "daea5a6610ec5872c9e5c4b4751f4edf00bf8774493e34b7726e5cf2f9be6285",
+  "symbols": [
+    "0000000000000000 t needle::dot_i8_pair64_dp(signed char const*, signed char const*, signed char const*, float const*, float*)",
+    "0000000000000000 t needle::dot_i8_dp(signed char const*, signed char const*, int)",
+    "0000000000000000 b needle::g_dotprod"
+  ],
+  "call_sites": [
+    {
+      "caller": "0000000000000000 <needle::Engine::forward_range(int, int const*, int, needle::Engine::CellSink*)::{lambda(int, int)#5}::operator()(int, int) const::{lambda(int, int)#1}::operator()(int, int) const>:",
+      "relocation": "8c: R_AARCH64_CALL26\t.text._ZN6needleL16dot_i8_pair64_dpEPKaS1_S1_PKfPf"
+    }
+  ],
+  "dot_pair_sdot_instructions": [
+    "1c:\t4e859460 \tsdot\tv0.4s, v3.16b, v5.16b",
+    "24:\t4e829481 \tsdot\tv1.4s, v4.16b, v2.16b",
+    "2c:\t4e869600 \tsdot\tv0.4s, v16.16b, v6.16b",
+    "34:\t4e859611 \tsdot\tv17.4s, v16.16b, v5.16b",
+    "3c:\t4e879461 \tsdot\tv1.4s, v3.16b, v7.16b",
+    "44:\t4e829464 \tsdot\tv4.4s, v3.16b, v2.16b",
+    "48:\t4e869651 \tsdot\tv17.4s, v18.16b, v6.16b",
+    "54:\t4e8794a4 \tsdot\tv4.4s, v5.16b, v7.16b"
+  ],
+  "dwarf_names": [
+    "q_i8",
+    "qscale0",
+    "qscale1",
+    "scores0",
+    "scores1"
+  ],
+  "conclusion": "The released library contains a called 64-dimensional paired integer-dot path; does not establish exact quantization rules or activation frequency for every request."
+}
