@@ -24,11 +24,12 @@ PALETTES = {
 def draw(theme, report, static=False):
     c = PALETTES[theme]
     summary = report['summary']
-    ratio = summary['optimized']['decode_tps_median'] / summary['baseline']['decode_tps_median']
+    official_tps = summary['official']['decode_tps_median']
+    optimized_tps = summary['optimized']['decode_tps_median']
+    ratio = optimized_tps / official_tps
     rows = [('official', 'Official 2.0.4†', 'official'),
-            ('optimized', 'OpenNeedle f4f9b38*', 'accent'),
-            ('baseline', 'OpenNeedle e809ffc*', 'teal')]
-    maximum = max(summary[name]['decode_tps_median'] for name, _, _ in rows)
+            ('optimized', 'OpenNeedle (SDOT + INT8 KV)*', 'accent')]
+    maximum = max(official_tps, optimized_tps)
     pieces = []
     def add(value): pieces.append(value)
     def text(x, y, value, size=14, color='ink', weight=400, extra=''):
@@ -41,9 +42,8 @@ def draw(theme, report, static=False):
     add('<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="500" viewBox="0 0 1200 500" role="img" aria-labelledby="title desc">')
     add('<title id="title">OpenNeedle — packed CPU inference and measured decode throughput</title>')
     add('<desc id="desc">Conceptual packed projection data flow. Expanded suite on a 4-core ARM Neoverse-N1 CPU: official '+
-        f"{summary['official']['decode_tps_median']:.2f}, optimized SDOT plus INT8 KV {summary['optimized']['decode_tps_median']:.2f}, "+
-        f"baseline SDOT plus INT8 KV {summary['baseline']['decode_tps_median']:.2f} tokens per second. "+
-        'Sixteen queries, nine repeats per native revision; official is from an earlier five-repeat run. '+
+        f"{official_tps:.2f}, OpenNeedle SDOT plus INT8 KV {optimized_tps:.2f} tokens per second. "+
+        'Sixteen queries, nine repeats for OpenNeedle; official is from an earlier five-repeat run. '+
         'Timing definitions differ; SDOT and INT8 KV add quantization error. Motion is illustrative.</desc>')
     add('<metadata>'+escape(json.dumps({'source':'reports/performance_f4f9b38.json','sha256':hashlib.sha256(REPORT.read_bytes()).hexdigest(),'theme':theme,'static':static}))+'</metadata>')
     add('<style>text{font-family:Inter,"Segoe UI",Arial,sans-serif}.mono{font-family:"SFMono-Regular",Consolas,"Liberation Mono",monospace}.overline{letter-spacing:2.2px}.flow{stroke-dasharray:5 18;stroke-linecap:round;animation:travel 2.6s linear infinite}.phase2{animation-delay:-1.3s}.phase3{animation-duration:1.8s}.spark{animation:shimmer 3.4s ease-in-out infinite}.spark2{animation-delay:-1.7s}@keyframes travel{to{stroke-dashoffset:-92}}@keyframes shimmer{0%,100%{opacity:.38}50%{opacity:1}}@media(prefers-reduced-motion:reduce){.flow,.spark{animation:none!important}.flow{stroke-dasharray:5 18;opacity:.7}}'+
@@ -106,19 +106,20 @@ def draw(theme, report, static=False):
     text(751,80,'Decode throughput',23,'ink',600,'letter-spacing="-.4"')
     text(751,103,'4-core ARM Neoverse-N1 · median token/s',12,'muted')
     for index,(name,label,color) in enumerate(rows):
-        y=150+index*82
+        y=165+index*100
         value=summary[name]['decode_tps_median']
         text(751,y,label,14,'ink',550)
         text(1145,y+2,f'{value:.2f}',25,color,600,'text-anchor="end" class="mono" letter-spacing="-.8"')
         rect(751,y+15,394,5,'track',2)
         rect(751,y+15,round(394*value/maximum,3),5,color,2,
              extra=f'data-backend="{name}" data-value="{value:.12g}"')
-    path('M751 391H1145')
-    text(751,434,f'{ratio:.1f}×',36,'accent',600,'letter-spacing="-1.5"')
-    text(890,420,'Decode gain vs e809ffc',14,'ink',500)
-    text(890,442,'Same SDOT + INT8 KV · interleaved',10.5,'muted')
-    text(751,467,'* SDOT + INT8 KV. † Earlier run; timing definitions differ.',11,'muted')
-    text(751,484,'16 queries · native 9 repeats · official 5 (self-reported TPS)',10,'muted')
+    path('M751 365H1145')
+    pct=round(ratio*100)
+    text(751,415,f'{pct}%',36,'accent',600,'letter-spacing="-1.5"')
+    text(855,403,'Decode throughput vs official',14,'ink',500)
+    text(855,425,f'{optimized_tps:.1f} vs {official_tps:.1f} token/s · 4-core ARM',10.5,'muted')
+    text(751,458,'* SDOT + INT8 KV. † Earlier run; timing definitions differ.',11,'muted')
+    text(751,476,'16 queries · native 9 repeats · official 5 (self-reported TPS)',10,'muted')
     add('</svg>')
     return '\n'.join(pieces)+'\n'
 

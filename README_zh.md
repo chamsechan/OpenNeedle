@@ -6,7 +6,7 @@
   <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-static-dark.svg">
   <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/openeedle-hero-static.svg">
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-dark.svg">
-  <img src="docs/assets/openeedle-hero-light.svg" width="1200" alt="OpenNeedle 压缩 CPU 推理。扩展解码吞吐：官方 493.70 token/s（较早测量）、优化后 SDOT＋INT8 KV 327.40、优化前 201.31。计时口径不同。">
+  <img src="docs/assets/openeedle-hero-light.svg" width="1200" alt="OpenNeedle 压缩 CPU 推理。扩展解码吞吐：官方 493.70 token/s（较早测量）、OpenNeedle SDOT＋INT8 KV 327.40 token/s。计时口径不同。">
 </picture>
 
 **面向 Needle 2 的开源 CPU 推理引擎与 PyTorch 工具链。**
@@ -17,9 +17,9 @@
 
 ## 当前性能
 
-最新实测实现：**`f4f9b38`**，4 核 ARM Neoverse-N1，4 线程，**SDOT＋INT8 KV**，使用同一份官方发布权重。下表为中位数；基础和扩展用例集分别含 3、16 个独立请求。
+4 核 ARM Neoverse-N1，4 线程，**SDOT＋INT8 KV**，使用同一份官方发布权重。下表为中位数；基础和扩展用例集分别含 3、16 个独立请求。
 
-| 指标 | 官方 2.0.4¹ | OpenNeedle 优化后 | OpenNeedle 相对官方 |
+| 指标 | 官方 2.0.4¹ | OpenNeedle | OpenNeedle 相对官方 |
 |---|---:|---:|---|
 | 基础热请求计算耗时 | 45.1 ms | **60.3 ms** | 耗时高 33.6% |
 | 扩展热请求计算耗时 | 439.1 ms | **87.4 ms** | 耗时低 80.1% |
@@ -27,11 +27,9 @@
 | 扩展解码吞吐 | 493.7 token/s | **327.4 token/s** | 吞吐低 33.7% |
 | 工具调用质量 | 13/15（86.7%） | 13/15（86.7%） | 该样本得分相同 |
 
-¹ 官方数据来自同机较早一轮测量（每例 5 次），优化后数据每例测量 9 次，**并非官方与新版同轮交错测速**。官方 TPS 为自报值，内部工作量与计时范围不同；扩展请求耗时更低不能证明解码内核更快。热请求不含模型加载、前缀准备和 DFA 编译；native 查询分词与最终解析也在计时之外。
+¹ 官方数据来自同机较早一轮测量（每例 5 次），OpenNeedle 数据每例测量 9 次，**并非官方与 OpenNeedle 同轮交错测速**。官方 TPS 为自报值，内部工作量与计时范围不同；扩展请求耗时更低不能证明解码内核更快。热请求不含模型加载、前缀准备和 DFA 编译；native 查询分词与最终解析也在计时之外。详见 [完整方法、原始样本与复现](docs/backend-comparison.md)。
 
-在 **`e809ffc` → `f4f9b38` 同轮交错对照**中，扩展请求耗时 **132.8 → 87.4 ms（降低 34.2%）**，query prefill **41.2 → 32.3 ms（降低 21.6%）**，解码吞吐 **201.3 → 327.4 token/s（提升 62.6%）**。每例预热一次、测量 9 次，各版本使用独立常驻进程。[完整方法、原始样本与复现](docs/backend-comparison.md)。
-
-**默认仍为 FP32；SDOT 与 INT8 KV 均为可选近似模式。** 四种原生配置的质量集输出均保持不变。本轮通过 **194 项测试及 4 个子测试**；31 条请求中，每种配置的 1026 × 8192 个完整 logits 均与自身优化前结果逐位一致。这不表示四种配置彼此相同，也不表示与官方 logits 相同。完整 BFCL 尚未评估。详见 [精度验证](docs/results.md) 与 [grammar 支持范围](docs/grammar.md)。
+**默认仍为 FP32；SDOT 与 INT8 KV 均为可选近似模式。** 所有原生配置均保持预期质量输出，并通过全部测试套件（**194 项测试及 4 个子测试**）。这不表示四种原生配置彼此相同，也不表示与官方 logits 相同。完整 BFCL 尚未评估。详见 [精度验证](docs/results.md) 与 [grammar 支持范围](docs/grammar.md)。
 
 ## 快速开始
 
@@ -87,7 +85,7 @@ C++ 引擎在 Q/K/V/gate 投影间共享一次 Hadamard 输入变换，直接读
 
 固定工具前缀通过 [NativeEngine 前缀缓存 API](docs/native-engine.md#固定-tools-前缀复用) 复用。native 工具解码将 schema 与 UTF-8 约束编译成 token DFA，只投影合法候选行，单候选时跳过 LM head；大型 grammar 回退到 Python schema 检查。四行内核与单行 SDOT 的逐元素一致测试覆盖 CQ2/CQ4、padding、尾行及 1/2/4 线程。
 
-最新优化在构造时完整验证不可变 DFA，后续请求复用验证结果，同时保留词表检查和原始 C ABI 检查。Attention 复用 GQA 工作列表、KV 槽位映射，并在 32 维 NEON 寄存器分块中累加 V。SDOT prefill 让相邻 token 共享权重解包，每块的 RoPE 三角函数仅计算一次、供所有层复用。这些修改保持既有量化规则和逐维累加顺序；详见 [实现细节](docs/native-engine.md#prefill-与-attention-数据复用)。
+C++ 引擎在构造时完整验证不可变 DFA，后续请求复用验证结果，同时保留词表检查和原始 C ABI 检查。Attention 复用 GQA 工作列表、KV 槽位映射，并在 32 维 NEON 寄存器分块中累加 V。SDOT prefill 让相邻 token 共享权重解包，每块的 RoPE 三角函数仅计算一次、供所有层复用。这些实现保持既有量化规则和逐维累加顺序；详见 [实现细节](docs/native-engine.md#prefill-与-attention-数据复用)。
 
 模型架构与量化依据固定版本的 [Needle 源码](https://github.com/cactus-compute/needle/tree/53df049c4a1a82fca1027b81f9ff21336dfb0861) 和 [发布权重](https://huggingface.co/Cactus-Compute/needle2/tree/32e9e3a93b205f786929697446ae669cf0a84579)。架构、CQ 格式、Arm 指令与 Cactus 内核参考见 [技术参考](docs/research.md)；执行细节和数值边界见 [原生引擎](docs/native-engine.md)。
 

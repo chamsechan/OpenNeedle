@@ -6,7 +6,7 @@
   <source media="(prefers-reduced-motion: reduce) and (prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-static-dark.svg">
   <source media="(prefers-reduced-motion: reduce)" srcset="docs/assets/openeedle-hero-static.svg">
   <source media="(prefers-color-scheme: dark)" srcset="docs/assets/openeedle-hero-dark.svg">
-  <img src="docs/assets/openeedle-hero-light.svg" width="1200" alt="OpenNeedle packed CPU inference. Expanded decode throughput: official 493.70 token/s (earlier run), optimized SDOT + INT8 KV 327.40, baseline 201.31. Timing definitions differ.">
+  <img src="docs/assets/openeedle-hero-light.svg" width="1200" alt="OpenNeedle packed CPU inference. Expanded decode throughput: official 493.70 token/s (earlier run), OpenNeedle SDOT + INT8 KV 327.40 token/s. Timing definitions differ.">
 </picture>
 
 **Open-source CPU inference engine and PyTorch toolchain for Needle 2.**
@@ -17,9 +17,9 @@ Supports direct inference on CQ2/CQ4 compressed weights, bidirectional PyTorch c
 
 ## Current Performance
 
-Latest measured implementation: **`f4f9b38`**, 4-core ARM Neoverse-N1, 4 threads, **SDOT + INT8 KV**, same official release weights. Values are medians; basic and expanded suites contain 3 and 16 distinct requests.
+4-core ARM Neoverse-N1, 4 threads, **SDOT + INT8 KV**, same official release weights. Values are medians; basic and expanded suites contain 3 and 16 distinct requests.
 
-| Metric | Official 2.0.4¹ | OpenNeedle optimized | OpenNeedle relative to official |
+| Metric | Official 2.0.4¹ | OpenNeedle | OpenNeedle relative to official |
 |---|---:|---:|---|
 | Basic warm request compute | 45.1 ms | **60.3 ms** | 33.6% more time |
 | Expanded warm request compute | 439.1 ms | **87.4 ms** | 80.1% less time |
@@ -27,11 +27,9 @@ Latest measured implementation: **`f4f9b38`**, 4-core ARM Neoverse-N1, 4 threads
 | Expanded decode throughput | 493.7 token/s | **327.4 token/s** | 33.7% lower throughput |
 | Tool-call quality | 13/15 (86.7%) | 13/15 (86.7%) | Same score on this sample |
 
-¹ Official measurements are from an earlier run on the same host (5 repeats/case); optimized measurements use 9 repeats/case. **They are not from a single interleaved official/native run.** Official TPS is self-reported, with different internal work and timing boundaries. Lower expanded request time does not establish a faster decoder kernel. Warm compute excludes model/prefix/DFA initialization; native query tokenization and final parsing are also outside the timer.
+¹ Official measurements are from an earlier run on the same host (5 repeats/case); OpenNeedle measurements use 9 repeats/case. **They are not from a single interleaved official/native run.** Official TPS is self-reported, with different internal work and timing boundaries. Lower expanded request time does not establish a faster decoder kernel. Warm compute excludes model/prefix/DFA initialization; native query tokenization and final parsing are also outside the timer. See [Methodology, raw samples and reproduction](docs/backend-comparison.md).
 
-In the interleaved **`e809ffc` → `f4f9b38`** comparison, expanded request compute fell **132.8 → 87.4 ms (−34.2%)**, query prefill **41.2 → 32.3 ms (−21.6%)**, and decode throughput rose **201.3 → 327.4 token/s (+62.6%)**. Each case was warmed once and measured nine times in separate persistent processes. [Methodology, raw samples and reproduction](docs/backend-comparison.md).
-
-**FP32 remains the default. SDOT and INT8 KV are optional approximations.** All four native configurations retain their previous quality outputs. The optimization passed **194 tests + 4 subtests**; across 31 requests, each configuration's 1026 × 8192 full logits were bit-identical to its own pre-optimization result. This does not mean the four configurations, or the official logits, are equal. Full BFCL has not been evaluated. See [validation](docs/results.md) and [grammar coverage](docs/grammar.md).
+**FP32 remains the default. SDOT and INT8 KV are optional approximations.** All four native configurations retain expected quality outputs and pass the test suite (**194 tests + 4 subtests**). This does not mean the four configurations, or the official logits, are identical. Full BFCL has not been evaluated. See [validation](docs/results.md) and [grammar coverage](docs/grammar.md).
 
 <a id="快速开始"></a>
 ## Quickstart
@@ -89,7 +87,7 @@ The C++ engine shares one Hadamard input transform across Q/K/V/gate projections
 
 Fixed tool prefixes can be reused through the [NativeEngine prefix-cache API](docs/native-engine.md#固定-tools-前缀复用). Native tool decoding compiles schema and UTF-8 constraints into a token DFA, projects only candidate rows, and skips the LM head for a single candidate. Large grammars fall back to the Python schema gate. The four-row kernel is checked against single-row SDOT arithmetic across CQ2/CQ4, padding, tail rows, and 1/2/4 threads.
 
-The latest optimization validates an immutable DFA once and reuses it across requests, while retaining vocabulary and raw C ABI checks. Attention reuses GQA work lists and KV slot mappings, accumulating V in 32-dimension NEON register tiles. Batched SDOT prefill shares packed-weight decoding between adjacent tokens and computes RoPE trigonometry once per chunk for all layers. These changes preserve existing quantization and per-dimension accumulation order; [implementation details](docs/native-engine.md#prefill-与-attention-数据复用).
+The C++ engine validates an immutable DFA once and reuses it across requests, while retaining vocabulary and raw C ABI checks. Attention reuses GQA work lists and KV slot mappings, accumulating V in 32-dimension NEON register tiles. Batched SDOT prefill shares packed-weight decoding between adjacent tokens and computes RoPE trigonometry once per chunk for all layers. These implementations preserve existing quantization and per-dimension accumulation order; [implementation details](docs/native-engine.md#prefill-与-attention-数据复用).
 
 Model architecture and quantization follow pinned [Needle source](https://github.com/cactus-compute/needle/tree/53df049c4a1a82fca1027b81f9ff21336dfb0861) and [release weights](https://huggingface.co/Cactus-Compute/needle2/tree/32e9e3a93b205f786929697446ae669cf0a84579). See the [Technical Reference](docs/research.md) for the architecture, CQ format, Arm intrinsics and Cactus kernel references; see the [Native Engine](docs/native-engine.md) for execution details and numerical limits.
 
